@@ -1,0 +1,47 @@
+[worldserver]
+
+########################################
+# mod-archipelawow configuration
+########################################
+
+#    ArchipelaWoW.Enable
+#        Description: Enable the ArchipelaWoW module
+#        Values:      0 - Disabled
+#                     1 - Enabled
+#        Default:     1
+
+ArchipelaWoW.Enable = 1
+
+
+#    ArchipelaWoW.Announce
+#        Description: Announce the module
+#        Values:      0 - Disabled
+#                     1 - Enabled
+#        Default:     1
+
+ArchipelaWoW.Announce = 1
+
+
+#    ArchipelaWoW.ArchipelagoServerHost
+#        Description: Domain or IP address of the Archipelago server.
+#                     If the game is being hosted on the main Archipelago website, this will be "archipelago.gg".
+#                     If the game is being hosted on your own local machine, use "localhost".
+#                     If the game is being hosted on another person's computer, then enter that person's public IP address.
+#        Default:     "archipelago.gg"
+
+ArchipelaWoW.ArchipelagoServerHost = "archipelago.gg"
+
+
+#    ArchipelaWoW.ArchipelagoServerPort
+#        Description: The network port the game is being hosted on.
+#                     On the main Archipelago website room pages, this is displayed as archipelago.gg:<port>. Enter the number after ':'.
+#        Default:     38281
+
+ArchipelaWoW.ArchipelagoServerPort = 38281
+
+
+#    ArchipelaWoW.ArchipelagoPassword
+#        Description: The password set by the host in order to join the multiworld
+#        Default:     ""
+
+ArchipelaWoW.ArchipelagoPassword = ""
