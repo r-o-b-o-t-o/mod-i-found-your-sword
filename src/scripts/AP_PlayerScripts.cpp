@@ -27,7 +27,6 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_DELETE,
                 PLAYERHOOK_ON_GIVE_EXP,
                 PLAYERHOOK_ON_BEFORE_GET_LEVEL_FOR_XP_GAIN,
-                //PLAYERHOOK_CAN_LEARN_SPELL,
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
                 })
         {
@@ -103,12 +102,6 @@ namespace ModArchipelaWoW::Scripts
         {
             sArchipelaWoW->OnPlayerBeforeGetLevelForXPGain(player, level);
         }
-
-        //bool OnPlayerCanLearnSpell(const Player* player, uint32 spellId) override
-        //{
-        //    //return spellId != 33388;
-        //    return true;
-        //}
 
         void OnPlayerLearnTaxiNode(const Player* player, uint32 node) override
         {
