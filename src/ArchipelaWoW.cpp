@@ -51,8 +51,14 @@ namespace ModArchipelaWoW
         std::string escapedName(name);
         WorldDatabase.EscapeString(escapedName);
 
-        WorldDatabase.Query("INSERT INTO `creature_template` (`entry`, `name`, `faction`, `unit_class`) VALUES ({}, '{}', 18, 1)", nextEntry, escapedName);
-        WorldDatabase.Execute("INSERT INTO `ap_player_creature_template` (`player`, `creatureEntry`) VALUES ('{}', {})", escapedName, nextEntry);
+        WorldDatabase.Query(
+            "INSERT INTO `creature_template` (`entry`, `name`, `faction`, `unit_class`) VALUES ({}, '{}', 18, 1)",
+            nextEntry, escapedName
+        );
+        WorldDatabase.Execute(
+            "INSERT INTO `ap_player_creature_template` (`player`, `creatureEntry`) VALUES ('{}', {})",
+            escapedName, nextEntry
+        );
         sObjectMgr->LoadCreatureTemplates();
 
         playerCreatureTemplates[name] = nextEntry;

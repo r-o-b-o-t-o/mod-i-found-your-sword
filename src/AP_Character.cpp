@@ -334,7 +334,10 @@ namespace ModArchipelaWoW
             return nullptr;
         }
 
-        QueryResult result = CharacterDatabase.Query("SELECT `uuid`, `slot`, `itemIndex`, `apLevel`, `apExp`, `goalCompleted` FROM `ap_character` WHERE `guid` = {}", player->GetGUID().GetCounter());
+        QueryResult result = CharacterDatabase.Query(
+            "SELECT `uuid`, `slot`, `itemIndex`, `apLevel`, `apExp`, `goalCompleted` FROM `ap_character` WHERE `guid` = {}",
+            player->GetGUID().GetCounter()
+        );
         if (!result)
         {
             return nullptr;
@@ -381,7 +384,10 @@ namespace ModArchipelaWoW
             return;
         }
 
-        QueryResult result = CharacterDatabase.Query("SELECT `locationId` FROM `ap_location_check` WHERE `guid` = {}", player->GetGUID().GetCounter());
+        QueryResult result = CharacterDatabase.Query(
+            "SELECT `locationId` FROM `ap_location_check` WHERE `guid` = {}",
+            player->GetGUID().GetCounter()
+        );
         if (result)
         {
             std::list<int64> locationChecks;
@@ -527,7 +533,10 @@ namespace ModArchipelaWoW
     void AP_Character::CheckLocation(int32 locationId)
     {
         ap->LocationChecks({ locationId });
-        CharacterDatabase.Execute("REPLACE INTO `ap_location_check` (`guid`, `locationId`) VALUES ({}, {})", player->GetGUID().GetCounter(), locationId);
+        CharacterDatabase.Execute(
+            "REPLACE INTO `ap_location_check` (`guid`, `locationId`) VALUES ({}, {})",
+            player->GetGUID().GetCounter(), locationId
+        );
     }
 
     void AP_Character::APSlotConnectedHandler(const nlohmann::json& data)
