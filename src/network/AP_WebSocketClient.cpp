@@ -1,6 +1,7 @@
 #include "network/AP_WebSocketClient.h"
 
 #include <boost/asio/dispatch.hpp>
+#include <boost/beast/websocket/option.hpp>
 #include <chrono>
 #include <utility>
 
@@ -115,6 +116,10 @@ namespace ModArchipelaWoW::Network
 
         beast::get_lowest_layer(ws).expires_never();
         ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::client));
+
+        websocket::permessage_deflate deflate;
+        deflate.client_enable = true;
+        ws.set_option(deflate);
 
         ws.async_handshake(host + ":" + port, path,
             beast::bind_front_handler(&WebSocketClient::OnHandshake, shared_from_this()));
