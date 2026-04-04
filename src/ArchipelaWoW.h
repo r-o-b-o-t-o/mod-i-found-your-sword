@@ -26,6 +26,7 @@ namespace ModArchipelaWoW
         static ArchipelaWoW* Instance();
 
         uint32 GetCreatureTemplateForPlayer(std::string name);
+        Network::WebSocketService& GetWebSocketService();
 
         // Config methods
         const Config& GetConfig();

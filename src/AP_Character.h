@@ -3,7 +3,6 @@
 
 #include "AP_PlayerPosition.h"
 #include "AP_Stone.h"
-#include "apclient.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
@@ -15,7 +14,8 @@
 #include "QuestDef.h"
 #include "Unit.h"
 
-#include <apclientpp/apclient.hpp>
+#include "network/AP_Client.h"
+#include <memory>
 #include <chrono>
 #include <cstdint>
 #include <list>
@@ -54,7 +54,7 @@ namespace ModArchipelaWoW
         void OnSelectArchipelagoStoneGossip(Item* item, uint32 sender, uint32 action);
 
     private:
-        APClient* ap;
+        std::unique_ptr<Network::Client> ap;
         Player* player;
         AP_Stone apStone;
         std::string uuid;
@@ -100,8 +100,8 @@ namespace ModArchipelaWoW
         void APBouncedHandler(const nlohmann::json& packet);
         void APRoomInfoHandler();
         void APDataPackageHandler(const nlohmann::json& data);
-        void APReceivedItemsHandler(const std::list<APClient::NetworkItem>& items);
-        void APPrintJsonHandler(const std::list<APClient::TextNode>& msg);
+        void APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items);
+        void APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg);
         void APSlotRefusedHandler(const std::list<std::string>& errors);
 
         std::string ConvertANSIColoredString(const std::string& str);

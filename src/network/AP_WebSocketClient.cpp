@@ -1,4 +1,4 @@
-﻿#include "network/AP_WebSocketClient.h"
+#include "network/AP_WebSocketClient.h"
 
 #include <boost/asio/dispatch.hpp>
 #include <chrono>

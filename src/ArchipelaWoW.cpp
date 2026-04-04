@@ -1,4 +1,4 @@
-#include "AP_Character.h"
+﻿#include "AP_Character.h"
 #include "AP_Config.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
@@ -68,6 +68,11 @@ namespace ModArchipelaWoW
         playerCreatureTemplates[name] = nextEntry;
 
         return nextEntry;
+    }
+
+    Network::WebSocketService& ArchipelaWoW::GetWebSocketService()
+    {
+        return *wsService;
     }
 
     const Config& ArchipelaWoW::GetConfig()
