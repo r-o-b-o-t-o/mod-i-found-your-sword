@@ -4,7 +4,9 @@
 #include "AP_Config.h"
 #include "DBCStructure.h"
 #include "Define.h"
+#include "IoContext.h"
 #include "Item.h"
+#include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "Player.h"
 #include "QuestDef.h"
@@ -31,6 +33,7 @@ namespace ModArchipelaWoW
         // WorldScripts methods
         void OnBeforeConfigLoad(bool reload);
         void OnWorldUpdate(uint32 diff);
+        void OnShutdown();
 
         // PlayerScripts methods
         void OnPlayerLogin(Player* player);
@@ -50,10 +53,14 @@ namespace ModArchipelaWoW
         bool OnUseArchipelagoStone(Player* player, Item* item);
         void OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action);
 
+        // ServerScripts methods
+        void OnNetworkStart(Acore::Asio::IoContext& ioContext);
+
     private:
         Config config;
         std::unordered_map<ObjectGuid::LowType, AP_Character*> apCharacters;
         std::unordered_map<std::string, uint32> playerCreatureTemplates;
+        Network::WebSocketService* wsService;
 
         void InitializeConfig(bool reload);
         void LoadPlayerCreatureTemplates();
