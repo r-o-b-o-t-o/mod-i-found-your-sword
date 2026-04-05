@@ -99,6 +99,7 @@ namespace ModArchipelaWoW::Network
     void Client::Poll()
     {
         auto events = eventQueue->Drain();
+        bool shouldFallbackToPlain = false;
 
         for (auto& event : events)
         {
@@ -112,13 +113,21 @@ namespace ModArchipelaWoW::Network
                 break;
 
             case EventQueue::Type::Close:
-                if (state > State::SocketConnecting)
+                if (state == State::SocketConnecting && currentAttemptTls)
+                {
+                    // TLS handshake failed - fall back to plain
+                    shouldFallbackToPlain = true;
+                }
+                else if (state > State::SocketConnecting)
                 {
                     state = State::Disconnected;
                     if (onSocketDisconnected) onSocketDisconnected();
                 }
-                state = State::Disconnected;
-                seed.clear();
+                if (!shouldFallbackToPlain)
+                {
+                    state = State::Disconnected;
+                    seed.clear();
+                }
                 break;
 
             case EventQueue::Type::Message:
@@ -126,9 +135,19 @@ namespace ModArchipelaWoW::Network
                 break;
 
             case EventQueue::Type::Error:
-                if (onSocketError) onSocketError(event.data);
+                // Suppress error callback during TLS fallback attempt
+                if (!(state == State::SocketConnecting && currentAttemptTls) && onSocketError)
+                {
+                    onSocketError(event.data);
+                }
                 break;
             }
+        }
+
+        if (shouldFallbackToPlain)
+        {
+            ConnectSocket(false);
+            return;
         }
 
         if (state < State::SocketConnected)
@@ -466,13 +485,14 @@ namespace ModArchipelaWoW::Network
     // Private - socket management
     // ---------------------------------------------------------------------------
 
-    void Client::ConnectSocket()
+    void Client::ConnectSocket(bool useTls)
     {
         reconnectNow = false;
         ws.reset();
 
         state = State::SocketConnecting;
-        ws = wsService.CreateClient();
+        currentAttemptTls = useTls;
+        ws = wsService.CreateClient(useTls);
 
         // Capture only the shared EventQueue - never capture `this`.
         auto eq = eventQueue;

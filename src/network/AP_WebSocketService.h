@@ -13,7 +13,7 @@ namespace ModArchipelaWoW::Network
     public:
         WebSocketService(boost::asio::any_io_executor executor);
 
-        std::shared_ptr<WebSocketClient> CreateClient();
+        std::shared_ptr<WebSocketClient> CreateClient(bool useTls = false);
 
     private:
         boost::asio::any_io_executor executor;

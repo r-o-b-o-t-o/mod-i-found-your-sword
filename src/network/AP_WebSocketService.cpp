@@ -12,8 +12,8 @@ namespace ModArchipelaWoW::Network
     {
     }
 
-    std::shared_ptr<WebSocketClient> WebSocketService::CreateClient()
+    std::shared_ptr<WebSocketClient> WebSocketService::CreateClient(bool useTls)
     {
-        return WebSocketClient::Create(executor);
+        return WebSocketClient::Create(executor, useTls);
     }
 }

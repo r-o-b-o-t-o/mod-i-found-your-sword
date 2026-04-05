@@ -1,4 +1,4 @@
-﻿#ifndef _MOD_ARCHIPELAWOW_NETWORK_CLIENT_H_
+#ifndef _MOD_ARCHIPELAWOW_NETWORK_CLIENT_H_
 #define _MOD_ARCHIPELAWOW_NETWORK_CLIENT_H_
 
 #include <chrono>
@@ -171,7 +171,7 @@ namespace ModArchipelaWoW::Network
     private:
         struct EventQueue;
 
-        void ConnectSocket();
+        void ConnectSocket(bool useTls = true);
         void ProcessMessage(const std::string& message);
         void ProcessCommand(const json& command);
         void Send(const json& packet);
@@ -185,6 +185,7 @@ namespace ModArchipelaWoW::Network
         std::string game;
         std::string host;
         std::string port;
+        bool currentAttemptTls = true;
 
         std::shared_ptr<WebSocketClient> ws;
         std::shared_ptr<EventQueue> eventQueue;
