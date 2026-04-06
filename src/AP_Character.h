@@ -103,6 +103,7 @@ namespace ModArchipelaWoW
         void APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items);
         void APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg);
         void APSlotRefusedHandler(const std::list<std::string>& errors);
+        void APMessageErrorHandler(const std::string& error);
 
         std::string ConvertANSIColoredString(const std::string& str);
         static std::string GenerateUUID();

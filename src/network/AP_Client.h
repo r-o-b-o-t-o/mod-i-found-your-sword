@@ -167,6 +167,7 @@ namespace ModArchipelaWoW::Network
         void SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler);
         void SetPrintJsonHandler(std::function<void(const std::list<TextNode>&)> handler);
         void SetBouncedHandler(std::function<void(const json&)> handler);
+        void SetMessageErrorHandler(std::function<void(const std::string&)> handler);
 
     private:
         struct EventQueue;
@@ -227,6 +228,7 @@ namespace ModArchipelaWoW::Network
         std::function<void(const std::list<NetworkItem>&)> onItemsReceived;
         std::function<void(const std::list<TextNode>&)> onPrintJson;
         std::function<void(const json&)> onBounced;
+        std::function<void(const std::string&)> onMessageError;
     };
 }
 

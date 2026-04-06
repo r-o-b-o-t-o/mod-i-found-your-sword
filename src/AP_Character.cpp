@@ -1,4 +1,4 @@
-﻿#include "AP_Character.h"
+#include "AP_Character.h"
 #include "AP_PlayerPosition.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
@@ -301,6 +301,7 @@ namespace ModArchipelaWoW
         ap->SetItemsReceivedHandler([this](const auto& i) { APReceivedItemsHandler(i); });
         ap->SetPrintJsonHandler([this](const auto& msg) { APPrintJsonHandler(msg); });
         ap->SetSlotRefusedHandler([this](const auto& e) { APSlotRefusedHandler(e); });
+        ap->SetMessageErrorHandler([this](const auto& e) { APMessageErrorHandler(e); });
     }
 
     void AP_Character::ConnectAPSlot()
@@ -749,6 +750,11 @@ namespace ModArchipelaWoW
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Connection to slot |cFFFF00FF{}|cFFFF0000 refused: {}|r", slot, joined));
 
         run = false;
+    }
+
+    void AP_Character::APMessageErrorHandler(const std::string& error)
+    {
+        std::cerr << "APClient message processing error: " << error << std::endl;
     }
 
     std::string AP_Character::ConvertANSIColoredString(const std::string& str)

@@ -1,4 +1,4 @@
-﻿#include "network/AP_Client.h"
+#include "network/AP_Client.h"
 #include "network/AP_WebSocketClient.h"
 #include "network/AP_WebSocketService.h"
 
@@ -508,6 +508,7 @@ namespace ModArchipelaWoW::Network
     void Client::SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler) { onItemsReceived = std::move(handler); }
     void Client::SetPrintJsonHandler(std::function<void(const std::list<TextNode>&)> handler) { onPrintJson = std::move(handler); }
     void Client::SetBouncedHandler(std::function<void(const json&)> handler) { onBounced = std::move(handler); }
+    void Client::SetMessageErrorHandler(std::function<void(const std::string&)> handler) { onMessageError = std::move(handler); }
 
     // ---------------------------------------------------------------------------
     // Private - socket management
@@ -565,7 +566,7 @@ namespace ModArchipelaWoW::Network
         }
         catch (const std::exception& ex)
         {
-            std::cerr << "APClient: message processing error: " << ex.what() << std::endl;
+            if (onMessageError) onMessageError(ex.what());
         }
     }
 
