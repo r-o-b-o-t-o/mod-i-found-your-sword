@@ -3,7 +3,15 @@
 #include "network/AP_WebSocketService.h"
 
 #include <algorithm>
-#include <iostream>
+#include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
+#include <chrono>
+#include <list>
+#include <cstdint>
+#include <boost/beast/core/error.hpp>
+#include <exception>
 
 namespace ModArchipelaWoW::Network
 {
@@ -27,7 +35,7 @@ namespace ModArchipelaWoW::Network
         void Push(Type type, std::string data = {})
         {
             std::lock_guard lock(mutex);
-            events.push_back({type, std::move(data)});
+            events.push_back({ type, std::move(data) });
         }
 
         std::vector<Event> Drain()
@@ -47,7 +55,7 @@ namespace ModArchipelaWoW::Network
     {
         if (j.is_null())
         {
-            return {0, 0, 0};
+            return { 0, 0, 0 };
         }
 
         return {
@@ -78,14 +86,14 @@ namespace ModArchipelaWoW::Network
     // ---------------------------------------------------------------------------
 
     Client::Client(WebSocketService& wsService, const std::string& uuid, const std::string& game,
-                const std::string& host, const std::string& port)
+        const std::string& host, const std::string& port)
         : wsService(wsService)
         , uuid(uuid)
         , game(game)
         , host(host)
         , port(port)
         , eventQueue(std::make_shared<EventQueue>())
-        , dataPackage({{"version", -1}, {"games", json::object()}})
+        , dataPackage({ {"version", -1}, {"games", json::object()} })
     {
     }
 
@@ -109,7 +117,7 @@ namespace ModArchipelaWoW::Network
             {
             case EventQueue::Type::Open:
                 state = State::SocketConnected;
-                reconnectInterval = std::chrono::milliseconds{1500};
+                reconnectInterval = std::chrono::milliseconds{ 1500 };
                 pendingDataPackageRequests = 0;
                 serverVersion = {};
                 break;
@@ -184,7 +192,7 @@ namespace ModArchipelaWoW::Network
     // ---------------------------------------------------------------------------
 
     bool Client::ConnectSlot(const std::string& name, const std::string& password,
-                            int itemsHandling, const std::list<std::string>& tags)
+        int itemsHandling, const std::list<std::string>& tags)
     {
         if (state < State::SocketConnected)
         {
@@ -193,7 +201,7 @@ namespace ModArchipelaWoW::Network
 
         slotName = name;
 
-        json packet = json::array({json({
+        json packet = json::array({ json({
             {"cmd", "Connect"},
             {"game", game},
             {"uuid", uuid},
@@ -202,7 +210,7 @@ namespace ModArchipelaWoW::Network
             {"version", {{"major", 0}, {"minor", 5}, {"build", 0}, {"class", "Version"}}},
             {"items_handling", itemsHandling},
             {"tags", tags}
-        })});
+        }) });
 
         Send(packet);
         return true;
@@ -215,11 +223,11 @@ namespace ModArchipelaWoW::Network
             return false;
         }
 
-        json packet = json::array({json({
+        json packet = json::array({ json({
             {"cmd", "ConnectUpdate"},
             {"items_handling", itemsHandling},
             {"tags", tags}
-        })});
+        }) });
 
         Send(packet);
         return true;
@@ -229,10 +237,10 @@ namespace ModArchipelaWoW::Network
     {
         if (state == State::SlotConnected)
         {
-            json packet = json::array({json({
+            json packet = json::array({ json({
                 {"cmd", "LocationChecks"},
                 {"locations", locations}
-            })});
+            }) });
 
             Send(packet);
         }
@@ -248,10 +256,10 @@ namespace ModArchipelaWoW::Network
     {
         if (state == State::SlotConnected)
         {
-            json packet = json::array({json({
+            json packet = json::array({ json({
                 {"cmd", "StatusUpdate"},
                 {"status", static_cast<int>(status)}
-            })});
+            }) });
 
             Send(packet);
             return true;
@@ -268,10 +276,10 @@ namespace ModArchipelaWoW::Network
             return false;
         }
 
-        json packet = json::array({json({
+        json packet = json::array({ json({
             {"cmd", "GetDataPackage"},
             {"games", games}
-        })});
+        }) });
 
         pendingDataPackageRequests++;
         Send(packet);
@@ -279,7 +287,7 @@ namespace ModArchipelaWoW::Network
     }
 
     bool Client::Bounce(const json& data, const std::list<std::string>& games,
-                        const std::list<int>& slots, const std::list<std::string>& tags)
+        const std::list<int>& slots, const std::list<std::string>& tags)
     {
         if (state < State::RoomInfo)
         {
@@ -295,7 +303,7 @@ namespace ModArchipelaWoW::Network
         if (!slots.empty()) cmd["slots"] = slots;
         if (!tags.empty()) cmd["tags"] = tags;
 
-        Send(json::array({cmd}));
+        Send(json::array({ cmd }));
         return true;
     }
 
@@ -351,7 +359,7 @@ namespace ModArchipelaWoW::Network
     {
         static const std::string archipelago = "Archipelago";
 
-        for (const auto& g : {game, archipelago})
+        for (const auto& g : { game, archipelago })
         {
             auto gIt = gameItemMap.find(g);
             if (gIt != gameItemMap.end())
@@ -371,7 +379,7 @@ namespace ModArchipelaWoW::Network
     {
         static const std::string archipelago = "Archipelago";
 
-        for (const auto& g : {game, archipelago})
+        for (const auto& g : { game, archipelago })
         {
             auto gIt = gameLocationMap.find(g);
             if (gIt != gameLocationMap.end())
@@ -524,7 +532,7 @@ namespace ModArchipelaWoW::Network
         ws = wsService.CreateClient(useTls);
 
         // Capture only the shared EventQueue - never capture `this`.
-        auto eq = eventQueue;
+        auto eq(eventQueue);
 
         ws->SetOpenHandler([eq]() { eq->Push(EventQueue::Type::Open); });
         ws->SetCloseHandler([eq]() { eq->Push(EventQueue::Type::Close); });
@@ -534,7 +542,7 @@ namespace ModArchipelaWoW::Network
         ws->Connect(host, port);
 
         lastConnectAttempt = std::chrono::steady_clock::now();
-        reconnectInterval = std::min(reconnectInterval * 2, std::chrono::milliseconds{15000});
+        reconnectInterval = std::min(reconnectInterval * 2, std::chrono::milliseconds{ 15000 });
     }
 
     void Client::Send(const json& packet)
@@ -615,7 +623,7 @@ namespace ModArchipelaWoW::Network
                     p["slot"].get<int>(),
                     p["alias"].get<std::string>(),
                     p["name"].get<std::string>()
-                });
+                    });
             }
 
             if (command.contains("slot_info") && command["slot_info"].is_object())

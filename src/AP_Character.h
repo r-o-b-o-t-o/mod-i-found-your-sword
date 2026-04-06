@@ -9,16 +9,16 @@
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Zones.h"
 #include "locations/AP_LocationsContainer.h"
+#include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Unit.h"
 
-#include "network/AP_Client.h"
-#include <memory>
 #include <chrono>
 #include <cstdint>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_set>
 

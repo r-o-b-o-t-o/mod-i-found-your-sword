@@ -1,9 +1,33 @@
-﻿#include "network/AP_WebSocketClient.h"
+#include "network/AP_WebSocketClient.h"
 
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/dispatch.hpp>
+#include <boost/asio/ip/basic_resolver.hpp>
+#include <boost/asio/ip/basic_resolver_results.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/registered_buffer.hpp>
+#include <boost/asio/ssl/context.hpp>
+#include <boost/asio/ssl/impl/error.ipp>
+#include <boost/asio/ssl/stream_base.hpp>
+#include <boost/beast/core/bind_handler.hpp>
+#include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/core/role.hpp>
+#include <boost/beast/core/stream_traits.hpp>
+#include <boost/beast/websocket/error.hpp>
 #include <boost/beast/websocket/option.hpp>
+#include <boost/beast/websocket/rfc6455.hpp>
+#include <boost/beast/websocket/stream_base.hpp>
 #include <chrono>
+#include <memory>
+#include <openssl/err.h>
+#include <openssl/tls1.h>
+#include <optional>
+#include <queue>
+#include <string>
 #include <utility>
+#include <variant>
 
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;
@@ -284,8 +308,7 @@ namespace ModArchipelaWoW::Network
     {
         VisitStream([&](auto& s)
         {
-            s.async_read(readBuffer,
-                beast::bind_front_handler(&WebSocketClient::OnRead, shared_from_this()));
+            s.async_read(readBuffer, beast::bind_front_handler(&WebSocketClient::OnRead, shared_from_this()));
         });
     }
 
@@ -294,8 +317,7 @@ namespace ModArchipelaWoW::Network
         writing = true;
         VisitStream([&](auto& s)
         {
-            s.async_write(net::buffer(writeQueue.front()),
-                beast::bind_front_handler(&WebSocketClient::OnWrite, shared_from_this()));
+            s.async_write(net::buffer(writeQueue.front()), beast::bind_front_handler(&WebSocketClient::OnWrite, shared_from_this()));
         });
     }
 

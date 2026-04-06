@@ -2,17 +2,21 @@
 #define _MOD_ARCHIPELAWOW_NETWORK_WEB_SOCKET_CLIENT_H_
 
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/ip/basic_resolver.hpp>
+#include <boost/asio/ip/basic_resolver_results.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/stream.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/ssl.hpp>
-#include <boost/beast/websocket.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
+#include <boost/beast/ssl/ssl_stream.hpp>
+#include <boost/beast/websocket/stream.hpp>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <queue>
 #include <string>
+#include <utility>
 #include <variant>
 
 namespace ModArchipelaWoW::Network
@@ -65,8 +69,7 @@ namespace ModArchipelaWoW::Network
 
     private:
         using PlainStream = boost::beast::websocket::stream<boost::beast::tcp_stream>;
-        using TlsStream = boost::beast::websocket::stream<
-            boost::beast::ssl_stream<boost::beast::tcp_stream>>;
+        using TlsStream = boost::beast::websocket::stream<boost::beast::ssl_stream<boost::beast::tcp_stream>>;
         using WsStream = std::variant<PlainStream, TlsStream>;
 
         template<typename F>
@@ -77,9 +80,7 @@ namespace ModArchipelaWoW::Network
 
         WebSocketClient(boost::asio::any_io_executor executor, bool tls);
 
-        static WsStream MakeStream(
-            boost::asio::any_io_executor& executor,
-            std::optional<boost::asio::ssl::context>& sslCtx);
+        static WsStream MakeStream(boost::asio::any_io_executor& executor, std::optional<boost::asio::ssl::context>& sslCtx);
 
         void OnResolve(boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results);
         void OnConnect(boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type::endpoint_type endpoint);

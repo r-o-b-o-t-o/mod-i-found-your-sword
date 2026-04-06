@@ -15,6 +15,7 @@
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
 #include "Mail.h"
+#include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -26,6 +27,7 @@
 #include <cstdint>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_map>
 

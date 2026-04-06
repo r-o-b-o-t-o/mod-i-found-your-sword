@@ -1,18 +1,16 @@
 #ifndef _MOD_ARCHIPELAWOW_NETWORK_CLIENT_H_
 #define _MOD_ARCHIPELAWOW_NETWORK_CLIENT_H_
 
+#include "nlohmann/json.hpp"
+
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <list>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <set>
 #include <string>
-#include <vector>
-
-#include <nlohmann/json.hpp>
 
 namespace ModArchipelaWoW::Network
 {
@@ -115,7 +113,7 @@ namespace ModArchipelaWoW::Network
         };
 
         Client(WebSocketService& wsService, const std::string& uuid, const std::string& game,
-               const std::string& host, const std::string& port);
+            const std::string& host, const std::string& port);
         ~Client();
 
         Client(const Client&) = delete;
@@ -129,7 +127,7 @@ namespace ModArchipelaWoW::Network
 
         /// Send a Connect command to join the named slot.
         bool ConnectSlot(const std::string& name, const std::string& password,
-                         int itemsHandling, const std::list<std::string>& tags = {});
+            int itemsHandling, const std::list<std::string>& tags = {});
 
         /// Send a ConnectUpdate command to change items handling or tags.
         bool ConnectUpdate(int itemsHandling, const std::list<std::string>& tags);
@@ -145,7 +143,7 @@ namespace ModArchipelaWoW::Network
 
         /// Send a Bounce packet.
         bool Bounce(const json& data, const std::list<std::string>& games = {},
-                    const std::list<int>& slots = {}, const std::list<std::string>& tags = {});
+            const std::list<int>& slots = {}, const std::list<std::string>& tags = {});
 
         State GetState() const;
         int GetPlayerNumber() const;
@@ -199,7 +197,7 @@ namespace ModArchipelaWoW::Network
         int slotnr = -1;
 
         std::chrono::steady_clock::time_point lastConnectAttempt;
-        std::chrono::milliseconds reconnectInterval{1500};
+        std::chrono::milliseconds reconnectInterval{ 1500 };
         bool reconnectNow = true;
 
         std::set<int64_t> checkQueue;
