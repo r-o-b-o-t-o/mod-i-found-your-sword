@@ -675,7 +675,7 @@ namespace ModArchipelaWoW::Network
         }
         else if (cmd == "DataPackage")
         {
-            auto data = dataPackage;
+            json data(dataPackage);
             if (!data["games"].is_object())
             {
                 data["games"] = json::object();
