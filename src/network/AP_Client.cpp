@@ -46,7 +46,9 @@ namespace ModArchipelaWoW::Network
     Client::Version Client::Version::FromJson(const json& j)
     {
         if (j.is_null())
+        {
             return {0, 0, 0};
+        }
 
         return {
             j.value("major", 0),
@@ -185,7 +187,9 @@ namespace ModArchipelaWoW::Network
                             int itemsHandling, const std::list<std::string>& tags)
     {
         if (state < State::SocketConnected)
+        {
             return false;
+        }
 
         slotName = name;
 
@@ -207,7 +211,9 @@ namespace ModArchipelaWoW::Network
     bool Client::ConnectUpdate(int itemsHandling, const std::list<std::string>& tags)
     {
         if (state < State::SocketConnected)
+        {
             return false;
+        }
 
         json packet = json::array({json({
             {"cmd", "ConnectUpdate"},
@@ -258,7 +264,9 @@ namespace ModArchipelaWoW::Network
     bool Client::GetDataPackage(const std::list<std::string>& games)
     {
         if (state < State::RoomInfo)
+        {
             return false;
+        }
 
         json packet = json::array({json({
             {"cmd", "GetDataPackage"},
@@ -274,7 +282,9 @@ namespace ModArchipelaWoW::Network
                         const std::list<int>& slots, const std::list<std::string>& tags)
     {
         if (state < State::RoomInfo)
+        {
             return false;
+        }
 
         json cmd = {
             {"cmd", "Bounce"},
@@ -306,12 +316,16 @@ namespace ModArchipelaWoW::Network
     std::string Client::GetPlayerAlias(int slot) const
     {
         if (slot == 0)
+        {
             return "Server";
+        }
 
         for (const auto& p : players)
         {
             if (p.team == team && p.slot == slot)
+            {
                 return p.alias;
+            }
         }
 
         return "Unknown";
@@ -320,11 +334,15 @@ namespace ModArchipelaWoW::Network
     std::string Client::GetPlayerGame(int player) const
     {
         if (player == 0)
+        {
             return "Archipelago";
+        }
 
         auto it = slotInfo.find(player);
         if (it != slotInfo.end())
+        {
             return it->second.game;
+        }
 
         return "";
     }
@@ -340,7 +358,9 @@ namespace ModArchipelaWoW::Network
             {
                 auto it = gIt->second.find(code);
                 if (it != gIt->second.end())
+                {
                     return it->second;
+                }
             }
         }
 
@@ -358,7 +378,9 @@ namespace ModArchipelaWoW::Network
             {
                 auto it = gIt->second.find(code);
                 if (it != gIt->second.end())
+                {
                     return it->second;
+                }
             }
         }
 
@@ -374,7 +396,9 @@ namespace ModArchipelaWoW::Network
     bool Client::SlotConcernsSelf(int slot) const
     {
         if (slot == slotnr)
+        {
             return true;
+        }
 
         auto it = slotInfo.find(slot);
         if (it != slotInfo.end())
@@ -397,7 +421,9 @@ namespace ModArchipelaWoW::Network
             std::string text;
 
             if (fmt != RenderFormat::Text)
+            {
                 color = node.color;
+            }
 
             if (node.type == "player_id")
             {
@@ -461,7 +487,9 @@ namespace ModArchipelaWoW::Network
         }
 
         if (fmt == RenderFormat::Ansi && colorIsSet)
+        {
             out += Color2Ansi("");
+        }
 
         return out;
     }
@@ -526,7 +554,9 @@ namespace ModArchipelaWoW::Network
         {
             json packet = json::parse(message);
             if (!packet.is_array())
+            {
                 return;
+            }
 
             for (auto& command : packet)
             {
@@ -551,7 +581,9 @@ namespace ModArchipelaWoW::Network
             seed = command.value("seed_name", "");
 
             if (state < State::RoomInfo)
+            {
                 state = State::RoomInfo;
+            }
 
             if (onRoomInfo) onRoomInfo();
         }
@@ -561,7 +593,9 @@ namespace ModArchipelaWoW::Network
             {
                 std::list<std::string> errors;
                 for (const auto& error : command["errors"])
+                {
                     errors.push_back(error.get<std::string>());
+                }
 
                 onSlotRefused(errors);
             }
@@ -610,8 +644,7 @@ namespace ModArchipelaWoW::Network
                 StatusUpdate(clientStatus);
             }
 
-            if (onSlotConnected)
-                onSlotConnected(command["slot_data"]);
+            if (onSlotConnected) onSlotConnected(command["slot_data"]);
         }
         else if (cmd == "ReceivedItems")
         {
@@ -635,7 +668,9 @@ namespace ModArchipelaWoW::Network
         {
             auto data = dataPackage;
             if (!data["games"].is_object())
+            {
                 data["games"] = json::object();
+            }
 
             for (const auto& [gameName, gameData] : command["data"]["games"].items())
             {
