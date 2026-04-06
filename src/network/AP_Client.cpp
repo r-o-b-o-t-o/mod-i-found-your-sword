@@ -737,9 +737,9 @@ namespace ModArchipelaWoW::Network
     // Private - data package
     // ---------------------------------------------------------------------------
 
-    void Client::SetDataPackageData(const json& data)
+    void Client::SetDataPackageData(json data)
     {
-        dataPackage = data;
+        dataPackage = std::move(data);
 
         for (const auto& [gameName, gameData] : dataPackage["games"].items())
         {

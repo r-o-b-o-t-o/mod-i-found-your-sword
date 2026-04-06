@@ -174,7 +174,7 @@ namespace ModArchipelaWoW::Network
         void ProcessMessage(const std::string& message);
         void ProcessCommand(const json& command);
         void Send(const json& packet);
-        void SetDataPackageData(const json& data);
+        void SetDataPackageData(json data);
 
         static std::string Color2Ansi(const std::string& color);
         static void Deansify(std::string& text);
