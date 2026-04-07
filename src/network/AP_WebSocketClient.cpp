@@ -39,6 +39,7 @@ using tcp = net::ip::tcp;
 
 namespace ModArchipelaWoW::Network
 {
+    static constexpr auto kHandshakeTimeout = std::chrono::seconds(30);
     std::shared_ptr<WebSocketClient> WebSocketClient::Create(net::any_io_executor executor, bool tls)
     {
         return std::shared_ptr<WebSocketClient>(new WebSocketClient(std::move(executor), tls));
@@ -160,7 +161,7 @@ namespace ModArchipelaWoW::Network
 
         VisitStream([&](auto& s)
         {
-            beast::get_lowest_layer(s).expires_after(std::chrono::seconds(30));
+            beast::get_lowest_layer(s).expires_after(kHandshakeTimeout);
             beast::get_lowest_layer(s).async_connect(results,
                 beast::bind_front_handler(&WebSocketClient::OnConnect, shared_from_this()));
         });
@@ -178,7 +179,7 @@ namespace ModArchipelaWoW::Network
             // Keep the deadline active to cover the TLS handshake phase.
             VisitStream([&](auto& s)
             {
-                beast::get_lowest_layer(s).expires_after(std::chrono::seconds(30));
+                beast::get_lowest_layer(s).expires_after(kHandshakeTimeout);
             });
 
             auto& tlsStream = std::get<TlsStream>(ws);
