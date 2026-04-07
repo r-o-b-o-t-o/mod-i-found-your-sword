@@ -1,6 +1,7 @@
 #ifndef _MOD_ARCHIPELAWOW_NETWORK_WEB_SOCKET_CLIENT_H_
 #define _MOD_ARCHIPELAWOW_NETWORK_WEB_SOCKET_CLIENT_H_
 
+#include <atomic>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/ip/basic_resolver.hpp>
 #include <boost/asio/ip/basic_resolver_results.hpp>
@@ -11,7 +12,6 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/ssl/ssl_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
-#include <atomic>
 #include <functional>
 #include <memory>
 #include <optional>
