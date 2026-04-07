@@ -16,6 +16,7 @@
 #include "QuestDef.h"
 #include "Unit.h"
 
+#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -72,7 +73,7 @@ namespace ModArchipelaWoW
 
     Network::WebSocketService& ArchipelaWoW::GetWebSocketService()
     {
-        ASSERT_NOTNULL(wsService);
+        ASSERT_NOTNULL(wsService.get());
         return *wsService;
     }
 
