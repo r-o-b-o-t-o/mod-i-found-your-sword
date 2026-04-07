@@ -274,8 +274,6 @@ namespace ModArchipelaWoW
 
     void AP_Character::CreateAPClient()
     {
-        ap.reset();
-
         std::string host = sConfig.GetArchipelagoServerHost();
         std::string port = std::to_string(sConfig.GetArchipelagoServerPort());
 
