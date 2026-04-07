@@ -8,7 +8,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/registered_buffer.hpp>
 #include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/impl/error.ipp>
+#include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/beast/core/bind_handler.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>

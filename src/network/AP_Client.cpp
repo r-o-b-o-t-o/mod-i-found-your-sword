@@ -3,15 +3,17 @@
 #include "network/AP_WebSocketService.h"
 
 #include <algorithm>
+#include <boost/beast/core/error.hpp>
+#include <chrono>
+#include <cstdint>
+#include <exception>
+#include <functional>
+#include <list>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
-#include <chrono>
-#include <list>
-#include <cstdint>
-#include <boost/beast/core/error.hpp>
-#include <exception>
 
 namespace ModArchipelaWoW::Network
 {
