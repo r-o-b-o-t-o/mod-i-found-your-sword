@@ -1,4 +1,4 @@
-﻿#include "AP_Character.h"
+#include "AP_Character.h"
 #include "AP_Config.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
