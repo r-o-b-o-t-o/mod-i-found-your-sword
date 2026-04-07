@@ -3,6 +3,7 @@
 #include "network/AP_WebSocketService.h"
 
 #include <algorithm>
+#include <boost/asio/ssl/error.hpp>
 #include <boost/beast/core/error.hpp>
 #include <chrono>
 #include <cstdint>
@@ -23,7 +24,7 @@ namespace ModArchipelaWoW::Network
 
     struct Client::EventQueue
     {
-        enum class Type { Open, Close, Message, Error };
+        enum class Type { Open, Close, Message, Error, TlsHandshakeFailed };
 
         struct Event
         {
@@ -124,13 +125,12 @@ namespace ModArchipelaWoW::Network
                 serverVersion = {};
                 break;
 
+            case EventQueue::Type::TlsHandshakeFailed:
+                shouldFallbackToPlain = true;
+                break;
+
             case EventQueue::Type::Close:
-                if (state == State::SocketConnecting && currentAttemptTls)
-                {
-                    // TLS handshake failed - fall back to plain
-                    shouldFallbackToPlain = true;
-                }
-                else if (state > State::SocketConnecting)
+                if (state > State::SocketConnecting)
                 {
                     state = State::Disconnected;
                     if (onSocketDisconnected) onSocketDisconnected();
@@ -147,11 +147,7 @@ namespace ModArchipelaWoW::Network
                 break;
 
             case EventQueue::Type::Error:
-                // Suppress error callback during TLS fallback attempt
-                if (!(state == State::SocketConnecting && currentAttemptTls) && onSocketError)
-                {
-                    onSocketError(event.data);
-                }
+                if (onSocketError) onSocketError(event.data);
                 break;
             }
         }
@@ -178,6 +174,16 @@ namespace ModArchipelaWoW::Network
 
     void Client::Reset()
     {
+        // Drain pending events so stale callbacks can't fire after reset.
+        eventQueue->Drain();
+
+        ws.reset();
+        state = State::Disconnected;
+        currentAttemptTls = true;
+        reconnectNow = true;
+        reconnectInterval = std::chrono::milliseconds{ 1500 };
+        lastConnectAttempt = std::chrono::steady_clock::time_point{};
+
         checkQueue.clear();
         clientStatus = ClientStatus::Unknown;
         seed.clear();
@@ -185,8 +191,16 @@ namespace ModArchipelaWoW::Network
         team = -1;
         slotnr = -1;
         players.clear();
-        ws.reset();
-        state = State::Disconnected;
+        slotInfo.clear();
+        itemNameMap.clear();
+        locationNameMap.clear();
+        gameItemMap.clear();
+        gameLocationMap.clear();
+        dataPackageValid = false;
+        pendingDataPackageRequests = 0;
+        serverVersion = {};
+        serverConnectTime = 0.0;
+        localConnectTime = {};
     }
 
     // ---------------------------------------------------------------------------
@@ -529,6 +543,10 @@ namespace ModArchipelaWoW::Network
         reconnectNow = false;
         ws.reset();
 
+        // Replace the event queue so any late events from the previous socket
+        // are pushed into the old (no longer drained) queue and silently discarded.
+        eventQueue = std::make_shared<EventQueue>();
+
         state = State::SocketConnecting;
         currentAttemptTls = useTls;
         ws = wsService.CreateClient(useTls);
@@ -539,7 +557,17 @@ namespace ModArchipelaWoW::Network
         ws->SetOpenHandler([eq]() { eq->Push(EventQueue::Type::Open); });
         ws->SetCloseHandler([eq]() { eq->Push(EventQueue::Type::Close); });
         ws->SetMessageHandler([eq](std::string msg) { eq->Push(EventQueue::Type::Message, std::move(msg)); });
-        ws->SetErrorHandler([eq](boost::beast::error_code ec) { eq->Push(EventQueue::Type::Error, ec.message()); });
+        ws->SetErrorHandler([eq](boost::beast::error_code ec)
+        {
+            if (ec.category() == boost::asio::error::get_ssl_category())
+            {
+                eq->Push(EventQueue::Type::TlsHandshakeFailed);
+            }
+            else
+            {
+                eq->Push(EventQueue::Type::Error, ec.message());
+            }
+        });
 
         ws->Connect(host, port);
 

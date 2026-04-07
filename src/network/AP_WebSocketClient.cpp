@@ -173,13 +173,14 @@ namespace ModArchipelaWoW::Network
             return Fail(ec);
         }
 
-        VisitStream([&](auto& s)
-        {
-            beast::get_lowest_layer(s).expires_never();
-        });
-
         if (tls)
         {
+            // Keep the deadline active to cover the TLS handshake phase.
+            VisitStream([&](auto& s)
+            {
+                beast::get_lowest_layer(s).expires_after(std::chrono::seconds(30));
+            });
+
             auto& tlsStream = std::get<TlsStream>(ws);
 
             // Set SNI hostname for virtual-hosted TLS servers.
@@ -198,6 +199,11 @@ namespace ModArchipelaWoW::Network
         }
         else
         {
+            VisitStream([&](auto& s)
+            {
+                beast::get_lowest_layer(s).expires_never();
+            });
+
             auto& plainStream = std::get<PlainStream>(ws);
             plainStream.set_option(websocket::stream_base::timeout::suggested(beast::role_type::client));
 
@@ -217,6 +223,12 @@ namespace ModArchipelaWoW::Network
             return Fail(ec);
         }
 
+        // TLS handshake complete; disable the deadline before the WebSocket handshake.
+        VisitStream([&](auto& s)
+        {
+            beast::get_lowest_layer(s).expires_never();
+        });
+
         auto& tlsStream = std::get<TlsStream>(ws);
         tlsStream.set_option(websocket::stream_base::timeout::suggested(beast::role_type::client));
 
@@ -234,6 +246,8 @@ namespace ModArchipelaWoW::Network
         {
             return Fail(ec);
         }
+
+        VisitStream([&](auto& s) { s.text(true); });
 
         state = State::Connected;
         if (onOpen)
