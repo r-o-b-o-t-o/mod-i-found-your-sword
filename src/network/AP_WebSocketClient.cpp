@@ -9,7 +9,9 @@
 #include <boost/asio/registered_buffer.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
+#include <boost/asio/ssl/host_name_verification.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
+#include <boost/asio/ssl/verify_mode.hpp>
 #include <boost/beast/core/bind_handler.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/error.hpp>
@@ -63,6 +65,11 @@ namespace ModArchipelaWoW::Network
         , tls(tls)
         , state(State::Disconnected)
     {
+        if (sslCtx)
+        {
+            sslCtx->set_verify_mode(ssl::verify_peer);
+            sslCtx->set_default_verify_paths();
+        }
     }
 
     WebSocketClient::~WebSocketClient()
@@ -182,6 +189,9 @@ namespace ModArchipelaWoW::Network
                     static_cast<int>(::ERR_get_error()), net::error::get_ssl_category()};
                 return Fail(sniEc);
             }
+
+            // Enable hostname verification to prevent MITM attacks.
+            tlsStream.next_layer().set_verify_callback(ssl::host_name_verification(host));
 
             tlsStream.next_layer().async_handshake(ssl::stream_base::client,
                 beast::bind_front_handler(&WebSocketClient::OnSslHandshake, shared_from_this()));
