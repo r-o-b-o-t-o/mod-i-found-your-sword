@@ -119,10 +119,10 @@ namespace ModArchipelaWoW::Network
         Client(const Client&) = delete;
         Client& operator=(const Client&) = delete;
 
-        /// Process network events and drive reconnection. Call once per frame.
+        /// Process network events and drive reconnection. Call once per update loop.
         void Poll();
 
-        /// Clear all state and reconnect on next Poll().
+        /// Clear all state and disconnect.
         void Reset();
 
         /// Send a Connect command to join the named slot.
