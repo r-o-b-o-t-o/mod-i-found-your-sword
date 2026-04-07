@@ -1,17 +1,22 @@
 #include "AP_Character.h"
+#include "AP_Config.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
-#include "Config.h"
+#include "DatabaseEnv.h"
 #include "DBCStructure.h"
 #include "Define.h"
+#include "Errors.h"
 #include "fmt/core.h"
+#include "IoContext.h"
 #include "Item.h"
+#include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Unit.h"
 
+#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -64,6 +69,12 @@ namespace ModArchipelaWoW
         playerCreatureTemplates[name] = nextEntry;
 
         return nextEntry;
+    }
+
+    Network::WebSocketService& ArchipelaWoW::GetWebSocketService()
+    {
+        ASSERT_NOTNULL(wsService.get());
+        return *wsService;
     }
 
     const Config& ArchipelaWoW::GetConfig()
@@ -120,6 +131,21 @@ namespace ModArchipelaWoW
         {
             delete apCharacters[key];
             apCharacters.erase(key);
+        }
+    }
+
+    void ArchipelaWoW::OnShutdown()
+    {
+        for (auto& [key, apCharacter] : apCharacters)
+        {
+            apCharacter->OnPlayerBeforeLogout();
+            delete apCharacter;
+        }
+        apCharacters.clear();
+
+        if (wsService)
+        {
+            wsService.reset();
         }
     }
 
@@ -326,5 +352,10 @@ namespace ModArchipelaWoW
         {
             apCharacters[guid]->OnSelectArchipelagoStoneGossip(item, sender, action);
         }
+    }
+
+    void ArchipelaWoW::OnNetworkStart(Acore::Asio::IoContext& ioContext)
+    {
+        wsService = std::make_unique<Network::WebSocketService>(ioContext.get_executor());
     }
 }

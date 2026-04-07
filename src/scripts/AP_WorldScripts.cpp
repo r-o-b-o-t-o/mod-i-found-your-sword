@@ -12,6 +12,7 @@ namespace ModArchipelaWoW::Scripts
             WorldScript("ArchipelaWoW_WorldScript", {
                 WORLDHOOK_ON_BEFORE_CONFIG_LOAD,
                 WORLDHOOK_ON_UPDATE,
+                WORLDHOOK_ON_SHUTDOWN,
             })
         {
         }
@@ -24,6 +25,11 @@ namespace ModArchipelaWoW::Scripts
         void OnUpdate(uint32 diff) override
         {
             sArchipelaWoW->OnWorldUpdate(diff);
+        }
+
+        void OnShutdown() override
+        {
+            sArchipelaWoW->OnShutdown();
         }
     };
 
