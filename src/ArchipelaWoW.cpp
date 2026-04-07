@@ -5,6 +5,7 @@
 #include "DatabaseEnv.h"
 #include "DBCStructure.h"
 #include "Define.h"
+#include "Errors.h"
 #include "fmt/core.h"
 #include "IoContext.h"
 #include "Item.h"
@@ -72,6 +73,7 @@ namespace ModArchipelaWoW
 
     Network::WebSocketService& ArchipelaWoW::GetWebSocketService()
     {
+        ASSERT_NOTNULL(wsService);
         return *wsService;
     }
 
