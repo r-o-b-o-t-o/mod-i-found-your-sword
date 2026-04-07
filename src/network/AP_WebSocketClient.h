@@ -11,6 +11,7 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/ssl/ssl_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -106,7 +107,7 @@ namespace ModArchipelaWoW::Network
         std::string port;
         std::string path;
 
-        State state;
+        std::atomic<State> state;
 
         OpenHandler onOpen;
         CloseHandler onClose;
