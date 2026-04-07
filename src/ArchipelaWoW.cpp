@@ -26,8 +26,7 @@ namespace ModArchipelaWoW
     ArchipelaWoW::ArchipelaWoW() :
         apCharacters(),
         config(),
-        playerCreatureTemplates(),
-        wsService(nullptr)
+        playerCreatureTemplates()
     {
     }
 
@@ -145,8 +144,7 @@ namespace ModArchipelaWoW
 
         if (wsService)
         {
-            delete wsService;
-            wsService = nullptr;
+            wsService.reset();
         }
     }
 
@@ -357,11 +355,6 @@ namespace ModArchipelaWoW
 
     void ArchipelaWoW::OnNetworkStart(Acore::Asio::IoContext& ioContext)
     {
-        if (wsService)
-        {
-            delete wsService;
-        }
-
-        wsService = new Network::WebSocketService(ioContext.get_executor());
+        wsService = std::make_unique<Network::WebSocketService>(ioContext.get_executor());
     }
 }

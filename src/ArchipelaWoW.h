@@ -12,6 +12,7 @@
 #include "QuestDef.h"
 #include "Unit.h"
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -61,7 +62,7 @@ namespace ModArchipelaWoW
         Config config;
         std::unordered_map<ObjectGuid::LowType, AP_Character*> apCharacters;
         std::unordered_map<std::string, uint32> playerCreatureTemplates;
-        Network::WebSocketService* wsService;
+        std::unique_ptr<Network::WebSocketService> wsService;
 
         void InitializeConfig(bool reload);
         void LoadPlayerCreatureTemplates();
