@@ -25,7 +25,9 @@ namespace ModArchipelaWoW::Network
     /// A generic asynchronous WebSocket client built on boost::beast.
     /// Supports both plain (ws://) and TLS (wss://) connections.
     /// All callbacks are invoked on the executor's thread.
-    /// Public methods are safe to call from any thread (internally dispatched).
+    /// Connect(), Send(), Close(), and GetState() are safe to call from any thread (internally dispatched).
+    /// Handler setters (SetOpenHandler, SetCloseHandler, SetMessageHandler, SetErrorHandler) are NOT thread-safe
+    /// and must be called before Connect().
     /// Instances must be managed via std::shared_ptr (use Create()).
     class WebSocketClient : public std::enable_shared_from_this<WebSocketClient>
     {
@@ -49,23 +51,28 @@ namespace ModArchipelaWoW::Network
         WebSocketClient(const WebSocketClient&) = delete;
         WebSocketClient& operator=(const WebSocketClient&) = delete;
 
-        /// Asynchronously connect to a WebSocket server.
+        /// Asynchronously connect to a WebSocket server. Safe to call from any thread.
         /// \param host  Hostname or IP address.
         /// \param port  Port number as string.
         /// \param path  Resource path (default "/").
         void Connect(std::string host, std::string port, std::string path = "/");
 
-        /// Queue a text message for sending. Silently ignored if not connected.
+        /// Queue a text message for sending. Silently ignored if not connected. Safe to call from any thread.
         void Send(std::string message);
 
-        /// Initiate a graceful WebSocket close handshake.
+        /// Initiate a graceful WebSocket close handshake. Safe to call from any thread.
         void Close();
 
+        /// Returns the current connection state. Safe to call from any thread.
         State GetState() const;
 
+        /// Must be called before Connect().
         void SetOpenHandler(OpenHandler handler);
+        /// Must be called before Connect().
         void SetCloseHandler(CloseHandler handler);
+        /// Must be called before Connect().
         void SetMessageHandler(MessageHandler handler);
+        /// Must be called before Connect().
         void SetErrorHandler(ErrorHandler handler);
 
     private:
