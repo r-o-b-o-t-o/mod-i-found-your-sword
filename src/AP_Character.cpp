@@ -294,7 +294,6 @@ namespace ModArchipelaWoW
         ap->SetSlotConnectedHandler([this](const auto& d) { APSlotConnectedHandler(d); });
         ap->SetSocketErrorHandler([this](const auto& e) { APSocketErrorHandler(e); });
         ap->SetSocketDisconnectedHandler([this]() { APSocketDisconnectedHandler(); });
-        ap->SetSlotDisconnectedHandler([this]() { APSlotDisconnectedHandler(); });
         ap->SetBouncedHandler([this](const auto& p) { APBouncedHandler(p); });
         ap->SetRoomInfoHandler([this]() { APRoomInfoHandler(); });
         ap->SetDataPackageChangedHandler([this](const auto& d) { APDataPackageHandler(d); });
@@ -619,12 +618,6 @@ namespace ModArchipelaWoW
     {
         std::cerr << "Disconnected from Archipelago server" << std::endl;
         ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago server");
-    }
-
-    void AP_Character::APSlotDisconnectedHandler()
-    {
-        std::cerr << "Disconnected from Archipelago slot" << std::endl;
-        ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago slot");
     }
 
     void AP_Character::APBouncedHandler(const nlohmann::json& packet)

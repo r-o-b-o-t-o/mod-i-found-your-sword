@@ -526,7 +526,6 @@ namespace ModArchipelaWoW::Network
     void Client::SetSlotRefusedHandler(std::function<void(const std::list<std::string>&)> handler) { onSlotRefused = std::move(handler); }
     void Client::SetSocketErrorHandler(std::function<void(const std::string&)> handler) { onSocketError = std::move(handler); }
     void Client::SetSocketDisconnectedHandler(std::function<void()> handler) { onSocketDisconnected = std::move(handler); }
-    void Client::SetSlotDisconnectedHandler(std::function<void()> handler) { onSlotDisconnected = std::move(handler); }
     void Client::SetRoomInfoHandler(std::function<void()> handler) { onRoomInfo = std::move(handler); }
     void Client::SetDataPackageChangedHandler(std::function<void(const json&)> handler) { onDataPackageChanged = std::move(handler); }
     void Client::SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler) { onItemsReceived = std::move(handler); }

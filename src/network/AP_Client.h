@@ -159,7 +159,7 @@ namespace ModArchipelaWoW::Network
         void SetSlotRefusedHandler(std::function<void(const std::list<std::string>&)> handler);
         void SetSocketErrorHandler(std::function<void(const std::string&)> handler);
         void SetSocketDisconnectedHandler(std::function<void()> handler);
-        void SetSlotDisconnectedHandler(std::function<void()> handler);
+
         void SetRoomInfoHandler(std::function<void()> handler);
         void SetDataPackageChangedHandler(std::function<void(const json&)> handler);
         void SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler);
@@ -220,7 +220,6 @@ namespace ModArchipelaWoW::Network
         std::function<void(const std::list<std::string>&)> onSlotRefused;
         std::function<void(const std::string&)> onSocketError;
         std::function<void()> onSocketDisconnected;
-        std::function<void()> onSlotDisconnected;
         std::function<void()> onRoomInfo;
         std::function<void(const json&)> onDataPackageChanged;
         std::function<void(const std::list<NetworkItem>&)> onItemsReceived;

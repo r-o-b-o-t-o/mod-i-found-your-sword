@@ -96,7 +96,6 @@ namespace ModArchipelaWoW
         void APSlotConnectedHandler(const nlohmann::json& data);
         void APSocketErrorHandler(const std::string& error);
         void APSocketDisconnectedHandler();
-        void APSlotDisconnectedHandler();
         void APBouncedHandler(const nlohmann::json& packet);
         void APRoomInfoHandler();
         void APDataPackageHandler(const nlohmann::json& data);
