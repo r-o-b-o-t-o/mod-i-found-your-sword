@@ -40,6 +40,7 @@ using tcp = net::ip::tcp;
 namespace ModArchipelaWoW::Network
 {
     static constexpr auto kHandshakeTimeout = std::chrono::seconds(30);
+
     std::shared_ptr<WebSocketClient> WebSocketClient::Create(net::any_io_executor executor, bool tls)
     {
         return std::shared_ptr<WebSocketClient>(new WebSocketClient(std::move(executor), tls));
