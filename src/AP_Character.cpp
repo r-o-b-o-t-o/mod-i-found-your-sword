@@ -623,6 +623,11 @@ namespace ModArchipelaWoW
 
     void AP_Character::APBouncedHandler(const nlohmann::json& packet)
     {
+        if (!packet.contains("tags"))
+        {
+            return;
+        }
+
         std::list<std::string> tags = packet["tags"];
 
         bool deathlink = (std::find(tags.begin(), tags.end(), "DeathLink") != tags.end());
