@@ -417,6 +417,27 @@ namespace ModArchipelaWoW::Network
         return serverConnectTime + elapsed.count();
     }
 
+    std::list<std::string> Client::GetAllGames() const
+    {
+        std::set<std::string> seen;
+        std::list<std::string> result;
+
+        for (const auto& [slot, info] : slotInfo)
+        {
+            if (info.game.empty() || info.game == "Archipelago")
+            {
+                continue;
+            }
+
+            if (seen.insert(info.game).second)
+            {
+                result.push_back(info.game);
+            }
+        }
+
+        return result;
+    }
+
     bool Client::SlotConcernsSelf(int slot) const
     {
         if (slot == slotnr)

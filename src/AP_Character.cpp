@@ -607,6 +607,7 @@ namespace ModArchipelaWoW
         apStone.CreateItem();
         SaveToDatabase();
         SyncLocationChecks();
+        ap->GetDataPackage(ap->GetAllGames());
     }
 
     void AP_Character::APSocketErrorHandler(const std::string& error)
@@ -662,7 +663,11 @@ namespace ModArchipelaWoW
         }
 
         std::cout << "APRoomInfoHandler" << std::endl;
-        ap->GetDataPackage({ AP_GAME_NAME });
+
+        if (ap->GetState() < Network::Client::State::SlotConnected)
+        {
+            ConnectAPSlot();
+        }
     }
 
     void AP_Character::APDataPackageHandler(const nlohmann::json& data)
@@ -673,11 +678,6 @@ namespace ModArchipelaWoW
         }
 
         std::cout << "Data package:" << std::endl << data.dump() << std::endl;
-
-        if (ap->GetState() < Network::Client::State::SlotConnected)
-        {
-            ConnectAPSlot();
-        }
     }
 
     void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)

@@ -152,6 +152,7 @@ namespace ModArchipelaWoW::Network
         std::string GetItemName(int64_t code, const std::string& game) const;
         std::string GetLocationName(int64_t code, const std::string& game) const;
         double GetServerTime() const;
+        std::list<std::string> GetAllGames() const;
         std::string RenderJson(const std::list<TextNode>& msg, RenderFormat fmt = RenderFormat::Text) const;
         bool SlotConcernsSelf(int slot) const;
 
