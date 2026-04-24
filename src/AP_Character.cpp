@@ -205,7 +205,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource)
+    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* /*victim*/, uint8 /*xpSource*/)
     {
         if (apLevel >= maxLevel)
         {
