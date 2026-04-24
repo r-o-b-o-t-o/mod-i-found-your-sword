@@ -198,7 +198,6 @@ namespace ModArchipelaWoW
             return;
         }
 
-        auto questId = quest->GetQuestId();
         auto checkId = locations.quests.GetLocationId(quest);
         if (checkId.has_value())
         {
