@@ -673,7 +673,7 @@ namespace ModArchipelaWoW::Network
                     p["slot"].get<int>(),
                     p["alias"].get<std::string>(),
                     p["name"].get<std::string>()
-                    });
+                });
             }
 
             if (command.contains("slot_info") && command["slot_info"].is_object())
