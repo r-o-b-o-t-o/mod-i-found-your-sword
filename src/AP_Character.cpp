@@ -40,6 +40,7 @@ namespace ModArchipelaWoW
 {
     AP_Character::AP_Character(Player* player, std::string slot) :
         player(player),
+        apStone(this),
         slot(slot),
         itemIndex(-1),
         lastDeathTime(-1.0),
@@ -49,7 +50,6 @@ namespace ModArchipelaWoW
         tags(),
         items(),
         locations(),
-        apStone(this),
         unlockedZones(),
         lastUnlockedPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation()),
         nextLockedZoneCheck(GameTime::GetGameTime() + std::chrono::seconds(6)),
