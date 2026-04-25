@@ -34,7 +34,7 @@ namespace ModArchipelaWoW
 
         // WorldScripts methods
         void OnBeforeConfigLoad(bool reload);
-        void OnWorldUpdate(uint32 diff);
+        void OnWorldUpdate();
         void OnShutdown();
 
         // PlayerScripts methods

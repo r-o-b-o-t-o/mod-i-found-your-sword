@@ -22,9 +22,9 @@ namespace ModArchipelaWoW::Scripts
             sArchipelaWoW->OnBeforeConfigLoad(reload);
         }
 
-        void OnUpdate(uint32 diff) override
+        void OnUpdate(uint32 /*diff*/) override
         {
-            sArchipelaWoW->OnWorldUpdate(diff);
+            sArchipelaWoW->OnWorldUpdate();
         }
 
         void OnShutdown() override

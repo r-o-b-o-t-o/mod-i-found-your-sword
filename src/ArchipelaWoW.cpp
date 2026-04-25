@@ -112,7 +112,7 @@ namespace ModArchipelaWoW
         InitializeConfig(reload);
     }
 
-    void ArchipelaWoW::OnWorldUpdate(uint32 diff)
+    void ArchipelaWoW::OnWorldUpdate()
     {
         ReturnIfModDisabled;
 
