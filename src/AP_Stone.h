@@ -38,7 +38,7 @@ namespace ModArchipelaWoW
         void SendDungeonTeleportMenu(Item* item);
         void HandleDungeonTeleportSubmenuAction(Item* item, uint32 action);
         void HandleDungeonTeleportAction(Item* item, uint32 action);
-        void HandleGenericTeleportAction(Item* item, uint32 action);
+        void HandleGenericTeleportAction(uint32 action);
         void StartGossipMenu(uint32 titleTextId, uint32 sender);
         void SendGossipMenu(Item* item);
         void AddGossipItem(const std::string& icon, const std::string& text, uint32 action);
