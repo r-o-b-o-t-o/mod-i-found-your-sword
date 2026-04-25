@@ -25,8 +25,8 @@
 namespace ModArchipelaWoW
 {
     ArchipelaWoW::ArchipelaWoW() :
-        apCharacters(),
         config(),
+        apCharacters(),
         playerCreatureTemplates()
     {
     }
