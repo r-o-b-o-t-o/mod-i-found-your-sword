@@ -240,7 +240,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void ArchipelaWoW::OnPlayerDelete(ObjectGuid playerGuid, uint32 account)
+    void ArchipelaWoW::OnPlayerDelete(ObjectGuid playerGuid)
     {
         ReturnIfModDisabled;
 
