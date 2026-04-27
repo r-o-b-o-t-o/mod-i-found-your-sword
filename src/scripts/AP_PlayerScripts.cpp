@@ -88,9 +88,9 @@ namespace ModArchipelaWoW::Scripts
             sArchipelaWoW->OnPlayerCompleteQuest(player, quest);
         }
 
-        void OnPlayerDelete(ObjectGuid guid, uint32 account) override
+        void OnPlayerDelete(ObjectGuid guid, uint32 /*account*/) override
         {
-            sArchipelaWoW->OnPlayerDelete(guid, account);
+            sArchipelaWoW->OnPlayerDelete(guid);
         }
 
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
