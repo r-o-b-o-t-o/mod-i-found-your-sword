@@ -65,6 +65,7 @@ namespace ModArchipelaWoW::Network
         , ws(MakeStream(executor, sslCtx))
         , writing(false)
         , tls(tls)
+        , stopped(false)
         , state(State::Disconnected)
     {
         if (sslCtx)
@@ -140,6 +141,25 @@ namespace ModArchipelaWoW::Network
                     s.async_close(websocket::close_code::normal,
                         beast::bind_front_handler(&WebSocketClient::OnClose, self));
                 });
+            });
+    }
+
+    void WebSocketClient::Stop()
+    {
+        auto executor = VisitStream([](auto& s) -> net::any_io_executor { return s.get_executor(); });
+
+        net::dispatch(executor,
+            [self = shared_from_this()]()
+            {
+                if (self->stopped.exchange(true, std::memory_order_acq_rel))
+                {
+                    return;
+                }
+
+                self->resolver.cancel();
+
+                beast::error_code ec;
+                self->VisitStream([&](auto& s) { beast::get_lowest_layer(s).socket().close(ec); });
             });
     }
 
@@ -262,6 +282,11 @@ namespace ModArchipelaWoW::Network
 
     void WebSocketClient::OnRead(beast::error_code ec, std::size_t)
     {
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             if (state == State::Disconnected || state == State::Closing)
@@ -295,6 +320,11 @@ namespace ModArchipelaWoW::Network
     {
         writing = false;
 
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             if (state == State::Disconnected || state == State::Closing)
@@ -316,6 +346,11 @@ namespace ModArchipelaWoW::Network
     {
         state = State::Disconnected;
 
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec && ec != websocket::error::closed)
         {
             if (onError)
@@ -334,7 +369,14 @@ namespace ModArchipelaWoW::Network
     {
         VisitStream([&](auto& s)
         {
-            s.async_read(readBuffer, beast::bind_front_handler(&WebSocketClient::OnRead, shared_from_this()));
+            s.async_read(readBuffer,
+                [weak = weak_from_this()](beast::error_code ec, std::size_t n)
+                {
+                    if (auto self = weak.lock())
+                    {
+                        self->OnRead(ec, n);
+                    }
+                });
         });
     }
 
@@ -343,7 +385,14 @@ namespace ModArchipelaWoW::Network
         writing = true;
         VisitStream([&](auto& s)
         {
-            s.async_write(net::buffer(writeQueue.front()), beast::bind_front_handler(&WebSocketClient::OnWrite, shared_from_this()));
+            s.async_write(net::buffer(writeQueue.front()),
+                [weak = weak_from_this()](beast::error_code ec, std::size_t n)
+                {
+                    if (auto self = weak.lock())
+                    {
+                        self->OnWrite(ec, n);
+                    }
+                });
         });
     }
 
@@ -356,6 +405,11 @@ namespace ModArchipelaWoW::Network
 
         beast::error_code closeEc;
         VisitStream([&](auto& s) { beast::get_lowest_layer(s).socket().close(closeEc); });
+
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
 
         if (onError)
         {

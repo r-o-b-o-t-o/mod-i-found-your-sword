@@ -25,7 +25,7 @@ namespace ModArchipelaWoW::Network
     /// A generic asynchronous WebSocket client built on boost::beast.
     /// Supports both plain (ws://) and TLS (wss://) connections.
     /// All callbacks are invoked on the executor's thread.
-    /// Connect(), Send(), Close(), and GetState() are safe to call from any thread (internally dispatched).
+    /// Connect(), Send(), Close(), Stop(), and GetState() are safe to call from any thread (internally dispatched).
     /// Handler setters (SetOpenHandler, SetCloseHandler, SetMessageHandler, SetErrorHandler) are NOT thread-safe
     /// and must be called before Connect().
     /// Instances must be managed via std::shared_ptr (use Create()).
@@ -62,6 +62,10 @@ namespace ModArchipelaWoW::Network
 
         /// Initiate a graceful WebSocket close handshake. Safe to call from any thread.
         void Close();
+
+        /// Cancel all outstanding async operations and close the connection without invoking callbacks.
+        /// Safe to call from any thread. Idempotent.
+        void Stop();
 
         /// Returns the current connection state. Safe to call from any thread.
         State GetState() const;
@@ -109,6 +113,7 @@ namespace ModArchipelaWoW::Network
         std::queue<std::string> writeQueue;
         bool writing;
         bool tls;
+        std::atomic<bool> stopped;
 
         std::string host;
         std::string port;

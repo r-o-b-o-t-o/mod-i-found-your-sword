@@ -102,6 +102,10 @@ namespace ModArchipelaWoW::Network
 
     Client::~Client()
     {
+        if (ws)
+        {
+            ws->Stop();
+        }
         ws.reset();
     }
 
@@ -177,6 +181,10 @@ namespace ModArchipelaWoW::Network
         // Drain pending events so stale callbacks can't fire after reset.
         eventQueue->Drain();
 
+        if (ws)
+        {
+            ws->Stop();
+        }
         ws.reset();
         state = State::Disconnected;
         currentAttemptTls = true;
@@ -561,6 +569,10 @@ namespace ModArchipelaWoW::Network
     void Client::ConnectSocket(bool useTls)
     {
         reconnectNow = false;
+        if (ws)
+        {
+            ws->Stop();
+        }
         ws.reset();
 
         // Replace the event queue so any late events from the previous socket
