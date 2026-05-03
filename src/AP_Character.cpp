@@ -562,13 +562,13 @@ namespace ModArchipelaWoW
     MailSender AP_Character::GetMailSender(int sender)
     {
         MailSender mailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_DEFAULT);
-        if (sender == ap->get_player_number())
+        if (sender == ap->GetPlayerNumber())
         {
             mailSender = MailSender(player);
         }
         else
         {
-            std::string senderName = ap->get_player_alias(sender);
+            std::string senderName = ap->GetPlayerAlias(sender);
             uint32 creature = sArchipelaWoW->GetCreatureTemplateForPlayer(senderName);
             mailSender = MailSender(MAIL_CREATURE, creature);
         }
