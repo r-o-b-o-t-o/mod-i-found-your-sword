@@ -28,7 +28,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_GIVE_EXP,
                 PLAYERHOOK_ON_BEFORE_GET_LEVEL_FOR_XP_GAIN,
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
-                })
+            })
         {
         }
 

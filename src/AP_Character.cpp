@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -144,6 +145,33 @@ namespace ModArchipelaWoW
             player->TeleportTo(zone.map, zone.x, zone.y, zone.z, zone.o);
             player->CastSpell(player, TELEPORT_SPELL_ID, true);
         }
+    }
+
+    uint32 AP_Character::GetGoldPouchAmount() const
+    {
+        if (!player)
+        {
+            return 0;
+        }
+
+        uint8 level = player->GetLevel();
+        level = std::max(uint8(5), level);
+
+        const double lvl = static_cast<double>(level);
+        const double multiplier = 1.5;
+
+        double result;
+        if (level <= 60)
+        {
+            result = 6.0731 * std::pow(lvl, 2.0641);
+        }
+        else
+        {
+            result = 2.3e-6 * std::pow(lvl, 5.9408);
+        }
+        result *= multiplier;
+
+        return static_cast<uint32>(std::round(result));
     }
 
     void AP_Character::OnPlayerAchievementComplete(const AchievementEntry* achievement)
@@ -423,18 +451,7 @@ namespace ModArchipelaWoW
                 return;
             }
 
-            MailSender mailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_DEFAULT);
-            if (sender == ap->get_player_number())
-            {
-                mailSender = MailSender(player);
-            }
-            else
-            {
-                std::string senderName = ap->get_player_alias(sender);
-                uint32 creature = sArchipelaWoW->GetCreatureTemplateForPlayer(senderName);
-                mailSender = MailSender(MAIL_CREATURE, creature);
-            }
-
+            MailSender mailSender = GetMailSender(sender);
             Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
             if (!reward)
             {
@@ -463,6 +480,20 @@ namespace ModArchipelaWoW
             if (!alreadyRewarded)
             {
                 player->GiveLevel(player->GetLevel() + 1);
+            }
+            return;
+        }
+
+        if (itemId == items.goldPouch)
+        {
+            if (!alreadyRewarded)
+            {
+                MailSender mailSender = GetMailSender(sender);
+                CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+                MailDraft("Gold Pouch", "")
+                    .AddMoney(GetGoldPouchAmount())
+                    .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), mailSender);
+                CharacterDatabase.CommitTransaction(trans);
             }
             return;
         }
@@ -539,6 +570,23 @@ namespace ModArchipelaWoW
         );
     }
 
+    MailSender AP_Character::GetMailSender(int sender)
+    {
+        MailSender mailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_DEFAULT);
+        if (sender == ap->get_player_number())
+        {
+            mailSender = MailSender(player);
+        }
+        else
+        {
+            std::string senderName = ap->get_player_alias(sender);
+            uint32 creature = sArchipelaWoW->GetCreatureTemplateForPlayer(senderName);
+            mailSender = MailSender(MAIL_CREATURE, creature);
+        }
+
+        return mailSender;
+    }
+
     void AP_Character::APSlotConnectedHandler(const nlohmann::json& data)
     {
         if (!ap)
@@ -610,6 +658,7 @@ namespace ModArchipelaWoW
             items.items.AddItem(item[0], item[1]);
         }
         items.levels = data["items"]["levels"];
+        items.goldPouch = data["items"]["money"];
 
         goalAchievementId = data["goal"];
         maxLevel = data["maxlevel"];
