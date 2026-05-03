@@ -14,13 +14,15 @@ namespace ModArchipelaWoW::Items
         ItemsContainer() :
             items(),
             zones(),
-            levels(0)
+            levels(0),
+            goldPouch(0)
         {
         }
 
         Items items;
         Zones zones;
         int64_t levels;
+        int64_t goldPouch;
     };
 }
 

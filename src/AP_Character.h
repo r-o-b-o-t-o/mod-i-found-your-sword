@@ -9,6 +9,7 @@
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Zones.h"
 #include "locations/AP_LocationsContainer.h"
+#include "Mail.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "Player.h"
@@ -39,6 +40,7 @@ namespace ModArchipelaWoW
         std::string GetItemName(int64 itemId) const;
         bool IsZoneUnlocked(uint32 zoneId) const;
         void Teleport(const Items::ZoneItem& zone);
+        uint32 GetGoldPouchAmount() const;
 
         // PlayerScripts events
         void OnPlayerAchievementComplete(const AchievementEntry* achievement);
@@ -91,6 +93,7 @@ namespace ModArchipelaWoW
         void SavePosition();
         void LoadXPForLevel();
         void CheckLocation(int32 locationId);
+        MailSender GetMailSender(int sender);
 
         // AP Handlers
         void APSlotConnectedHandler(const nlohmann::json& data);
@@ -104,7 +107,7 @@ namespace ModArchipelaWoW
         void APSlotRefusedHandler(const std::list<std::string>& errors);
         void APMessageErrorHandler(const std::string& error);
 
-        std::string ConvertANSIColoredString(const std::string& str);
+        static std::string ConvertANSIColoredString(const std::string& str);
         static std::string GenerateUUID();
     };
 }
