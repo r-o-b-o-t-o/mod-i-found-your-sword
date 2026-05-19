@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace ModArchipelaWoW::Items
 {
@@ -13,9 +14,9 @@ namespace ModArchipelaWoW::Items
     {
     }
 
-    void Zones::AddItem(int64_t itemId, uint32 zoneId, const std::string& icon, uint32 gossipMenu, uint32 mapId, float x, float y, float z, float o)
+    void Zones::AddItem(int64_t itemId, uint32 zoneId, const std::string& icon, uint32 gossipMenu, uint32 mapId, float x, float y, float z, float o, std::vector<uint32> keys)
     {
-        map[itemId] = ZoneItem(zoneId, icon, gossipMenu, mapId, x, y, z, o);
+        map[itemId] = ZoneItem(zoneId, icon, gossipMenu, mapId, x, y, z, o, keys);
         zoneIds.insert(zoneId);
     }
 
