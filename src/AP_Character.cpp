@@ -461,6 +461,15 @@ namespace ModArchipelaWoW
         if (zone.has_value())
         {
             unlockedZones.insert(zone.value().id);
+
+            for (uint32 itemId : zone.value().keys)
+            {
+                if (!player->HasItemCount(itemId, 1))
+                {
+                    player->AddItem(itemId, 1);
+                }
+            }
+
             return;
         }
 
@@ -640,7 +649,7 @@ namespace ModArchipelaWoW
 
         for (const auto& item : data["items"]["zones"])
         {
-            items.zones.AddItem(item[0], item[1], item[2], item[3], item[4][0], item[4][1], item[4][2], item[4][3], item[4][4]);
+            items.zones.AddItem(item[0], item[1], item[2], item[3], item[4][0], item[4][1], item[4][2], item[4][3], item[4][4], item[5]);
         }
         for (const auto& item : data["items"]["items"])
         {

@@ -8,17 +8,18 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace ModArchipelaWoW::Items
 {
     struct ZoneItem
     {
     public:
-        ZoneItem() : ZoneItem(0, "", 0, 0, 0.0f, 0.0f, 0.0f, 0.0f)
+        ZoneItem() : ZoneItem(0, "", 0, 0, 0.0f, 0.0f, 0.0f, 0.0f, {})
         {
         }
 
-        ZoneItem(uint32 id, const std::string& icon, uint32 gossipMenu, uint32 map, float x, float y, float z, float o) :
+        ZoneItem(uint32 id, const std::string& icon, uint32 gossipMenu, uint32 map, float x, float y, float z, float o, std::vector<uint32> keys) :
             id(id),
             icon(icon),
             gossipMenu(gossipMenu),
@@ -26,7 +27,8 @@ namespace ModArchipelaWoW::Items
             x(x),
             y(y),
             z(z),
-            o(o)
+            o(o),
+            keys(keys)
         {
         }
 
@@ -38,6 +40,7 @@ namespace ModArchipelaWoW::Items
         float y;
         float z;
         float o;
+        std::vector<uint32> keys;
     };
 
     class Zones
@@ -45,7 +48,7 @@ namespace ModArchipelaWoW::Items
     public:
         Zones();
 
-        void AddItem(int64_t itemId, uint32 zoneId, const std::string& icon, uint32 gossipMenu, uint32 map, float x, float y, float z, float o);
+        void AddItem(int64_t itemId, uint32 zoneId, const std::string& icon, uint32 gossipMenu, uint32 map, float x, float y, float z, float o, std::vector<uint32> keys);
         Optional<ZoneItem> GetZone(int64_t itemId) const;
         bool IsRestricted(uint32 zoneId) const;
         auto Begin() const { return map.cbegin(); }
