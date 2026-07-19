@@ -512,6 +512,12 @@ namespace ModArchipelaWoW::Network
 
     double Client::GetServerTime() const
     {
+        if (localConnectTime == std::chrono::steady_clock::time_point{})
+        {
+            // No RoomInfo received yet; there is no server time to extrapolate.
+            return 0.0;
+        }
+
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - localConnectTime);
         return serverConnectTime + elapsed.count();
     }
