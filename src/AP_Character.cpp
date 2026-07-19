@@ -24,6 +24,8 @@
 #include "Unit.h"
 
 #include <algorithm>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -888,12 +890,6 @@ namespace ModArchipelaWoW
 
     std::string AP_Character::GenerateUUID()
     {
-        QueryResult result = CharacterDatabase.Query("SELECT UUID()");
-        if (!result)
-        {
-            return "";
-        }
-
-        return (*result)[0].Get<std::string>();
+        return boost::uuids::to_string(boost::uuids::random_generator()());
     }
 }
