@@ -25,11 +25,26 @@
 #include <memory>
 #include <openssl/err.h>
 #include <openssl/tls1.h>
+#include <openssl/x509.h>
 #include <optional>
 #include <queue>
 #include <string>
 #include <utility>
 #include <variant>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <wincrypt.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "crypt32.lib")
+#endif
+#endif
 
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;
@@ -40,6 +55,39 @@ using tcp = net::ip::tcp;
 namespace ModArchipelaWoW::Network
 {
     static constexpr auto kHandshakeTimeout = std::chrono::seconds(30);
+
+    /// Populate the SSL context with the system's trusted root certificates.
+    /// On Windows, OpenSSL's default verify paths are usually empty, so the
+    /// certificates are imported from the Windows "ROOT" store instead.
+    static void LoadRootCertificates(ssl::context& ctx)
+    {
+#ifdef _WIN32
+        HCERTSTORE store = CertOpenSystemStoreA(0, "ROOT");
+        if (!store)
+        {
+            ctx.set_default_verify_paths();
+            return;
+        }
+
+        X509_STORE* sslStore = X509_STORE_new();
+        PCCERT_CONTEXT cert = nullptr;
+        while ((cert = CertEnumCertificatesInStore(store, cert)))
+        {
+            const unsigned char* encoded = cert->pbCertEncoded;
+            if (X509* x509 = d2i_X509(nullptr, &encoded, static_cast<long>(cert->cbCertEncoded)))
+            {
+                X509_STORE_add_cert(sslStore, x509);
+                X509_free(x509);
+            }
+        }
+        CertCloseStore(store, 0);
+
+        // The context takes ownership of the store.
+        SSL_CTX_set_cert_store(ctx.native_handle(), sslStore);
+#else
+        ctx.set_default_verify_paths();
+#endif
+    }
 
     std::shared_ptr<WebSocketClient> WebSocketClient::Create(net::any_io_executor executor, bool tls)
     {
@@ -71,7 +119,7 @@ namespace ModArchipelaWoW::Network
         if (sslCtx)
         {
             sslCtx->set_verify_mode(ssl::verify_peer);
-            sslCtx->set_default_verify_paths();
+            LoadRootCertificates(*sslCtx);
         }
     }
 
