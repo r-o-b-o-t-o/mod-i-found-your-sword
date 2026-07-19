@@ -727,10 +727,10 @@ namespace ModArchipelaWoW
 
         std::cout << "APRoomInfoHandler" << std::endl;
 
-        if (ap->GetState() < Network::Client::State::SlotConnected)
-        {
-            ConnectAPSlot();
-        }
+        // Fetch our own and the server's data package before connecting the
+        // slot, so the initial item/location messages render proper names.
+        // The remaining games are fetched after the slot is connected.
+        ap->GetDataPackage({ AP_GAME_NAME, "Archipelago" });
     }
 
     void AP_Character::APDataPackageHandler(const nlohmann::json& data)
@@ -742,6 +742,11 @@ namespace ModArchipelaWoW
 
         size_t games = data.contains("games") ? data["games"].size() : 0;
         std::cout << "Data package updated (" << games << " games)" << std::endl;
+
+        if (ap->GetState() < Network::Client::State::SlotConnected)
+        {
+            ConnectAPSlot();
+        }
     }
 
     void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)
