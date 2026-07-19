@@ -5,19 +5,90 @@
 #include <algorithm>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/beast/core/error.hpp>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
 namespace ModArchipelaWoW::Network
 {
+    // ---------------------------------------------------------------------------
+    // Data package disk cache
+    // ---------------------------------------------------------------------------
+
+    static constexpr auto kDataPackageCacheDir = "ap_datapackage_cache";
+
+    /// Checksums come from the server; only accept plain hex digests so they
+    /// can safely be used as file names.
+    static bool IsValidChecksum(const std::string& checksum)
+    {
+        if (checksum.empty() || checksum.size() > 64)
+        {
+            return false;
+        }
+
+        return std::all_of(checksum.begin(), checksum.end(),
+            [](unsigned char c) { return std::isxdigit(c) != 0; });
+    }
+
+    static std::filesystem::path DataPackageCachePath(const std::string& checksum)
+    {
+        return std::filesystem::path(kDataPackageCacheDir) / (checksum + ".json");
+    }
+
+    static nlohmann::json LoadDataPackageCache(const std::string& checksum)
+    {
+        if (!IsValidChecksum(checksum))
+        {
+            return nlohmann::json();
+        }
+
+        std::ifstream file(DataPackageCachePath(checksum));
+        if (!file)
+        {
+            return nlohmann::json();
+        }
+
+        nlohmann::json data = nlohmann::json::parse(file, nullptr, false);
+        if (data.is_discarded())
+        {
+            return nlohmann::json();
+        }
+
+        return data;
+    }
+
+    static void SaveDataPackageCache(const std::string& checksum, const nlohmann::json& gameData)
+    {
+        if (!IsValidChecksum(checksum))
+        {
+            return;
+        }
+
+        std::error_code ec;
+        std::filesystem::create_directories(kDataPackageCacheDir, ec);
+        if (ec)
+        {
+            return;
+        }
+
+        std::ofstream file(DataPackageCachePath(checksum));
+        if (file)
+        {
+            file << gameData.dump();
+        }
+    }
+
     // ---------------------------------------------------------------------------
     // EventQueue - thread-safe bridge between the io_context and game threads
     // ---------------------------------------------------------------------------
@@ -186,6 +257,7 @@ namespace ModArchipelaWoW::Network
         slotnr = -1;
         players.clear();
         slotInfo.clear();
+        serverChecksums.clear();
         gameItemMap.clear();
         gameLocationMap.clear();
         pendingDataPackageRequests = 0;
@@ -282,9 +354,25 @@ namespace ModArchipelaWoW::Network
             return false;
         }
 
+        std::list<std::string> outdated;
+        for (const auto& game : games)
+        {
+            if (!TryUseCachedDataPackage(game))
+            {
+                outdated.push_back(game);
+            }
+        }
+
+        if (outdated.empty())
+        {
+            // Everything is already up to date (possibly restored from cache).
+            if (onDataPackageChanged) onDataPackageChanged(dataPackage);
+            return true;
+        }
+
         json packet = json::array({ json({
             {"cmd", "GetDataPackage"},
-            {"games", games}
+            {"games", outdated}
         }) });
 
         pendingDataPackageRequests++;
@@ -631,6 +719,18 @@ namespace ModArchipelaWoW::Network
             localConnectTime = std::chrono::steady_clock::now();
             serverConnectTime = command["time"].get<double>();
 
+            serverChecksums.clear();
+            if (command.contains("datapackage_checksums") && command["datapackage_checksums"].is_object())
+            {
+                for (const auto& [gameName, checksum] : command["datapackage_checksums"].items())
+                {
+                    if (checksum.is_string())
+                    {
+                        serverChecksums[gameName] = checksum.get<std::string>();
+                    }
+                }
+            }
+
             if (state < State::RoomInfo)
             {
                 state = State::RoomInfo;
@@ -717,18 +817,11 @@ namespace ModArchipelaWoW::Network
         }
         else if (cmd == "DataPackage")
         {
-            json data(dataPackage);
-            if (!data["games"].is_object())
-            {
-                data["games"] = json::object();
-            }
-
             for (const auto& [gameName, gameData] : command["data"]["games"].items())
             {
-                data["games"][gameName] = gameData;
+                ApplyGameData(gameName, gameData);
+                SaveDataPackageCache(gameData.value("checksum", ""), gameData);
             }
-
-            SetDataPackageData(data);
 
             if (pendingDataPackageRequests > 0)
             {
@@ -778,30 +871,54 @@ namespace ModArchipelaWoW::Network
     // Private - data package
     // ---------------------------------------------------------------------------
 
-    void Client::SetDataPackageData(json data)
+    void Client::ApplyGameData(const std::string& gameName, const json& gameData)
     {
-        dataPackage = std::move(data);
+        dataPackage["games"][gameName] = gameData;
 
-        for (const auto& [gameName, gameData] : dataPackage["games"].items())
+        if (gameData.contains("item_name_to_id"))
         {
-            if (gameData.contains("item_name_to_id"))
+            auto& gi = gameItemMap[gameName];
+            for (const auto& [name, id] : gameData["item_name_to_id"].items())
             {
-                auto& gi = gameItemMap[gameName];
-                for (const auto& [name, id] : gameData["item_name_to_id"].items())
-                {
-                    gi[id.get<int64_t>()] = name;
-                }
-            }
-
-            if (gameData.contains("location_name_to_id"))
-            {
-                auto& gl = gameLocationMap[gameName];
-                for (const auto& [name, id] : gameData["location_name_to_id"].items())
-                {
-                    gl[id.get<int64_t>()] = name;
-                }
+                gi[id.get<int64_t>()] = name;
             }
         }
+
+        if (gameData.contains("location_name_to_id"))
+        {
+            auto& gl = gameLocationMap[gameName];
+            for (const auto& [name, id] : gameData["location_name_to_id"].items())
+            {
+                gl[id.get<int64_t>()] = name;
+            }
+        }
+    }
+
+    bool Client::TryUseCachedDataPackage(const std::string& game)
+    {
+        auto checksumIt = serverChecksums.find(game);
+        if (checksumIt == serverChecksums.end())
+        {
+            // The server did not announce a checksum for this game; always fetch.
+            return false;
+        }
+
+        const std::string& checksum = checksumIt->second;
+
+        auto& games = dataPackage["games"];
+        if (auto it = games.find(game); it != games.end() && it->value("checksum", "") == checksum)
+        {
+            return true;
+        }
+
+        json cached = LoadDataPackageCache(checksum);
+        if (cached.is_object() && cached.value("checksum", "") == checksum)
+        {
+            ApplyGameData(game, cached);
+            return true;
+        }
+
+        return false;
     }
 
     // ---------------------------------------------------------------------------

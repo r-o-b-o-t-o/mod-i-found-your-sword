@@ -129,7 +129,10 @@ namespace ModArchipelaWoW::Network
         /// Send a status update (e.g. Goal reached).
         bool StatusUpdate(ClientStatus status);
 
-        /// Request the data package for the listed games.
+        /// Request the data package for the listed games. Games whose checksum
+        /// matches the already known (or disk-cached) data are not re-fetched;
+        /// if nothing needs fetching, the data package changed handler is
+        /// invoked immediately.
         bool GetDataPackage(const std::list<std::string>& games);
 
         /// Send a Bounce packet.
@@ -166,7 +169,8 @@ namespace ModArchipelaWoW::Network
         void ProcessMessage(const std::string& message);
         void ProcessCommand(const json& command);
         void Send(const json& packet);
-        void SetDataPackageData(json data);
+        void ApplyGameData(const std::string& gameName, const json& gameData);
+        bool TryUseCachedDataPackage(const std::string& game);
 
         static std::string Color2Ansi(const std::string& color);
         static void Deansify(std::string& text);
@@ -196,6 +200,7 @@ namespace ModArchipelaWoW::Network
         std::list<NetworkPlayer> players;
         std::map<int, NetworkSlot> slotInfo;
         json dataPackage;
+        std::map<std::string, std::string> serverChecksums;
         std::map<std::string, std::map<int64_t, std::string>> gameItemMap;
         std::map<std::string, std::map<int64_t, std::string>> gameLocationMap;
         size_t pendingDataPackageRequests = 0;
