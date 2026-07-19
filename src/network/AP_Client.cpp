@@ -182,7 +182,16 @@ namespace ModArchipelaWoW::Network
                 break;
 
             case EventQueue::Type::TlsHandshakeFailed:
-                shouldFallbackToPlain = true;
+                if (state == State::SocketConnecting)
+                {
+                    shouldFallbackToPlain = true;
+                }
+                else if (onSocketError)
+                {
+                    // TLS error on an established connection: report it like any
+                    // other socket error instead of downgrading to plaintext.
+                    onSocketError(event.data);
+                }
                 break;
 
             case EventQueue::Type::Close:
@@ -663,7 +672,7 @@ namespace ModArchipelaWoW::Network
         {
             if (ec.category() == boost::asio::error::get_ssl_category())
             {
-                eq->Push(EventQueue::Type::TlsHandshakeFailed);
+                eq->Push(EventQueue::Type::TlsHandshakeFailed, ec.message());
             }
             else
             {
