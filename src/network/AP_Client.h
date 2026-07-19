@@ -180,6 +180,7 @@ namespace ModArchipelaWoW::Network
         std::string game;
         std::string host;
         std::string port;
+        bool preferTls = true;
         bool currentAttemptTls = true;
 
         std::shared_ptr<WebSocketClient> ws;

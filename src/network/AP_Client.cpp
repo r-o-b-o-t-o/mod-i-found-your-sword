@@ -151,6 +151,18 @@ namespace ModArchipelaWoW::Network
         , eventQueue(std::make_shared<EventQueue>())
         , dataPackage({ {"version", -1}, {"games", json::object()} })
     {
+        // Accept scheme-prefixed hosts for compatibility with the old
+        // URI-based configuration; an explicit ws:// starts in plaintext.
+        if (this->host.rfind("wss://", 0) == 0)
+        {
+            this->host.erase(0, 6);
+        }
+        else if (this->host.rfind("ws://", 0) == 0)
+        {
+            this->host.erase(0, 5);
+            preferTls = false;
+            currentAttemptTls = false;
+        }
     }
 
     Client::~Client()
@@ -254,7 +266,7 @@ namespace ModArchipelaWoW::Network
         }
         ws.reset();
         state = State::Disconnected;
-        currentAttemptTls = true;
+        currentAttemptTls = preferTls;
         reconnectNow = true;
         reconnectInterval = std::chrono::milliseconds{ 1500 };
         lastConnectAttempt = std::chrono::steady_clock::time_point{};
