@@ -595,72 +595,94 @@ namespace ModArchipelaWoW
 
         std::cout << "Slot data: " << std::endl << data.dump() << std::endl;
 
-        if (data["options"]["character_class"] != player->getClass())
+        // Parse everything before acting on it; a missing or mistyped field
+        // (e.g. apworld/module version mismatch) throws and disconnects the
+        // slot instead of leaving a half-initialized character.
+        try
         {
-            const ChrClassesEntry* slotClass = sChrClassesStore.LookupEntry(data["options"]["character_class"]);
-            if (slotClass)
-            {
-                auto locale = player->GetSession()->GetSessionDbcLocale();
-                std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character class mismatch.", slotClass->name[locale]);
-                ChatHandler(player->GetSession()).SendSysMessage(msg);
-            }
-            run = false;
-        }
+            const auto& options = data.at("options");
 
-        if (data["options"]["character_race"] != player->getRace(true))
-        {
-            const ChrRacesEntry* slotRace = sChrRacesStore.LookupEntry(data["options"]["character_race"]);
-            if (slotRace)
+            uint32 requiredClass = options.at("character_class").get<uint32>();
+            if (requiredClass != player->getClass())
             {
-                auto locale = player->GetSession()->GetSessionDbcLocale();
-                std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character race mismatch.", slotRace->name[locale]);
-                ChatHandler(player->GetSession()).SendSysMessage(msg);
+                const ChrClassesEntry* slotClass = sChrClassesStore.LookupEntry(requiredClass);
+                if (slotClass)
+                {
+                    auto locale = player->GetSession()->GetSessionDbcLocale();
+                    std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character class mismatch.", slotClass->name[locale]);
+                    ChatHandler(player->GetSession()).SendSysMessage(msg);
+                }
+                run = false;
             }
-            run = false;
-        }
 
-        if (!run)
+            uint32 requiredRace = options.at("character_race").get<uint32>();
+            if (requiredRace != player->getRace(true))
+            {
+                const ChrRacesEntry* slotRace = sChrRacesStore.LookupEntry(requiredRace);
+                if (slotRace)
+                {
+                    auto locale = player->GetSession()->GetSessionDbcLocale();
+                    std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character race mismatch.", slotRace->name[locale]);
+                    ChatHandler(player->GetSession()).SendSysMessage(msg);
+                }
+                run = false;
+            }
+
+            if (!run)
+            {
+                return;
+            }
+
+            deathLinkEnabled = options.at("death_link") == 1;
+
+            const auto& locationData = data.at("locations");
+            for (const auto& level : locationData.at("levels"))
+            {
+                locations.levels.AddLocation(level.at(0), level.at(1));
+            }
+            for (const auto& quest : locationData.at("quests"))
+            {
+                locations.quests.AddLocation(quest.at(0), quest.at(1));
+            }
+            for (const auto& achievement : locationData.at("achievements"))
+            {
+                locations.achievements.AddLocation(achievement.at(0), achievement.at(1));
+            }
+            for (const auto& fp : locationData.at("flightpaths"))
+            {
+                locations.flightPaths.AddLocation(fp.at(0), fp.at(1));
+            }
+
+            const auto& itemData = data.at("items");
+            for (const auto& item : itemData.at("zones"))
+            {
+                const auto& pos = item.at(4);
+                items.zones.AddItem(item.at(0), item.at(1), item.at(2), item.at(3),
+                    pos.at(0), pos.at(1), pos.at(2), pos.at(3), pos.at(4), item.at(5));
+            }
+            for (const auto& item : itemData.at("items"))
+            {
+                items.items.AddItem(item.at(0), item.at(1));
+            }
+            items.levels = itemData.at("levels");
+            items.goldPouch = itemData.at("money");
+
+            goalAchievementId = data.at("goal");
+            maxLevel = data.at("maxlevel");
+        }
+        catch (const std::exception& ex)
         {
+            std::cerr << "Invalid slot data received: " << ex.what() << std::endl;
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Invalid slot data received from the Archipelago server (apworld/module version mismatch?). Disconnecting.");
+            run = false;
             return;
         }
 
-        deathLinkEnabled = data["options"]["death_link"] == 1;
         if (deathLinkEnabled && std::find(tags.begin(), tags.end(), "DeathLink") == tags.end())
         {
             tags.push_back("DeathLink");
             ap->ConnectUpdate(0b111, tags);
         }
-
-        for (const auto& level : data["locations"]["levels"])
-        {
-            locations.levels.AddLocation(level[0], level[1]);
-        }
-        for (const auto& quest : data["locations"]["quests"])
-        {
-            locations.quests.AddLocation(quest[0], quest[1]);
-        }
-        for (const auto& achievement : data["locations"]["achievements"])
-        {
-            locations.achievements.AddLocation(achievement[0], achievement[1]);
-        }
-        for (const auto& fp : data["locations"]["flightpaths"])
-        {
-            locations.flightPaths.AddLocation(fp[0], fp[1]);
-        }
-
-        for (const auto& item : data["items"]["zones"])
-        {
-            items.zones.AddItem(item[0], item[1], item[2], item[3], item[4][0], item[4][1], item[4][2], item[4][3], item[4][4], item[5]);
-        }
-        for (const auto& item : data["items"]["items"])
-        {
-            items.items.AddItem(item[0], item[1]);
-        }
-        items.levels = data["items"]["levels"];
-        items.goldPouch = data["items"]["money"];
-
-        goalAchievementId = data["goal"];
-        maxLevel = data["maxlevel"];
 
         apStone.CreateItem();
         SaveToDatabase();
@@ -681,7 +703,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::APBouncedHandler(const nlohmann::json& packet)
     {
-        if (!packet.contains("tags"))
+        if (!packet.contains("tags") || !packet["tags"].is_array())
         {
             return;
         }
@@ -691,18 +713,20 @@ namespace ModArchipelaWoW
         bool deathlink = (std::find(tags.begin(), tags.end(), "DeathLink") != tags.end());
         if (deathlink && deathLinkEnabled)
         {
-            auto& data = packet["data"];
-            std::string cause = "";
-            if (data.contains("cause"))
+            if (!packet.contains("data") || !packet["data"].is_object())
             {
-                cause = data["cause"];
+                return;
             }
-            std::string source = "";
-            if (data.contains("source"))
-            {
-                source = data["source"];
-            }
-            double timestamp = data["time"];
+
+            const auto& data = packet["data"];
+            std::string cause = data.value("cause", "");
+            std::string source = data.value("source", "");
+
+            // DeathLink bounces come from other games' implementations; some
+            // omit the timestamp, so fall back to "now".
+            double timestamp = data.contains("time") && data["time"].is_number()
+                ? data["time"].get<double>()
+                : ap->GetServerTime();
 
             if (timestamp > lastDeathTime && player->IsAlive())
             {
