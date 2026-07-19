@@ -768,6 +768,7 @@ namespace ModArchipelaWoW::Network
                 });
             }
 
+            slotInfo.clear();
             if (command.contains("slot_info") && command["slot_info"].is_object())
             {
                 for (const auto& [key, value] : command["slot_info"].items())
