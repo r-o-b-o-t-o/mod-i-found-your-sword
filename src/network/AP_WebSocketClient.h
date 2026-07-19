@@ -24,7 +24,8 @@ namespace ModArchipelaWoW::Network
 {
     /// A generic asynchronous WebSocket client built on boost::beast.
     /// Supports both plain (ws://) and TLS (wss://) connections.
-    /// All callbacks are invoked on the executor's thread.
+    /// All callbacks are invoked on the executor. The executor must be serialized
+    /// (e.g. a boost::asio::strand) if the underlying io_context runs on multiple threads.
     /// Connect(), Send(), Close(), Stop(), and GetState() are safe to call from any thread (internally dispatched).
     /// Handler setters (SetOpenHandler, SetCloseHandler, SetMessageHandler, SetErrorHandler) are NOT thread-safe
     /// and must be called before Connect().
