@@ -66,15 +66,6 @@ namespace ModArchipelaWoW::Network
             HintFound = 40
         };
 
-        struct Version
-        {
-            int ma = 0;
-            int mi = 0;
-            int build = 0;
-
-            static Version FromJson(const json& j);
-        };
-
         struct NetworkItem
         {
             int64_t item = 0;
@@ -192,7 +183,6 @@ namespace ModArchipelaWoW::Network
 
         State state = State::Disconnected;
         ClientStatus clientStatus = ClientStatus::Unknown;
-        std::string seed;
         std::string slotName;
         int team = -1;
         int slotnr = -1;
@@ -206,16 +196,12 @@ namespace ModArchipelaWoW::Network
         std::list<NetworkPlayer> players;
         std::map<int, NetworkSlot> slotInfo;
         json dataPackage;
-        std::map<int64_t, std::string> itemNameMap;
-        std::map<int64_t, std::string> locationNameMap;
         std::map<std::string, std::map<int64_t, std::string>> gameItemMap;
         std::map<std::string, std::map<int64_t, std::string>> gameLocationMap;
-        bool dataPackageValid = false;
         size_t pendingDataPackageRequests = 0;
 
         double serverConnectTime = 0.0;
         std::chrono::steady_clock::time_point localConnectTime;
-        Version serverVersion{};
 
         std::function<void(const json&)> onSlotConnected;
         std::function<void(const std::list<std::string>&)> onSlotRefused;

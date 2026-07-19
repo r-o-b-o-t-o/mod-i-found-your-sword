@@ -51,24 +51,6 @@ namespace ModArchipelaWoW::Network
     };
 
     // ---------------------------------------------------------------------------
-    // Version
-    // ---------------------------------------------------------------------------
-
-    Client::Version Client::Version::FromJson(const json& j)
-    {
-        if (j.is_null())
-        {
-            return { 0, 0, 0 };
-        }
-
-        return {
-            j.value("major", 0),
-            j.value("minor", 0),
-            j.value("build", 0)
-        };
-    }
-
-    // ---------------------------------------------------------------------------
     // TextNode
     // ---------------------------------------------------------------------------
 
@@ -126,7 +108,6 @@ namespace ModArchipelaWoW::Network
                 state = State::SocketConnected;
                 reconnectInterval = std::chrono::milliseconds{ 1500 };
                 pendingDataPackageRequests = 0;
-                serverVersion = {};
                 break;
 
             case EventQueue::Type::TlsHandshakeFailed:
@@ -142,7 +123,6 @@ namespace ModArchipelaWoW::Network
                 if (!shouldFallbackToPlain)
                 {
                     state = State::Disconnected;
-                    seed.clear();
                 }
                 break;
 
@@ -194,19 +174,14 @@ namespace ModArchipelaWoW::Network
 
         checkQueue.clear();
         clientStatus = ClientStatus::Unknown;
-        seed.clear();
         slotName.clear();
         team = -1;
         slotnr = -1;
         players.clear();
         slotInfo.clear();
-        itemNameMap.clear();
-        locationNameMap.clear();
         gameItemMap.clear();
         gameLocationMap.clear();
-        dataPackageValid = false;
         pendingDataPackageRequests = 0;
-        serverVersion = {};
         serverConnectTime = 0.0;
         localConnectTime = {};
     }
@@ -648,8 +623,6 @@ namespace ModArchipelaWoW::Network
         {
             localConnectTime = std::chrono::steady_clock::now();
             serverConnectTime = command["time"].get<double>();
-            serverVersion = Version::FromJson(command["version"]);
-            seed = command.value("seed_name", "");
 
             if (state < State::RoomInfo)
             {
@@ -755,7 +728,6 @@ namespace ModArchipelaWoW::Network
                 pendingDataPackageRequests--;
                 if (pendingDataPackageRequests == 0)
                 {
-                    dataPackageValid = true;
                     if (onDataPackageChanged) onDataPackageChanged(dataPackage);
                 }
             }
@@ -810,9 +782,7 @@ namespace ModArchipelaWoW::Network
                 auto& gi = gameItemMap[gameName];
                 for (const auto& [name, id] : gameData["item_name_to_id"].items())
                 {
-                    auto idVal = id.get<int64_t>();
-                    itemNameMap[idVal] = name;
-                    gi[idVal] = name;
+                    gi[id.get<int64_t>()] = name;
                 }
             }
 
@@ -821,9 +791,7 @@ namespace ModArchipelaWoW::Network
                 auto& gl = gameLocationMap[gameName];
                 for (const auto& [name, id] : gameData["location_name_to_id"].items())
                 {
-                    auto idVal = id.get<int64_t>();
-                    locationNameMap[idVal] = name;
-                    gl[idVal] = name;
+                    gl[id.get<int64_t>()] = name;
                 }
             }
         }
