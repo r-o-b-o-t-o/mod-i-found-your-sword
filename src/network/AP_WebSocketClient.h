@@ -105,6 +105,7 @@ namespace ModArchipelaWoW::Network
 
         void DoRead();
         void DoWrite();
+        void DoClose();
         void Fail(boost::beast::error_code ec);
 
         boost::asio::ip::tcp::resolver resolver;
@@ -113,6 +114,7 @@ namespace ModArchipelaWoW::Network
         boost::beast::flat_buffer readBuffer;
         std::queue<std::string> writeQueue;
         bool writing;
+        bool closeRequested;
         bool tls;
         std::atomic<bool> stopped;
 

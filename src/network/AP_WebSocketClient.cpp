@@ -116,6 +116,7 @@ namespace ModArchipelaWoW::Network
             : std::nullopt)
         , ws(MakeStream(executor, sslCtx))
         , writing(false)
+        , closeRequested(false)
         , tls(tls)
         , stopped(false)
         , state(State::Disconnected)
@@ -188,11 +189,16 @@ namespace ModArchipelaWoW::Network
                 }
 
                 self->state = State::Closing;
-                self->VisitStream([&](auto& s)
+
+                // async_close must not overlap an in-flight async_write; defer
+                // the close until the pending write completes.
+                if (self->writing)
                 {
-                    s.async_close(websocket::close_code::normal,
-                        beast::bind_front_handler(&WebSocketClient::OnClose, self));
-                });
+                    self->closeRequested = true;
+                    return;
+                }
+
+                self->DoClose();
             });
     }
 
@@ -403,6 +409,23 @@ namespace ModArchipelaWoW::Network
 
         if (ec)
         {
+            if (closeRequested)
+            {
+                // The close was deferred behind this write; the write failed,
+                // so tear the connection down directly.
+                closeRequested = false;
+                state = State::Disconnected;
+
+                beast::error_code closeEc;
+                VisitStream([&](auto& s) { beast::get_lowest_layer(s).socket().close(closeEc); });
+
+                if (onClose)
+                {
+                    onClose();
+                }
+                return;
+            }
+
             if (state == State::Disconnected || state == State::Closing)
             {
                 return;
@@ -415,6 +438,13 @@ namespace ModArchipelaWoW::Network
         if (!writeQueue.empty())
         {
             writeQueue.pop();
+        }
+
+        if (closeRequested)
+        {
+            closeRequested = false;
+            DoClose();
+            return;
         }
 
         if (!writeQueue.empty() && state == State::Connected)
@@ -477,9 +507,19 @@ namespace ModArchipelaWoW::Network
         });
     }
 
+    void WebSocketClient::DoClose()
+    {
+        VisitStream([&](auto& s)
+        {
+            s.async_close(websocket::close_code::normal,
+                beast::bind_front_handler(&WebSocketClient::OnClose, shared_from_this()));
+        });
+    }
+
     void WebSocketClient::Fail(beast::error_code ec)
     {
         state = State::Disconnected;
+        closeRequested = false;
 
         std::queue<std::string> empty;
         writeQueue.swap(empty);
