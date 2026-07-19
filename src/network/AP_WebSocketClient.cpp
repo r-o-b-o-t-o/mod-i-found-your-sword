@@ -335,7 +335,12 @@ namespace ModArchipelaWoW::Network
             return Fail(ec);
         }
 
-        writeQueue.pop();
+        // Fail() may have cleared the queue while this write was in flight.
+        if (!writeQueue.empty())
+        {
+            writeQueue.pop();
+        }
+
         if (!writeQueue.empty() && state == State::Connected)
         {
             DoWrite();
