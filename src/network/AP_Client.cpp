@@ -691,22 +691,26 @@ namespace ModArchipelaWoW::Network
 
     void Client::ProcessMessage(const std::string& message)
     {
-        try
+        json packet = json::parse(message, nullptr, false);
+        if (packet.is_discarded() || !packet.is_array())
         {
-            json packet = json::parse(message);
-            if (!packet.is_array())
-            {
-                return;
-            }
+            if (onMessageError) onMessageError("received malformed packet");
+            return;
+        }
 
-            for (auto& command : packet)
+        // Isolate each command so one malformed command cannot abort the rest
+        // of the packet. Required fields are read with at(), which throws on
+        // missing keys instead of the undefined behavior of const operator[].
+        for (const auto& command : packet)
+        {
+            try
             {
                 ProcessCommand(command);
             }
-        }
-        catch (const std::exception& ex)
-        {
-            if (onMessageError) onMessageError(ex.what());
+            catch (const std::exception& ex)
+            {
+                if (onMessageError) onMessageError(ex.what());
+            }
         }
     }
 
@@ -717,7 +721,7 @@ namespace ModArchipelaWoW::Network
         if (cmd == "RoomInfo")
         {
             localConnectTime = std::chrono::steady_clock::now();
-            serverConnectTime = command["time"].get<double>();
+            serverConnectTime = command.at("time").get<double>();
 
             serverChecksums.clear();
             if (command.contains("datapackage_checksums") && command["datapackage_checksums"].is_object())
@@ -743,7 +747,7 @@ namespace ModArchipelaWoW::Network
             if (onSlotRefused)
             {
                 std::list<std::string> errors;
-                for (const auto& error : command["errors"])
+                for (const auto& error : command.at("errors"))
                 {
                     errors.push_back(error.get<std::string>());
                 }
@@ -753,18 +757,24 @@ namespace ModArchipelaWoW::Network
         }
         else if (cmd == "Connected")
         {
+            // Read all required fields before mutating any state.
+            int newTeam = command.at("team").get<int>();
+            int newSlot = command.at("slot").get<int>();
+            const json& playerList = command.at("players");
+            const json& slotData = command.at("slot_data");
+
             state = State::SlotConnected;
-            team = command["team"].get<int>();
-            slotnr = command["slot"].get<int>();
+            team = newTeam;
+            slotnr = newSlot;
 
             players.clear();
-            for (const auto& p : command["players"])
+            for (const auto& p : playerList)
             {
                 players.push_back({
-                    p["team"].get<int>(),
-                    p["slot"].get<int>(),
-                    p["alias"].get<std::string>(),
-                    p["name"].get<std::string>()
+                    p.at("team").get<int>(),
+                    p.at("slot").get<int>(),
+                    p.at("alias").get<std::string>(),
+                    p.at("name").get<std::string>()
                 });
             }
 
@@ -796,19 +806,19 @@ namespace ModArchipelaWoW::Network
                 StatusUpdate(clientStatus);
             }
 
-            if (onSlotConnected) onSlotConnected(command["slot_data"]);
+            if (onSlotConnected) onSlotConnected(slotData);
         }
         else if (cmd == "ReceivedItems")
         {
             std::list<NetworkItem> items;
-            int index = command["index"].get<int>();
+            int index = command.at("index").get<int>();
 
-            for (const auto& j : command["items"])
+            for (const auto& j : command.at("items"))
             {
                 NetworkItem item;
-                item.item = j["item"].get<int64_t>();
-                item.location = j["location"].get<int64_t>();
-                item.player = j["player"].get<int>();
+                item.item = j.at("item").get<int64_t>();
+                item.location = j.at("location").get<int64_t>();
+                item.player = j.at("player").get<int>();
                 item.flags = j.value("flags", 0U);
                 item.index = index++;
                 items.push_back(item);
@@ -818,7 +828,7 @@ namespace ModArchipelaWoW::Network
         }
         else if (cmd == "DataPackage")
         {
-            for (const auto& [gameName, gameData] : command["data"]["games"].items())
+            for (const auto& [gameName, gameData] : command.at("data").at("games").items())
             {
                 ApplyGameData(gameName, gameData);
                 SaveDataPackageCache(gameData.value("checksum", ""), gameData);
@@ -838,7 +848,7 @@ namespace ModArchipelaWoW::Network
             if (onPrintJson)
             {
                 std::list<TextNode> data;
-                for (const auto& part : command["data"])
+                for (const auto& part : command.at("data"))
                 {
                     data.push_back(TextNode::FromJson(part));
                 }
@@ -858,10 +868,10 @@ namespace ModArchipelaWoW::Network
                 for (const auto& p : command["players"])
                 {
                     players.push_back({
-                        p["team"].get<int>(),
-                        p["slot"].get<int>(),
-                        p["alias"].get<std::string>(),
-                        p["name"].get<std::string>()
+                        p.at("team").get<int>(),
+                        p.at("slot").get<int>(),
+                        p.at("alias").get<std::string>(),
+                        p.at("name").get<std::string>()
                     });
                 }
             }
