@@ -120,6 +120,13 @@ namespace ModArchipelaWoW::Network
                     state = State::Disconnected;
                     if (onSocketDisconnected) onSocketDisconnected();
                 }
+                else if (!shouldFallbackToPlain)
+                {
+                    // Failed connection attempt: alternate between TLS and plain
+                    // until one succeeds. Once connected, the working scheme is
+                    // kept for later reconnects.
+                    currentAttemptTls = !currentAttemptTls;
+                }
                 if (!shouldFallbackToPlain)
                 {
                     state = State::Disconnected;
@@ -147,7 +154,7 @@ namespace ModArchipelaWoW::Network
             auto now = std::chrono::steady_clock::now();
             if (reconnectNow || (now - lastConnectAttempt >= reconnectInterval))
             {
-                ConnectSocket();
+                ConnectSocket(currentAttemptTls);
             }
         }
     }
