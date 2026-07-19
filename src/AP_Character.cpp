@@ -740,7 +740,8 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Data package:" << std::endl << data.dump() << std::endl;
+        size_t games = data.contains("games") ? data["games"].size() : 0;
+        std::cout << "Data package updated (" << games << " games)" << std::endl;
     }
 
     void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)
