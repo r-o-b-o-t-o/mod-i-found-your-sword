@@ -56,6 +56,10 @@ namespace ModArchipelaWoW::Network
 {
     static constexpr auto kHandshakeTimeout = std::chrono::seconds(30);
 
+    // Matches websocketpp's default; beast's 16 MB default is too small for
+    // the data packages of large Archipelago multiworlds.
+    static constexpr std::size_t kMaxMessageSize = 32 * 1024 * 1024;
+
     /// Populate the SSL context with the system's trusted root certificates.
     /// On Windows, OpenSSL's default verify paths are usually empty, so the
     /// certificates are imported from the Windows "ROOT" store instead.
@@ -317,7 +321,11 @@ namespace ModArchipelaWoW::Network
             return Fail(ec);
         }
 
-        VisitStream([&](auto& s) { s.text(true); });
+        VisitStream([&](auto& s)
+        {
+            s.text(true);
+            s.read_message_max(kMaxMessageSize);
+        });
 
         state = State::Connected;
         if (onOpen)
