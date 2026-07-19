@@ -6,6 +6,7 @@
 #include <boost/asio/ssl/error.hpp>
 #include <boost/beast/core/error.hpp>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cstdint>
 #include <exception>
@@ -66,6 +67,15 @@ namespace ModArchipelaWoW::Network
         }
 
         return data;
+    }
+
+    /// Parse a numeric id from server-provided text without throwing;
+    /// returns -1 on malformed input, which resolves to "Unknown" names.
+    static int64_t ParseId(const std::string& text)
+    {
+        int64_t id = -1;
+        std::from_chars(text.data(), text.data() + text.size(), id);
+        return id;
     }
 
     static void SaveDataPackageCache(const std::string& checksum, const nlohmann::json& gameData)
@@ -577,14 +587,14 @@ namespace ModArchipelaWoW::Network
 
             if (node.type == "player_id")
             {
-                int id = std::stoi(node.text);
+                int id = static_cast<int>(ParseId(node.text));
                 if (color.empty() && SlotConcernsSelf(id)) color = "magenta";
                 else if (color.empty()) color = "yellow";
                 text = GetPlayerAlias(id);
             }
             else if (node.type == "item_id")
             {
-                int64_t id = std::stoll(node.text);
+                int64_t id = ParseId(node.text);
                 if (color.empty())
                 {
                     if (node.flags & FlagAdvancement) color = "plum";
@@ -596,7 +606,7 @@ namespace ModArchipelaWoW::Network
             }
             else if (node.type == "location_id")
             {
-                int64_t id = std::stoll(node.text);
+                int64_t id = ParseId(node.text);
                 if (color.empty()) color = "blue";
                 text = GetLocationName(id, GetPlayerGame(node.player));
             }
