@@ -15,6 +15,7 @@
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
+#include "Log.h"
 #include "Mail.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
@@ -29,7 +30,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 #include <list>
 #include <memory>
 #include <string>
@@ -307,7 +307,7 @@ namespace ModArchipelaWoW
         std::string host = sConfig.GetArchipelagoServerHost();
         std::string port = std::to_string(sConfig.GetArchipelagoServerPort());
 
-        std::cout << "Connecting to Archipelago server at " << host << ":" << port << " with UUID " << uuid << std::endl;
+        LOG_INFO("module.archipelawow", "Connecting to Archipelago server at {}:{} with UUID {}", host, port, uuid);
         ChatHandler(player->GetSession()).SendSysMessage("Connecting to Archipelago server...");
 
         ap = std::make_unique<Network::Client>(sArchipelaWoW->GetWebSocketService(), uuid, AP_GAME_NAME, host, port);
@@ -340,7 +340,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Connecting to Archipelago slot..." << std::endl;
+        LOG_INFO("module.archipelawow", "Connecting to Archipelago slot {}...", slot);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("Connecting to Archipelago slot |cFFFF00FF{}|r...", slot));
 
         std::string password = sConfig.GetArchipelagoPassword();
@@ -439,7 +439,7 @@ namespace ModArchipelaWoW
             const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(item.value());
             if (!itemTemplate)
             {
-                std::cerr << "Invalid item ID " << item.value() << " received from Archipelago item " << itemId << "!" << std::endl;
+                LOG_ERROR("module.archipelawow", "Invalid item ID {} received from Archipelago item {}!", item.value(), itemId);
                 return;
             }
 
@@ -447,7 +447,7 @@ namespace ModArchipelaWoW
             Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
             if (!reward)
             {
-                std::cerr << "Failed to create item " << itemTemplate->ItemId << " (" << itemTemplate->Name1 << ") for reward!" << std::endl;
+                LOG_ERROR("module.archipelawow", "Failed to create item {} ({}) for reward!", itemTemplate->ItemId, itemTemplate->Name1);
                 return;
             }
 
@@ -595,7 +595,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Slot data: " << std::endl << data.dump() << std::endl;
+        LOG_DEBUG("module.archipelawow", "Slot data: {}", data.dump());
 
         // Parse everything before acting on it; a missing or mistyped field
         // (e.g. apworld/module version mismatch) throws and disconnects the
@@ -674,7 +674,7 @@ namespace ModArchipelaWoW
         }
         catch (const std::exception& ex)
         {
-            std::cerr << "Invalid slot data received: " << ex.what() << std::endl;
+            LOG_ERROR("module.archipelawow", "Invalid slot data received: {}", ex.what());
             ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Invalid slot data received from the Archipelago server (apworld/module version mismatch?). Disconnecting.");
             run = false;
             return;
@@ -694,12 +694,12 @@ namespace ModArchipelaWoW
 
     void AP_Character::APSocketErrorHandler(const std::string& error)
     {
-        std::cerr << "APSocketErrorHandler: " << error << std::endl;
+        LOG_ERROR("module.archipelawow", "Archipelago socket error: {}", error);
     }
 
     void AP_Character::APSocketDisconnectedHandler()
     {
-        std::cerr << "Disconnected from Archipelago server" << std::endl;
+        LOG_WARN("module.archipelawow", "Disconnected from Archipelago server");
         ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago server");
     }
 
@@ -765,7 +765,7 @@ namespace ModArchipelaWoW
         }
 
         size_t games = data.contains("games") ? data["games"].size() : 0;
-        std::cout << "Data package updated (" << games << " games)" << std::endl;
+        LOG_INFO("module.archipelawow", "Data package updated ({} games)", games);
 
         if (ap->GetState() < Network::Client::State::SlotConnected)
         {
@@ -775,7 +775,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)
     {
-        std::cout << "Received items:" << std::endl;
+        LOG_DEBUG("module.archipelawow", "Received {} items", items.size());
 
         int newItemIndex = itemIndex;
 
@@ -789,7 +789,8 @@ namespace ModArchipelaWoW
                 newItemIndex = item.index;
             }
 
-            std::cout << "  - Item index: " << item.index << ", sender: " << sender << ", item ID : " << item.item << ", flags : " << item.flags << ", already rewarded : " << alreadyRewarded << std::endl;
+            LOG_DEBUG("module.archipelawow", "Received item: index {}, sender {}, item ID {}, flags {}, already rewarded {}",
+                item.index, sender, item.item, item.flags, alreadyRewarded);
             RewardItem(item.item, alreadyRewarded, sender);
         }
 
@@ -832,7 +833,7 @@ namespace ModArchipelaWoW
             first = false;
         }
 
-        std::cerr << "Connection to slot " << slot << " refused: " << joined << std::endl;
+        LOG_ERROR("module.archipelawow", "Connection to slot {} refused: {}", slot, joined);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Connection to slot |cFFFF00FF{}|cFFFF0000 refused: {}|r", slot, joined));
 
         run = false;
@@ -840,7 +841,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::APMessageErrorHandler(const std::string& error)
     {
-        std::cerr << "APClient message processing error: " << error << std::endl;
+        LOG_ERROR("module.archipelawow", "APClient message processing error: {}", error);
     }
 
     std::string AP_Character::ConvertANSIColoredString(const std::string& str)
