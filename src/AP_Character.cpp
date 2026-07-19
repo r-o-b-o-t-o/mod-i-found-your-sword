@@ -725,8 +725,6 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "APRoomInfoHandler" << std::endl;
-
         // Fetch our own and the server's data package before connecting the
         // slot, so the initial item/location messages render proper names.
         // The remaining games are fetched after the slot is connected.
