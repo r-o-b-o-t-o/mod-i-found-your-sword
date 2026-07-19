@@ -227,6 +227,11 @@ namespace ModArchipelaWoW::Network
 
     void WebSocketClient::OnResolve(beast::error_code ec, tcp::resolver::results_type results)
     {
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             return Fail(ec);
@@ -242,6 +247,11 @@ namespace ModArchipelaWoW::Network
 
     void WebSocketClient::OnConnect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
     {
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             return Fail(ec);
@@ -292,6 +302,11 @@ namespace ModArchipelaWoW::Network
 
     void WebSocketClient::OnSslHandshake(beast::error_code ec)
     {
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             return Fail(ec);
@@ -316,6 +331,11 @@ namespace ModArchipelaWoW::Network
 
     void WebSocketClient::OnHandshake(beast::error_code ec)
     {
+        if (stopped.load(std::memory_order_acquire))
+        {
+            return;
+        }
+
         if (ec)
         {
             return Fail(ec);
