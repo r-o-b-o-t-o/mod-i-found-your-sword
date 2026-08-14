@@ -3,7 +3,6 @@
 
 #include "locations/AP_Achievements.h"
 #include "locations/AP_FlightPaths.h"
-#include "locations/AP_GameObjects.h"
 #include "locations/AP_Levels.h"
 #include "locations/AP_Quests.h"
 
@@ -15,7 +14,6 @@ namespace ModArchipelaWoW::Locations
         LocationsContainer() :
             achievements(),
             flightPaths(),
-            gameObjects(),
             levels(),
             quests()
         {
@@ -23,7 +21,6 @@ namespace ModArchipelaWoW::Locations
 
         Achievements achievements;
         FlightPaths flightPaths;
-        GameObjects gameObjects;
         Levels levels;
         Quests quests;
     };
