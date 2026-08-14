@@ -179,7 +179,7 @@ void ModArchipelaWoW::AP_Stone::HandleZoneTeleportSubmenuAction(Item* item, uint
 void ModArchipelaWoW::AP_Stone::HandleZoneTeleportAction(Item* item, uint32 action)
 {
     if (action == GOSSIP_ITEM_BACK) SendZoneTeleportMenu(item);
-    else HandleGenericTeleportAction(item, action);
+    else HandleGenericTeleportAction(action);
 }
 
 void ModArchipelaWoW::AP_Stone::SendDungeonTeleportMenu(Item* item)
@@ -203,10 +203,10 @@ void ModArchipelaWoW::AP_Stone::HandleDungeonTeleportSubmenuAction(Item* item, u
 void ModArchipelaWoW::AP_Stone::HandleDungeonTeleportAction(Item* item, uint32 action)
 {
     if (action == GOSSIP_ITEM_BACK) SendDungeonTeleportMenu(item);
-    else HandleGenericTeleportAction(item, action);
+    else HandleGenericTeleportAction(action);
 }
 
-void ModArchipelaWoW::AP_Stone::HandleGenericTeleportAction(Item* item, uint32 action)
+void ModArchipelaWoW::AP_Stone::HandleGenericTeleportAction(uint32 action)
 {
     player->PlayerTalkClass->SendCloseGossip();
 

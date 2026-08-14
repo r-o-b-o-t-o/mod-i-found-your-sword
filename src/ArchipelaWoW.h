@@ -4,12 +4,15 @@
 #include "AP_Config.h"
 #include "DBCStructure.h"
 #include "Define.h"
+#include "IoContext.h"
 #include "Item.h"
+#include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Unit.h"
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -24,13 +27,15 @@ namespace ModArchipelaWoW
         static ArchipelaWoW* Instance();
 
         uint32 GetCreatureTemplateForPlayer(std::string name);
+        Network::WebSocketService& GetWebSocketService();
 
         // Config methods
         const Config& GetConfig();
 
         // WorldScripts methods
         void OnBeforeConfigLoad(bool reload);
-        void OnWorldUpdate(uint32 diff);
+        void OnWorldUpdate();
+        void OnShutdown();
 
         // PlayerScripts methods
         void OnPlayerLogin(Player* player);
@@ -38,7 +43,7 @@ namespace ModArchipelaWoW
         void OnPlayerAchievementComplete(Player* player, const AchievementEntry* achievement);
         void OnPlayerCompleteQuest(Player* player, const Quest* quest);
         void OnPlayerDied(Player* player, const std::string& cause);
-        void OnPlayerDelete(ObjectGuid playerGuid, uint32 account);
+        void OnPlayerDelete(ObjectGuid playerGuid);
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level);
         void OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId);
@@ -50,10 +55,14 @@ namespace ModArchipelaWoW
         bool OnUseArchipelagoStone(Player* player, Item* item);
         void OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action);
 
+        // ServerScripts methods
+        void OnNetworkStart(Acore::Asio::IoContext& ioContext);
+
     private:
         Config config;
         std::unordered_map<ObjectGuid::LowType, AP_Character*> apCharacters;
         std::unordered_map<std::string, uint32> playerCreatureTemplates;
+        std::unique_ptr<Network::WebSocketService> wsService;
 
         void InitializeConfig(bool reload);
         void LoadPlayerCreatureTemplates();

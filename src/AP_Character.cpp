@@ -1,21 +1,23 @@
 #include "AP_Character.h"
 #include "AP_PlayerPosition.h"
-#include "apclient.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
 #include "DatabaseEnv.h"
+#include "DatabaseEnvFwd.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Errors.h"
 #include "Field.h"
-#include "fmt/core.h"
+#include "fmt/format.h"
 #include "GameTime.h"
 #include "Item.h"
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
+#include "Log.h"
 #include "Mail.h"
+#include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -23,12 +25,13 @@
 #include "Unit.h"
 
 #include <algorithm>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <functional>
-#include <iostream>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -40,8 +43,8 @@ constexpr uint32 TELEPORT_SPELL_ID = 7141; // Simple Teleport - visual effect, u
 namespace ModArchipelaWoW
 {
     AP_Character::AP_Character(Player* player, std::string slot) :
-        ap(nullptr),
         player(player),
+        apStone(this),
         slot(slot),
         itemIndex(-1),
         lastDeathTime(-1.0),
@@ -51,7 +54,6 @@ namespace ModArchipelaWoW
         tags(),
         items(),
         locations(),
-        apStone(this),
         unlockedZones(),
         lastUnlockedPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation()),
         nextLockedZoneCheck(GameTime::GetGameTime() + std::chrono::seconds(6)),
@@ -86,9 +88,7 @@ namespace ModArchipelaWoW
     {
         if (ap)
         {
-            ap->reset();
-            delete ap;
-            ap = nullptr;
+            ap->Reset();
         }
     }
 
@@ -108,7 +108,7 @@ namespace ModArchipelaWoW
 
             CheckIsInLockedZone();
             SavePosition();
-            ap->poll();
+            ap->Poll();
         }
 
         return run;
@@ -130,7 +130,7 @@ namespace ModArchipelaWoW
         {
             return "";
         }
-        return ap->get_item_name(itemId, AP_GAME_NAME);
+        return ap->GetItemName(itemId, AP_GAME_NAME);
     }
 
     bool AP_Character::IsZoneUnlocked(uint32 zoneId) const
@@ -193,7 +193,7 @@ namespace ModArchipelaWoW
             SaveToDatabase();
             if (ap)
             {
-                ap->StatusUpdate(APClient::ClientStatus::GOAL);
+                ap->StatusUpdate(Network::Client::ClientStatus::Goal);
             }
         }
     }
@@ -205,7 +205,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        double timestamp = ap->get_server_time();
+        double timestamp = ap->GetServerTime();
         if (lastDeathTime > 0.0 && timestamp - 3.0 < lastDeathTime)
         {
             // Prevent from sending a death link if we just died from one
@@ -229,7 +229,6 @@ namespace ModArchipelaWoW
             return;
         }
 
-        auto questId = quest->GetQuestId();
         auto checkId = locations.quests.GetLocationId(quest);
         if (checkId.has_value())
         {
@@ -237,7 +236,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource)
+    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* /*victim*/, uint8 /*xpSource*/)
     {
         if (apLevel >= maxLevel)
         {
@@ -305,20 +304,13 @@ namespace ModArchipelaWoW
 
     void AP_Character::CreateAPClient()
     {
-        if (ap)
-        {
-            delete ap;
-            ap = nullptr;
-        }
-
         std::string host = sConfig.GetArchipelagoServerHost();
-        uint32 port = sConfig.GetArchipelagoServerPort();
-        std::string uri = host + ":" + std::to_string(port);
+        std::string port = std::to_string(sConfig.GetArchipelagoServerPort());
 
-        std::cout << "Connecting to Archipelago server at " << uri << " with UUID " << uuid << std::endl;
+        LOG_INFO("module.archipelawow", "Connecting to Archipelago server at {}:{} with UUID {}", host, port, uuid);
         ChatHandler(player->GetSession()).SendSysMessage("Connecting to Archipelago server...");
 
-        ap = new APClient(uuid, AP_GAME_NAME, uri);
+        ap = std::make_unique<Network::Client>(sArchipelaWoW->GetWebSocketService(), uuid, AP_GAME_NAME, host, port);
         AddArchipelagoClientHandlers();
     }
 
@@ -329,16 +321,16 @@ namespace ModArchipelaWoW
             return;
         }
 
-        ap->set_slot_connected_handler(std::bind(&AP_Character::APSlotConnectedHandler, this, std::placeholders::_1));
-        ap->set_socket_error_handler(std::bind(&AP_Character::APSocketErrorHandler, this, std::placeholders::_1));
-        ap->set_socket_disconnected_handler(std::bind(&AP_Character::APSocketDisconnectedHandler, this));
-        ap->set_slot_disconnected_handler(std::bind(&AP_Character::APSlotDisconnectedHandler, this));
-        ap->set_bounced_handler(std::bind(&AP_Character::APBouncedHandler, this, std::placeholders::_1));
-        ap->set_room_info_handler(std::bind(&AP_Character::APRoomInfoHandler, this));
-        ap->set_data_package_changed_handler(std::bind(&AP_Character::APDataPackageHandler, this, std::placeholders::_1));
-        ap->set_items_received_handler(std::bind(&AP_Character::APReceivedItemsHandler, this, std::placeholders::_1));
-        ap->set_print_json_handler([this](const std::list<APClient::TextNode>& msg) { this->APPrintJsonHandler(msg); });
-        ap->set_slot_refused_handler(std::bind(&AP_Character::APSlotRefusedHandler, this, std::placeholders::_1));
+        ap->SetSlotConnectedHandler([this](const auto& d) { APSlotConnectedHandler(d); });
+        ap->SetSocketErrorHandler([this](const auto& e) { APSocketErrorHandler(e); });
+        ap->SetSocketDisconnectedHandler([this]() { APSocketDisconnectedHandler(); });
+        ap->SetBouncedHandler([this](const auto& p) { APBouncedHandler(p); });
+        ap->SetRoomInfoHandler([this]() { APRoomInfoHandler(); });
+        ap->SetDataPackageChangedHandler([this](const auto& d) { APDataPackageHandler(d); });
+        ap->SetItemsReceivedHandler([this](const auto& i) { APReceivedItemsHandler(i); });
+        ap->SetPrintJsonHandler([this](const auto& msg) { APPrintJsonHandler(msg); });
+        ap->SetSlotRefusedHandler([this](const auto& e) { APSlotRefusedHandler(e); });
+        ap->SetMessageErrorHandler([this](const auto& e) { APMessageErrorHandler(e); });
     }
 
     void AP_Character::ConnectAPSlot()
@@ -348,7 +340,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Connecting to Archipelago slot..." << std::endl;
+        LOG_INFO("module.archipelawow", "Connecting to Archipelago slot {}...", slot);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("Connecting to Archipelago slot |cFFFF00FF{}|r...", slot));
 
         std::string password = sConfig.GetArchipelagoPassword();
@@ -431,7 +423,7 @@ namespace ModArchipelaWoW
 
         if (goalCompleted)
         {
-            ap->StatusUpdate(APClient::ClientStatus::GOAL);
+            ap->StatusUpdate(Network::Client::ClientStatus::Goal);
         }
     }
 
@@ -447,7 +439,7 @@ namespace ModArchipelaWoW
             const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(item.value());
             if (!itemTemplate)
             {
-                std::cerr << "Invalid item ID " << item.value() << " received from Archipelago item " << itemId << "!" << std::endl;
+                LOG_ERROR("module.archipelawow", "Invalid item ID {} received from Archipelago item {}!", item.value(), itemId);
                 return;
             }
 
@@ -455,7 +447,7 @@ namespace ModArchipelaWoW
             Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
             if (!reward)
             {
-                std::cerr << "Failed to create item " << itemTemplate->ItemId << " (" << itemTemplate->Name1 << ") for reward!" << std::endl;
+                LOG_ERROR("module.archipelawow", "Failed to create item {} ({}) for reward!", itemTemplate->ItemId, itemTemplate->Name1);
                 return;
             }
 
@@ -582,13 +574,13 @@ namespace ModArchipelaWoW
     MailSender AP_Character::GetMailSender(int sender)
     {
         MailSender mailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_DEFAULT);
-        if (sender == ap->get_player_number())
+        if (sender == ap->GetPlayerNumber())
         {
             mailSender = MailSender(player);
         }
         else
         {
-            std::string senderName = ap->get_player_alias(sender);
+            std::string senderName = ap->GetPlayerAlias(sender);
             uint32 creature = sArchipelaWoW->GetCreatureTemplateForPlayer(senderName);
             mailSender = MailSender(MAIL_CREATURE, creature);
         }
@@ -603,116 +595,140 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Slot data: " << std::endl << data.dump() << std::endl;
+        LOG_DEBUG("module.archipelawow", "Slot data: {}", data.dump());
 
-        if (data["options"]["character_class"] != player->getClass())
+        // Parse everything before acting on it; a missing or mistyped field
+        // (e.g. apworld/module version mismatch) throws and disconnects the
+        // slot instead of leaving a half-initialized character.
+        try
         {
-            const ChrClassesEntry* slotClass = sChrClassesStore.LookupEntry(data["options"]["character_class"]);
-            if (slotClass)
+            const auto& options = data.at("options");
+
+            uint32 requiredClass = options.at("character_class").get<uint32>();
+            if (requiredClass != player->getClass())
             {
-                auto locale = player->GetSession()->GetSessionDbcLocale();
-                std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character class mismatch.", slotClass->name[locale]);
-                ChatHandler(player->GetSession()).SendSysMessage(msg);
+                const ChrClassesEntry* slotClass = sChrClassesStore.LookupEntry(requiredClass);
+                if (slotClass)
+                {
+                    auto locale = player->GetSession()->GetSessionDbcLocale();
+                    std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character class mismatch.", slotClass->name[locale]);
+                    ChatHandler(player->GetSession()).SendSysMessage(msg);
+                }
+                run = false;
             }
-            run = false;
-        }
 
-        if (data["options"]["character_race"] != player->getRace(true))
-        {
-            const ChrRacesEntry* slotRace = sChrRacesStore.LookupEntry(data["options"]["character_race"]);
-            if (slotRace)
+            uint32 requiredRace = options.at("character_race").get<uint32>();
+            if (requiredRace != player->getRace(true))
             {
-                auto locale = player->GetSession()->GetSessionDbcLocale();
-                std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character race mismatch.", slotRace->name[locale]);
-                ChatHandler(player->GetSession()).SendSysMessage(msg);
+                const ChrRacesEntry* slotRace = sChrRacesStore.LookupEntry(requiredRace);
+                if (slotRace)
+                {
+                    auto locale = player->GetSession()->GetSessionDbcLocale();
+                    std::string msg = fmt::format("|cFFFF0000This slot requires a {}! Disconnecting slot because of character race mismatch.", slotRace->name[locale]);
+                    ChatHandler(player->GetSession()).SendSysMessage(msg);
+                }
+                run = false;
             }
-            run = false;
-        }
 
-        if (!run)
+            if (!run)
+            {
+                return;
+            }
+
+            deathLinkEnabled = options.at("death_link") == 1;
+
+            const auto& locationData = data.at("locations");
+            for (const auto& level : locationData.at("levels"))
+            {
+                locations.levels.AddLocation(level.at(0), level.at(1));
+            }
+            for (const auto& quest : locationData.at("quests"))
+            {
+                locations.quests.AddLocation(quest.at(0), quest.at(1));
+            }
+            for (const auto& achievement : locationData.at("achievements"))
+            {
+                locations.achievements.AddLocation(achievement.at(0), achievement.at(1));
+            }
+            for (const auto& fp : locationData.at("flightpaths"))
+            {
+                locations.flightPaths.AddLocation(fp.at(0), fp.at(1));
+            }
+
+            const auto& itemData = data.at("items");
+            for (const auto& item : itemData.at("zones"))
+            {
+                const auto& pos = item.at(4);
+                items.zones.AddItem(item.at(0), item.at(1), item.at(2), item.at(3),
+                    pos.at(0), pos.at(1), pos.at(2), pos.at(3), pos.at(4), item.at(5));
+            }
+            for (const auto& item : itemData.at("items"))
+            {
+                items.items.AddItem(item.at(0), item.at(1));
+            }
+            items.levels = itemData.at("levels");
+            items.goldPouch = itemData.at("money");
+
+            goalAchievementId = data.at("goal");
+            maxLevel = data.at("maxlevel");
+        }
+        catch (const std::exception& ex)
         {
+            LOG_ERROR("module.archipelawow", "Invalid slot data received: {}", ex.what());
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Invalid slot data received from the Archipelago server (apworld/module version mismatch?). Disconnecting.");
+            run = false;
             return;
         }
 
-        deathLinkEnabled = data["options"]["death_link"] == 1;
         if (deathLinkEnabled && std::find(tags.begin(), tags.end(), "DeathLink") == tags.end())
         {
             tags.push_back("DeathLink");
             ap->ConnectUpdate(0b111, tags);
         }
 
-        for (const auto& level : data["locations"]["levels"])
-        {
-            locations.levels.AddLocation(level[0], level[1]);
-        }
-        for (const auto& quest : data["locations"]["quests"])
-        {
-            locations.quests.AddLocation(quest[0], quest[1]);
-        }
-        for (const auto& achievement : data["locations"]["achievements"])
-        {
-            locations.achievements.AddLocation(achievement[0], achievement[1]);
-        }
-        for (const auto& fp : data["locations"]["flightpaths"])
-        {
-            locations.flightPaths.AddLocation(fp[0], fp[1]);
-        }
-
-        for (const auto& item : data["items"]["zones"])
-        {
-            items.zones.AddItem(item[0], item[1], item[2], item[3], item[4][0], item[4][1], item[4][2], item[4][3], item[4][4], item[5]);
-        }
-        for (const auto& item : data["items"]["items"])
-        {
-            items.items.AddItem(item[0], item[1]);
-        }
-        items.levels = data["items"]["levels"];
-        items.goldPouch = data["items"]["money"];
-
-        goalAchievementId = data["goal"];
-        maxLevel = data["maxlevel"];
-
         apStone.CreateItem();
         SaveToDatabase();
         SyncLocationChecks();
+        ap->GetDataPackage(ap->GetAllGames());
     }
 
     void AP_Character::APSocketErrorHandler(const std::string& error)
     {
-        std::cerr << "APSocketErrorHandler: " << error << std::endl;
+        LOG_ERROR("module.archipelawow", "Archipelago socket error: {}", error);
     }
 
     void AP_Character::APSocketDisconnectedHandler()
     {
-        std::cerr << "Disconnected from Archipelago server" << std::endl;
+        LOG_WARN("module.archipelawow", "Disconnected from Archipelago server");
         ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago server");
-    }
-
-    void AP_Character::APSlotDisconnectedHandler()
-    {
-        std::cerr << "Disconnected from Archipelago slot" << std::endl;
-        ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago slot");
     }
 
     void AP_Character::APBouncedHandler(const nlohmann::json& packet)
     {
+        if (!packet.contains("tags") || !packet["tags"].is_array())
+        {
+            return;
+        }
+
         std::list<std::string> tags = packet["tags"];
 
         bool deathlink = (std::find(tags.begin(), tags.end(), "DeathLink") != tags.end());
         if (deathlink && deathLinkEnabled)
         {
-            auto& data = packet["data"];
-            std::string cause = "";
-            if (data.contains("cause"))
+            if (!packet.contains("data") || !packet["data"].is_object())
             {
-                cause = data["cause"];
+                return;
             }
-            std::string source = "";
-            if (data.contains("source"))
-            {
-                source = data["source"];
-            }
-            double timestamp = data["time"];
+
+            const auto& data = packet["data"];
+            std::string cause = data.value("cause", "");
+            std::string source = data.value("source", "");
+
+            // DeathLink bounces come from other games' implementations; some
+            // omit the timestamp, so fall back to "now".
+            double timestamp = data.contains("time") && data["time"].is_number()
+                ? data["time"].get<double>()
+                : ap->GetServerTime();
 
             if (timestamp > lastDeathTime && player->IsAlive())
             {
@@ -735,8 +751,10 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "APRoomInfoHandler" << std::endl;
-        ap->GetDataPackage({ AP_GAME_NAME });
+        // Fetch our own and the server's data package before connecting the
+        // slot, so the initial item/location messages render proper names.
+        // The remaining games are fetched after the slot is connected.
+        ap->GetDataPackage({ AP_GAME_NAME, "Archipelago" });
     }
 
     void AP_Character::APDataPackageHandler(const nlohmann::json& data)
@@ -746,17 +764,18 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::cout << "Data package:" << std::endl << data.dump() << std::endl;
+        size_t games = data.contains("games") ? data["games"].size() : 0;
+        LOG_INFO("module.archipelawow", "Data package updated ({} games)", games);
 
-        if (ap->get_state() < APClient::State::SLOT_CONNECTED)
+        if (ap->GetState() < Network::Client::State::SlotConnected)
         {
             ConnectAPSlot();
         }
     }
 
-    void AP_Character::APReceivedItemsHandler(const std::list<APClient::NetworkItem>& items)
+    void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)
     {
-        std::cout << "Received items:" << std::endl;
+        LOG_DEBUG("module.archipelawow", "Received {} items", items.size());
 
         int newItemIndex = itemIndex;
 
@@ -770,7 +789,8 @@ namespace ModArchipelaWoW
                 newItemIndex = item.index;
             }
 
-            std::cout << "  - Item index: " << item.index << ", sender: " << sender << ", item ID : " << item.item << ", flags : " << item.flags << ", already rewarded : " << alreadyRewarded << std::endl;
+            LOG_DEBUG("module.archipelawow", "Received item: index {}, sender {}, item ID {}, flags {}, already rewarded {}",
+                item.index, sender, item.item, item.flags, alreadyRewarded);
             RewardItem(item.item, alreadyRewarded, sender);
         }
 
@@ -783,14 +803,14 @@ namespace ModArchipelaWoW
         itemsSynced = true;
     }
 
-    void AP_Character::APPrintJsonHandler(const std::list<APClient::TextNode>& msg)
+    void AP_Character::APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg)
     {
         if (!ap || !run)
         {
             return;
         }
 
-        std::string str = ap->render_json(msg, APClient::RenderFormat::ANSI);
+        std::string str = ap->RenderJson(msg, Network::Client::RenderFormat::Ansi);
         str = ConvertANSIColoredString(str);
         ChatHandler(player->GetSession()).SendSysMessage(str);
     }
@@ -813,10 +833,15 @@ namespace ModArchipelaWoW
             first = false;
         }
 
-        std::cerr << "Connection to slot " << slot << " refused: " << joined << std::endl;
+        LOG_ERROR("module.archipelawow", "Connection to slot {} refused: {}", slot, joined);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Connection to slot |cFFFF00FF{}|cFFFF0000 refused: {}|r", slot, joined));
 
         run = false;
+    }
+
+    void AP_Character::APMessageErrorHandler(const std::string& error)
+    {
+        LOG_ERROR("module.archipelawow", "APClient message processing error: {}", error);
     }
 
     std::string AP_Character::ConvertANSIColoredString(const std::string& str)
@@ -866,12 +891,6 @@ namespace ModArchipelaWoW
 
     std::string AP_Character::GenerateUUID()
     {
-        QueryResult result = CharacterDatabase.Query("SELECT UUID()");
-        if (!result)
-        {
-            return "";
-        }
-
-        return (*result)[0].Get<std::string>();
+        return boost::uuids::to_string(boost::uuids::random_generator()());
     }
 }

@@ -3,7 +3,6 @@
 
 #include "AP_PlayerPosition.h"
 #include "AP_Stone.h"
-#include "apclient.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
@@ -11,15 +10,16 @@
 #include "items/AP_Zones.h"
 #include "locations/AP_LocationsContainer.h"
 #include "Mail.h"
+#include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Unit.h"
 
-#include <apclientpp/apclient.hpp>
 #include <chrono>
 #include <cstdint>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -56,7 +56,7 @@ namespace ModArchipelaWoW
         void OnSelectArchipelagoStoneGossip(Item* item, uint32 sender, uint32 action);
 
     private:
-        APClient* ap;
+        std::unique_ptr<Network::Client> ap;
         Player* player;
         AP_Stone apStone;
         std::string uuid;
@@ -99,13 +99,13 @@ namespace ModArchipelaWoW
         void APSlotConnectedHandler(const nlohmann::json& data);
         void APSocketErrorHandler(const std::string& error);
         void APSocketDisconnectedHandler();
-        void APSlotDisconnectedHandler();
         void APBouncedHandler(const nlohmann::json& packet);
         void APRoomInfoHandler();
         void APDataPackageHandler(const nlohmann::json& data);
-        void APReceivedItemsHandler(const std::list<APClient::NetworkItem>& items);
-        void APPrintJsonHandler(const std::list<APClient::TextNode>& msg);
+        void APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items);
+        void APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg);
         void APSlotRefusedHandler(const std::list<std::string>& errors);
+        void APMessageErrorHandler(const std::string& error);
 
         static std::string ConvertANSIColoredString(const std::string& str);
         static std::string GenerateUUID();

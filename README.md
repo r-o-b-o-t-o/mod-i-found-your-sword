@@ -11,9 +11,6 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 
 ### Prerequisites
 
-> [!WARNING]
-> The changes from [#25295](https://github.com/azerothcore/azerothcore-wotlk/pull/25295) must be applied to your AzerothCore local clone.
-
 The following modules are required for full progression:
 - [DungeonRespawn](https://github.com/Dreathean/DungeonRespawn)
 - [mod-autobalance](https://github.com/azerothcore/mod-autobalance)
