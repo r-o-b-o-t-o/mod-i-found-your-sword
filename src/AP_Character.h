@@ -74,6 +74,8 @@ namespace ModArchipelaWoW
         std::chrono::seconds nextLockedZoneCheck;
         std::chrono::seconds nextSave;
         uint32 goalAchievementId;
+        uint8 gearRewardLevelWindow;
+        bool gearAllArmorTypes;
         uint8 maxLevel;
         uint8 apLevel;
         uint32 apExp;
@@ -89,6 +91,7 @@ namespace ModArchipelaWoW
         void SaveToDatabase();
         void SyncLocationChecks();
         void RewardItem(int64_t itemId, bool alreadyRewarded, int sender);
+        void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);
         void CheckIsInLockedZone();
         void SavePosition();
         void LoadXPForLevel();

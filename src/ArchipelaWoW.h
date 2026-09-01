@@ -6,6 +6,7 @@
 #include "Define.h"
 #include "IoContext.h"
 #include "Item.h"
+#include "items/AP_GearPool.h"
 #include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "Player.h"
@@ -28,12 +29,14 @@ namespace ModArchipelaWoW
 
         uint32 GetCreatureTemplateForPlayer(std::string name);
         Network::WebSocketService& GetWebSocketService();
+        const Items::GearPool& GetGearPool() const;
 
         // Config methods
         const Config& GetConfig();
 
         // WorldScripts methods
         void OnBeforeConfigLoad(bool reload);
+        void OnStartup();
         void OnWorldUpdate();
         void OnShutdown();
 
@@ -63,8 +66,11 @@ namespace ModArchipelaWoW
         std::unordered_map<ObjectGuid::LowType, AP_Character*> apCharacters;
         std::unordered_map<std::string, uint32> playerCreatureTemplates;
         std::unique_ptr<Network::WebSocketService> wsService;
+        Items::GearPool gearPool;
+        bool gearPoolBuilt;
 
         void InitializeConfig(bool reload);
+        void BuildGearPool();
         void LoadPlayerCreatureTemplates();
     };
 }

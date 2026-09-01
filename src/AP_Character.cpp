@@ -4,6 +4,7 @@
 #include "Chat.h"
 #include "DatabaseEnv.h"
 #include "DatabaseEnvFwd.h"
+#include "DBCEnums.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -12,6 +13,8 @@
 #include "fmt/format.h"
 #include "GameTime.h"
 #include "Item.h"
+#include "items/AP_Gear.h"
+#include "items/AP_GearPool.h"
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
@@ -20,6 +23,7 @@
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "ObjectMgr.h"
+#include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Unit.h"
@@ -32,6 +36,7 @@
 #include <cstdint>
 #include <list>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -39,6 +44,8 @@
 constexpr auto AP_GAME_NAME = "World of Warcraft";
 constexpr uint32 TRESPASSER_SPELL_ID = 73536; // Trespasser - spell with teleport visual effect and short stun, used when player tries to enter a locked zone
 constexpr uint32 TELEPORT_SPELL_ID = 7141; // Simple Teleport - visual effect, used when teleporting with the Archipelago Stone
+// Stands in until the slot sends its own, which it does before any item can arrive
+constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 5;
 
 namespace ModArchipelaWoW
 {
@@ -59,6 +66,8 @@ namespace ModArchipelaWoW
         nextLockedZoneCheck(GameTime::GetGameTime() + std::chrono::seconds(6)),
         nextSave(GameTime::GetGameTime() + std::chrono::seconds(15)),
         goalAchievementId(0),
+        gearRewardLevelWindow(DEFAULT_GEAR_REWARD_LEVEL_WINDOW),
+        gearAllArmorTypes(false),
         maxLevel(0),
         apLevel(1),
         apExp(0),
@@ -432,31 +441,36 @@ namespace ModArchipelaWoW
         auto item = items.items.GetWoWItemId(itemId);
         if (item.has_value())
         {
-            if (alreadyRewarded)
+            if (!alreadyRewarded)
             {
-                return;
+                MailItemReward(item.value(), itemId, sender);
             }
-            const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(item.value());
-            if (!itemTemplate)
-            {
-                LOG_ERROR("module.archipelawow", "Invalid item ID {} received from Archipelago item {}!", item.value(), itemId);
-                return;
-            }
+            return;
+        }
 
-            MailSender mailSender = GetMailSender(sender);
-            Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
-            if (!reward)
+        auto gear = items.gear.GetGearItem(itemId);
+        if (gear.has_value())
+        {
+            if (!alreadyRewarded)
             {
-                LOG_ERROR("module.archipelawow", "Failed to create item {} ({}) for reward!", itemTemplate->ItemId, itemTemplate->Name1);
-                return;
-            }
+                // Rolled here rather than upstream when the seed was built. Which piece fits depends
+                // on the level the character is at when the item lands and on what its class can
+                // wear, and the multiworld knows neither when it generates.
+                Optional<uint32> rolled = sArchipelaWoW->GetGearPool().Roll(
+                    gear.value().category, gear.value().quality, player,
+                    gearRewardLevelWindow, gearAllArmorTypes, maxLevel
+                );
+                if (!rolled)
+                {
+                    LOG_ERROR("module.archipelawow",
+                        "No gear candidate for Archipelago item {} (category {}, quality {}) for a level {} class {}!",
+                        itemId, static_cast<uint32>(gear.value().category), gear.value().quality,
+                        player->GetLevel(), static_cast<uint32>(player->getClass()));
+                    return;
+                }
 
-            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-            reward->SaveToDB(trans);
-            MailDraft(itemTemplate->Name1, "")
-                .AddItem(reward)
-                .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), mailSender);
-            CharacterDatabase.CommitTransaction(trans);
+                MailItemReward(rolled.value(), itemId, sender);
+            }
             return;
         }
 
@@ -571,6 +585,33 @@ namespace ModArchipelaWoW
         );
     }
 
+    void AP_Character::MailItemReward(uint32 wowItemId, int64_t apItemId, int sender)
+    {
+        ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(wowItemId);
+        if (!itemTemplate)
+        {
+            LOG_ERROR("module.archipelawow", "Invalid item ID {} received from Archipelago item {}!",
+                wowItemId, apItemId);
+            return;
+        }
+
+        MailSender mailSender = GetMailSender(sender);
+        Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
+        if (!reward)
+        {
+            LOG_ERROR("module.archipelawow", "Failed to create item {} ({}) for reward!",
+                itemTemplate->ItemId, itemTemplate->Name1);
+            return;
+        }
+
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+        reward->SaveToDB(trans);
+        MailDraft(itemTemplate->Name1, "")
+            .AddItem(reward)
+            .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), mailSender);
+        CharacterDatabase.CommitTransaction(trans);
+    }
+
     MailSender AP_Character::GetMailSender(int sender)
     {
         MailSender mailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_DEFAULT);
@@ -637,6 +678,12 @@ namespace ModArchipelaWoW
 
             deathLinkEnabled = options.at("death_link") == 1;
 
+            // Per slot rather than per server: two players sharing a worldserver can run different
+            // window widths, so the value travels with the slot instead of sitting in the config.
+            uint32 levelWindow = options.at("gear_reward_level_window").get<uint32>();
+            gearRewardLevelWindow = static_cast<uint8>(std::min<uint32>(levelWindow, STRONG_MAX_LEVEL));
+            gearAllArmorTypes = options.at("gear_include_all_armor_types") == 1;
+
             const auto& locationData = data.at("locations");
             for (const auto& level : locationData.at("levels"))
             {
@@ -665,6 +712,16 @@ namespace ModArchipelaWoW
             for (const auto& item : itemData.at("items"))
             {
                 items.items.AddItem(item.at(0), item.at(1));
+            }
+            for (const auto& item : itemData.at("gear"))
+            {
+                uint32 rawCategory = item.at(1).get<uint32>();
+                Optional<Items::GearCategory> category = Items::GearCategoryFromValue(rawCategory);
+                if (!category)
+                {
+                    throw std::runtime_error(fmt::format("unknown gear category {}", rawCategory));
+                }
+                items.gear.AddItem(item.at(0), category.value(), item.at(2));
             }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");

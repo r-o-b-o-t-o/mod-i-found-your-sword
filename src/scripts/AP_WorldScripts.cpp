@@ -11,6 +11,7 @@ namespace ModArchipelaWoW::Scripts
         AP_WorldScript() :
             WorldScript("ArchipelaWoW_WorldScript", {
                 WORLDHOOK_ON_BEFORE_CONFIG_LOAD,
+                WORLDHOOK_ON_STARTUP,
                 WORLDHOOK_ON_UPDATE,
                 WORLDHOOK_ON_SHUTDOWN,
             })
@@ -20,6 +21,11 @@ namespace ModArchipelaWoW::Scripts
         void OnBeforeConfigLoad(bool reload) override
         {
             sArchipelaWoW->OnBeforeConfigLoad(reload);
+        }
+
+        void OnStartup() override
+        {
+            sArchipelaWoW->OnStartup();
         }
 
         void OnUpdate(uint32 /*diff*/) override

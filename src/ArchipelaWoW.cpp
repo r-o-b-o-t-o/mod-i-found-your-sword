@@ -9,6 +9,7 @@
 #include "fmt/core.h"
 #include "IoContext.h"
 #include "Item.h"
+#include "items/AP_GearPool.h"
 #include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
@@ -27,7 +28,9 @@ namespace ModArchipelaWoW
     ArchipelaWoW::ArchipelaWoW() :
         config(),
         apCharacters(),
-        playerCreatureTemplates()
+        playerCreatureTemplates(),
+        gearPool(),
+        gearPoolBuilt(false)
     {
     }
 
@@ -77,6 +80,11 @@ namespace ModArchipelaWoW
         return *wsService;
     }
 
+    const Items::GearPool& ArchipelaWoW::GetGearPool() const
+    {
+        return gearPool;
+    }
+
     const Config& ArchipelaWoW::GetConfig()
     {
         return config;
@@ -86,6 +94,28 @@ namespace ModArchipelaWoW
     {
         config.Initialize(reload);
         LoadPlayerCreatureTemplates();
+
+        // A reload is how the module gets switched on without restarting worldserver, and OnStartup
+        // is long past by then. Item templates are loaded well before any reload, so the pool can be
+        // built from here too -- without this, enabling the module that way leaves every gear reward
+        // with nothing to draw from.
+        if (reload)
+        {
+            BuildGearPool();
+        }
+    }
+
+    void ArchipelaWoW::BuildGearPool()
+    {
+        ReturnIfModDisabled;
+
+        if (gearPoolBuilt)
+        {
+            return;
+        }
+
+        gearPool.Build();
+        gearPoolBuilt = true;
     }
 
     void ArchipelaWoW::LoadPlayerCreatureTemplates()
@@ -110,6 +140,13 @@ namespace ModArchipelaWoW
     void ArchipelaWoW::OnBeforeConfigLoad(bool reload)
     {
         InitializeConfig(reload);
+    }
+
+    void ArchipelaWoW::OnStartup()
+    {
+        // Deliberately here rather than in OnBeforeConfigLoad: the pool reads the item template
+        // store, which worldserver only fills once the world is done initializing.
+        BuildGearPool();
     }
 
     void ArchipelaWoW::OnWorldUpdate()
