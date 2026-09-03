@@ -1,6 +1,9 @@
 #include "AP_Character.h"
 #include "AP_Stone.h"
 #include "Chat.h"
+#include "Common.h"
+#include "DBCStores.h"
+#include "DBCStructure.h"
 #include "Define.h"
 #include "fmt/core.h"
 #include "GossipDef.h"
@@ -8,6 +11,7 @@
 #include "items/AP_Zones.h"
 #include "Player.h"
 #include "SharedDefines.h"
+#include "Util.h"
 
 #include <algorithm>
 #include <limits>
@@ -15,11 +19,14 @@
 #include <vector>
 
 constexpr uint32 AP_STONE_ITEM_ID = 32618;
+constexpr uint32 HEARTHSTONE_ITEM_ID = 6948;
+constexpr uint32 HEARTHSTONE_SPELL_ID = 8690;
 
 constexpr uint32 GOSSIP_MENU_MAIN = 0;
 constexpr uint32 GOSSIP_ITEM_MAILBOX = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE = 2;
 constexpr uint32 GOSSIP_ITEM_TELE_DUNGEON = 3;
+constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -63,6 +70,18 @@ void ModArchipelaWoW::AP_Stone::CreateItem()
     if (player->HasItemCount(AP_STONE_ITEM_ID, 1, true))
     {
         return;
+    }
+
+    // The stone absorbs the Hearthstone's use, so the real item is redundant from here on and
+    // would only cost a bag slot. Destroying it first also means the swap needs one free slot
+    // rather than two.
+    //
+    // Bags only, deliberately: DestroyItemCount would reach the bank, and destroying a banked
+    // Hearthstone frees a bank slot rather than the bag slot AddItem needs. With full bags that
+    // would leave the character holding neither item.
+    if (player->HasItemCount(HEARTHSTONE_ITEM_ID, 1))
+    {
+        player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
     }
 
     player->AddItem(AP_STONE_ITEM_ID, 1);
@@ -111,6 +130,29 @@ void ModArchipelaWoW::AP_Stone::OnGossipSelect(Item* item, uint32 sender, uint32
     }
 }
 
+void ModArchipelaWoW::AP_Stone::OnPlayerCreateItem(Item* item)
+{
+    if (!item || item->GetEntry() != HEARTHSTONE_ITEM_ID)
+    {
+        return;
+    }
+
+    // Binding at an innkeeper hands out a replacement Hearthstone whenever the character is not
+    // already carrying one -- which, once the stone has absorbed it, is always. Left alone, simply
+    // rebinding your hearth would undo the bag slot the stone saved.
+    //
+    // Only if the AP stone is actually in hand: a character that has lost it still wants a hearthstone.
+    if (!player->HasItemCount(AP_STONE_ITEM_ID, 1, true))
+    {
+        return;
+    }
+
+    // Safe here: Spell::DoCreateItem fires this hook as its last act on the item and never touches
+    // it again.
+    player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
+    ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
+}
+
 const char* ModArchipelaWoW::AP_Stone::GetZoneTeleportIcon()
 {
     uint8 race = player->getRace(true);
@@ -139,6 +181,27 @@ void ModArchipelaWoW::AP_Stone::SendMainMenu(Item* item)
 {
     StartGossipMenu(1, GOSSIP_MENU_MAIN);
     AddGossipItem("Icons/INV_Letter_03", "Open Mailbox", GOSSIP_ITEM_MAILBOX);
+
+    // The real item shows its cooldown on the tooltip, which a gossip entry has not got, so the
+    // label carries it instead. Location and cooldown never share the line: together they overflow
+    // the gossip frame for the longer area names, Craftsmen's Terrace among them. Only one of the
+    // two matters at a time anyway -- where the hearth sits while it can be used, how long is left
+    // while it cannot.
+    uint32 cooldown = player->GetSpellCooldownDelay(HEARTHSTONE_SPELL_ID);
+    std::string hearthstone;
+
+    if (cooldown > 0)
+    {
+        hearthstone = fmt::format("Hearthstone - ready in {}", secsToTimeString(CooldownSeconds(cooldown), true));
+    }
+    else
+    {
+        Optional<std::string> location = GetHearthstoneLocation();
+        hearthstone = location.has_value() ? fmt::format("Hearthstone ({})", location.value()) : std::string("Hearthstone");
+    }
+
+    AddGossipItem("Icons/INV_Misc_Rune_01", hearthstone, GOSSIP_ITEM_HEARTHSTONE);
+
     if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
     if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
     SendGossipMenu(item);
@@ -147,6 +210,7 @@ void ModArchipelaWoW::AP_Stone::SendMainMenu(Item* item)
 void ModArchipelaWoW::AP_Stone::HandleMainMenuAction(Item* item, uint32 action)
 {
     if (action == GOSSIP_ITEM_MAILBOX) HandleMailboxAction();
+    else if (action == GOSSIP_ITEM_HEARTHSTONE) HandleHearthstoneAction();
     else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
     else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
 }
@@ -162,6 +226,54 @@ void ModArchipelaWoW::AP_Stone::HandleMailboxAction()
     }
 
     player->GetSession()->SendShowMailBox(player->GetGUID());
+}
+
+uint64 ModArchipelaWoW::AP_Stone::CooldownSeconds(uint32 milliseconds)
+{
+    // Rounded up, so a cooldown with anything left on it never reads as "0s".
+    return (milliseconds + IN_MILLISECONDS - 1) / IN_MILLISECONDS;
+}
+
+void ModArchipelaWoW::AP_Stone::HandleHearthstoneAction()
+{
+    player->PlayerTalkClass->SendCloseGossip();
+
+    // The client's "spell is not ready yet" carries no duration and there is no item tooltip to
+    // read one off, so report it here. The cast below remains the authority; this only explains.
+    uint32 cooldown = player->GetSpellCooldownDelay(HEARTHSTONE_SPELL_ID);
+    if (cooldown > 0)
+    {
+        ChatHandler(player->GetSession()).SendSysMessage(
+            fmt::format("|cFFFF0000Your Hearthstone is not ready for another {}.", secsToTimeString(CooldownSeconds(cooldown), true)));
+        return;
+    }
+
+    // Cast untriggered so the core runs the full CheckCast: the cooldown, the ten second cast and
+    // its interrupts all apply exactly as they do to the real item. Nothing is lost by casting
+    // without item 6948 in hand -- it carries spellcooldown_1 and spellcategorycooldown_1 of -1,
+    // which Player::AddSpellAndCategoryCooldowns reads as "take the values from the spell".
+    player->CastSpell(player, HEARTHSTONE_SPELL_ID, false);
+}
+
+Optional<std::string> ModArchipelaWoW::AP_Stone::GetHearthstoneLocation()
+{
+    // Where the character's hearth is bound, so the menu can name it the way the real item's
+    // tooltip does. The client is told the same area id in SMSG_BINDPOINTUPDATE.
+    const AreaTableEntry* area = sAreaTableStore.LookupEntry(player->m_homebindAreaId);
+    if (!area)
+    {
+        return {};
+    }
+
+    // A DBC localized string can be absent for the session's locale, and naming nothing reads
+    // better than naming an empty pair of brackets.
+    const char* name = area->area_name[player->GetSession()->GetSessionDbcLocale()];
+    if (!name || !*name)
+    {
+        return {};
+    }
+
+    return std::string(name);
 }
 
 void ModArchipelaWoW::AP_Stone::SendZoneTeleportMenu(Item* item)

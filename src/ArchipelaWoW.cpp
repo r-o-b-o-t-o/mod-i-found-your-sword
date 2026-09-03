@@ -357,6 +357,22 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerCreateItem(Player* player, Item* item, uint32 /*count*/)
+    {
+        ReturnIfModDisabled;
+
+        if (!player || !item)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerCreateItem(item);
+        }
+    }
+
     bool ArchipelaWoW::HandleAPConnectCommand(Player* player, std::string slot)
     {
         if (!config.IsEnabled() || !player || !player->GetSession())

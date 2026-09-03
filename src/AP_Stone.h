@@ -3,6 +3,7 @@
 
 #include "Define.h"
 #include "Item.h"
+#include "Optional.h"
 #include "Player.h"
 
 #include <string>
@@ -19,6 +20,7 @@ namespace ModArchipelaWoW
         void CreateItem();
         void OnUse(Item* item);
         void OnGossipSelect(Item* item, uint32 sender, uint32 action);
+        void OnPlayerCreateItem(Item* item);
 
     private:
         AP_Character* apCharacter;
@@ -32,6 +34,9 @@ namespace ModArchipelaWoW
         void SendMainMenu(Item* item);
         void HandleMainMenuAction(Item* item, uint32 action);
         void HandleMailboxAction();
+        void HandleHearthstoneAction();
+        static uint64 CooldownSeconds(uint32 milliseconds);
+        Optional<std::string> GetHearthstoneLocation();
         void SendZoneTeleportMenu(Item* item);
         void HandleZoneTeleportSubmenuAction(Item* item, uint32 action);
         void HandleZoneTeleportAction(Item* item, uint32 action);

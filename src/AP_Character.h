@@ -54,6 +54,7 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeGetLevelForXPGain(uint8& level);
         void OnPlayerLearnTaxiNode(uint32 nodeId);
         void OnPlayerAfterTakeItemFromMail(uint32 wowItemId);
+        void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
 
         // ItemScripts events

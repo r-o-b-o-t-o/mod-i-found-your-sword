@@ -30,6 +30,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_BEFORE_GET_LEVEL_FOR_XP_GAIN,
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
                 PLAYERHOOK_ON_AFTER_TAKE_ITEM_FROM_MAIL,
+                PLAYERHOOK_ON_CREATE_ITEM,
             })
         {
         }
@@ -113,6 +114,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count) override
         {
             sArchipelaWoW->OnPlayerAfterTakeItemFromMail(player, item, count);
+        }
+
+        void OnPlayerCreateItem(Player* player, Item* item, uint32 count) override
+        {
+            sArchipelaWoW->OnPlayerCreateItem(player, item, count);
         }
     };
 

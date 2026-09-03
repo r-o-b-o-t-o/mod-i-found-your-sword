@@ -371,6 +371,11 @@ namespace ModArchipelaWoW
         }
     }
 
+    void AP_Character::OnPlayerCreateItem(Item* item)
+    {
+        apStone.OnPlayerCreateItem(item);
+    }
+
     void AP_Character::OnPlayerBeforeLogout()
     {
         SaveToDatabase();
