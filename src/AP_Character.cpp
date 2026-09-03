@@ -750,11 +750,14 @@ namespace ModArchipelaWoW
             return;
         }
 
+        // A DBC localized string can be absent for the session's locale, and handing fmt a null
+        // char const* is undefined. The unnamed case already has a message of its own.
         const AreaTableEntry* area = sAreaTableStore.LookupEntry(zone);
-        if (area)
+        const char* areaName = area ? area->area_name[player->GetSession()->GetSessionDbcLocale()] : nullptr;
+
+        if (areaName && *areaName)
         {
-            auto locale = player->GetSession()->GetSessionDbcLocale();
-            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000{} is locked! Teleporting back...", area->area_name[locale]));
+            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000{} is locked! Teleporting back...", areaName));
         }
         else
         {
