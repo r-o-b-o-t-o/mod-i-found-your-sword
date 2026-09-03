@@ -44,6 +44,7 @@ namespace ModArchipelaWoW
         void Teleport(const Items::ZoneItem& zone);
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
+        bool IsSlotConnected() const;
 
         // PlayerScripts events
         void OnPlayerAchievementComplete(const AchievementEntry* achievement);

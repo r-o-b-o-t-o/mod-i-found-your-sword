@@ -70,6 +70,14 @@ void ModArchipelaWoW::AP_Stone::CreateItem()
 
 void ModArchipelaWoW::AP_Stone::OnUse(Item* item)
 {
+    // Everything the menu offers depends on slot data, so opening it beforehand would only show
+    // a mailbox and two missing teleport lists.
+    if (!apCharacter->IsSlotConnected())
+    {
+        ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000The Archipelago Stone is dormant until the slot is connected.");
+        return;
+    }
+
     SendMainMenu(item);
 }
 

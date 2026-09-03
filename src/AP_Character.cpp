@@ -227,6 +227,11 @@ namespace ModArchipelaWoW
         chat.SendSysMessage(fmt::format("|cFF4CFF00{}|r experience to level |cFF4CFF00{}|r", remaining, apLevel + 1));
     }
 
+    bool AP_Character::IsSlotConnected() const
+    {
+        return ap && ap->GetState() >= Network::Client::State::SlotConnected;
+    }
+
     void AP_Character::OnPlayerAchievementComplete(const AchievementEntry* achievement)
     {
         if (!achievement)
