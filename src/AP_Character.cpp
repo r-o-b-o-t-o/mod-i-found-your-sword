@@ -52,7 +52,7 @@ constexpr uint32 TELEPORT_SPELL_ID = 7141; // Simple Teleport - visual effect, u
 // passive, so the client is never told about it and never has to know the id.
 constexpr uint32 MOVEMENT_SPEED_SPELL_ID = 100500;
 // Stands in until the slot sends its own, which it does before any item can arrive
-constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 5;
+constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 3;
 
 namespace ModArchipelaWoW
 {
