@@ -3,6 +3,7 @@
 
 #include "items/AP_Gear.h"
 #include "items/AP_Items.h"
+#include "items/AP_Progressive.h"
 #include "items/AP_Zones.h"
 
 #include <cstdint>
@@ -16,6 +17,7 @@ namespace ModArchipelaWoW::Items
             items(),
             gear(),
             zones(),
+            progressive(),
             levels(0),
             goldPouch(0)
         {
@@ -24,6 +26,7 @@ namespace ModArchipelaWoW::Items
         Items items;
         Gear gear;
         Zones zones;
+        Progressive progressive;
         int64_t levels;
         int64_t goldPouch;
     };

@@ -24,13 +24,83 @@ The following modules are required for full progression:
    git clone https://github.com/r-o-b-o-t-o/mod-i-found-your-sword.git
    ```
 
-2. **Re-run CMake**
+2. **Apply the core hook the module depends on**
 
-3. **Build AzerothCore**
+   The module subscribes to `PlayerScript::OnPlayerAfterTakeItemFromMail`, which is not in
+   AzerothCore yet - it is proposed in
+   [azerothcore/azerothcore-wotlk#27447](https://github.com/azerothcore/azerothcore-wotlk/pull/27447).
+   Without it the module will not compile.
 
-4. **Copy the configuration file**
+   ```bash
+   cd path/to/azerothcore-wotlk
+   curl -L https://github.com/azerothcore/azerothcore-wotlk/pull/27447.patch | git am -3
+   ```
+
+3. **Re-run CMake**
+
+4. **Build AzerothCore**
+
+5. **Copy the configuration file**
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
+
+## 🧩 Custom content
+
+The module claims a small amount of space in shared game data. If you run other modules alongside
+it, these are the values worth checking for conflicts - and the first place to look if an item or a
+spell turns up with the wrong name, icon or behaviour.
+
+### Spells
+
+One serverside-only spell is added to `spell_dbc`. It is passive, so the aura is never sent to the
+client and the player's `Spell.dbc` never needs to know about it.
+
+| ID | Name | Purpose | Added by |
+|----|------|---------|----------|
+| `100500` | Archipelago Movement Speed | Carries the on-foot, ground-mount and flying-mount speed auras behind the *Progressive Movement Speed* item | `archipelawow_world_004_insert_movement_speed_spell.sql` |
+
+### Items
+
+No new `item_template` entries are created. Every item below reuses an existing row that no player
+can obtain: either a `[DEPRECATED]` entry, or one of Blizzard's `NPC Equip <id>` placeholders, which
+exist only to carry a display id. None of them appear in `creature_equip_template`, `npc_vendor`,
+any loot table, or a reachable quest.
+
+| ID | Repurposed as | Original entry | Added by |
+|----|---------------|----------------|----------|
+| `32618` | Archipelago Stone | `[DEPRECATED]Crystalforged Darkrune` | `archipelawow_world_001_insert_archipelago_stone_item.sql` |
+| `19063` | The Immortal Crust | `NPC Equip 19063` | `archipelawow_world_005_insert_eternal_food_and_drink_items.sql` |
+| `40843` | Suspiciously Regrowing Berries | `NPC Equip 40843` | `archipelawow_world_005_…` |
+| `34770` | Fillet of Neverfin | `NPC Equip 34770` | `archipelawow_world_005_…` |
+| `35710` | Helboar Shank of Infinite Regret | `NPC Equip 35710` | `archipelawow_world_005_…` |
+| `43496` | Cinderfowl Drumstick | `NPC Equip 43496` | `archipelawow_world_005_…` |
+| `36831` | Ribs of the Endless Banquet | `NPC Equip 36831` | `archipelawow_world_005_…` |
+| `33062` | Never-Empty Mug of Tavern Runoff | `NPC Equip 33062` | `archipelawow_world_005_…` |
+| `37103` | Basin of Lesser Miracles | `NPC Equip 37103` | `archipelawow_world_005_…` |
+| `23704` | Bottomless Bottle of Dubious Vintage | `NPC Equip 23704` | `archipelawow_world_005_…` |
+| `32913` | Perpetually Overflowing Tankard | `NPC Equip 32913` | `archipelawow_world_005_…` |
+| `41374` | Netherbloom Nectar | `NPC Equip 41374` | `archipelawow_world_005_…` |
+| `42548` | Elixir of the Everlasting Toast | `NPC Equip 42548` | `archipelawow_world_005_…` |
+
+`19063` through `42548` are the six *Progressive Food* and six *Progressive Drink* tiers, in
+progression order. The apworld leaves the fifth and sixth rungs out of seeds whose goal stops short
+of The Burning Crusade and Wrath of the Lich King respectively, but the rows are defined here
+regardless, since the same module serves every seed on the realm.
+
+Their `class`, `subclass`, `SoundOverrideSubclass`, `Material`, `InventoryType`,
+`displayid` and `sheath` are deliberately left at their original values: with
+`DBC.EnforceItemAttributes = 1` (the AzerothCore default) `ObjectMgr::LoadItemTemplates` overwrites
+those columns from `Item.dbc` and logs an error for every mismatch. Their `item_template_locale`
+rows are deleted, so clients in every locale fall back to the English names above.
+
+### Database objects
+
+| Object | Database | Added by |
+|--------|----------|----------|
+| `ap_character` | characters | `archipelawow_char_000_create_table_ap_character.sql` |
+| `ap_location_check` | characters | `archipelawow_char_001_create_table_ap_location_check.sql` |
+| `ap_player_creature_template` | world | `archipelawow_world_002_create_player_creature_template_table.sql` |
+| `.ap`, `.archipelago` and `.archipelawow` command prefixes | world (`command`) | `archipelawow_world_000_insert_commands.sql` |
 
 ## 📄 License
 

@@ -16,6 +16,7 @@
 #include "items/AP_Gear.h"
 #include "items/AP_GearPool.h"
 #include "items/AP_ItemsContainer.h"
+#include "items/AP_Progressive.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
 #include "Log.h"
@@ -26,6 +27,7 @@
 #include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "SpellMgr.h"
 #include "Unit.h"
 
 #include <algorithm>
@@ -34,16 +36,21 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <list>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #define sConfig sArchipelaWoW->GetConfig()
 constexpr auto AP_GAME_NAME = "World of Warcraft";
 constexpr uint32 TRESPASSER_SPELL_ID = 73536; // Trespasser - spell with teleport visual effect and short stun, used when player tries to enter a locked zone
 constexpr uint32 TELEPORT_SPELL_ID = 7141; // Simple Teleport - visual effect, used when teleporting with the Archipelago Stone
+// "Archipelago Movement Speed", the serverside-only passive the module adds to `spell_dbc`. It is
+// passive, so the client is never told about it and never has to know the id.
+constexpr uint32 MOVEMENT_SPEED_SPELL_ID = 100500;
 // Stands in until the slot sends its own, which it does before any item can arrive
 constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 5;
 
@@ -54,6 +61,7 @@ namespace ModArchipelaWoW
         apStone(this),
         slot(slot),
         itemIndex(-1),
+        countedItemIndex(-1),
         lastDeathTime(-1.0),
         deathLinkEnabled(false),
         itemsSynced(false),
@@ -62,6 +70,7 @@ namespace ModArchipelaWoW
         items(),
         locations(),
         unlockedZones(),
+        progressiveCounts(),
         lastUnlockedPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation()),
         nextLockedZoneCheck(GameTime::GetGameTime() + std::chrono::seconds(6)),
         nextSave(GameTime::GetGameTime() + std::chrono::seconds(15)),
@@ -253,6 +262,19 @@ namespace ModArchipelaWoW
             return;
         }
 
+        // The character's own experience bar never moves -- xp is zeroed below -- so the
+        // Progressive Experience Rate bonus has to be applied here, to the hidden Archipelago
+        // experience that drives apLevel and the level location checks.
+        uint32 baseXp = xp;
+        uint32 xpBonusPct = GetProgressiveStep(Items::ProgressiveType::ExperienceRate);
+        if (xpBonusPct > 0)
+        {
+            uint64 boosted = static_cast<uint64>(xp) * (100 + xpBonusPct) / 100;
+            xp = static_cast<uint32>(std::min<uint64>(boosted, std::numeric_limits<uint32>::max()));
+        }
+
+        AnnounceXPGain(baseXp, xp, xpBonusPct);
+
         apExp += xp;
 
         while (xpForLevel > 0 && apExp >= xpForLevel)
@@ -283,6 +305,29 @@ namespace ModArchipelaWoW
         if (checkId.has_value())
         {
             CheckLocation(checkId.value());
+        }
+    }
+
+    void AP_Character::OnPlayerAfterTakeItemFromMail(uint32 wowItemId)
+    {
+        // Collecting a tier from the mailbox is the moment a character can end up holding two rungs
+        // of the same ladder, and it is the only moment outside an item sync that it happens. Every
+        // other mail -- gear, a gold pouch -- leaves nothing to tidy up, so it costs a lookup here
+        // rather than a bag sweep.
+        for (Items::ProgressiveType type : { Items::ProgressiveType::Food, Items::ProgressiveType::Drink })
+        {
+            const Items::ProgressiveItem* progressive = items.progressive.GetProgressiveItemByType(type);
+            if (!progressive)
+            {
+                continue;
+            }
+
+            const std::vector<uint32>& steps = progressive->steps;
+            if (std::find(steps.begin(), steps.end(), wowItemId) != steps.end())
+            {
+                RemoveOutgrownProgressiveItems(type);
+                return;
+            }
         }
     }
 
@@ -436,7 +481,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void AP_Character::RewardItem(int64_t itemId, bool alreadyRewarded, int sender)
+    void AP_Character::RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender)
     {
         auto item = items.items.GetWoWItemId(itemId);
         if (item.has_value())
@@ -490,6 +535,31 @@ namespace ModArchipelaWoW
             return;
         }
 
+        auto progressive = items.progressive.GetProgressiveItem(itemId);
+        if (progressive.has_value())
+        {
+            const Items::ProgressiveItem& track = progressive.value();
+
+            // Unlike the one-shot rewards above, a progressive track is worth the sum of every copy
+            // the slot has ever received, so the copies handed out in earlier sessions have to be
+            // counted again after a relog. `alreadyCounted` only keeps the same copy from being
+            // counted twice when the server replays the item list.
+            uint32& count = progressiveCounts[track.type];
+            if (!alreadyCounted)
+            {
+                ++count;
+            }
+
+            // The food and drink tracks pay out a real item per copy rather than a percentage
+            bool grantsItem = track.type == Items::ProgressiveType::Food || track.type == Items::ProgressiveType::Drink;
+            if (grantsItem && !alreadyRewarded && count > 0 && count <= track.steps.size())
+            {
+                MailItemReward(track.steps[count - 1], itemId, sender);
+            }
+
+            return;
+        }
+
         if (itemId == items.levels)
         {
             if (!alreadyRewarded)
@@ -511,6 +581,120 @@ namespace ModArchipelaWoW
                 CharacterDatabase.CommitTransaction(trans);
             }
             return;
+        }
+    }
+
+    void AP_Character::AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const
+    {
+        if (totalXp == 0)
+        {
+            return;
+        }
+
+        // Nothing the player can see moves when they earn experience, so without this there is no
+        // way to tell a worthwhile kill from a worthless one -- or that anything was earned at all.
+        std::string message = fmt::format("Gained |cFF4CFF00{}|r Archipelago XP", totalXp);
+        if (bonusPct > 0)
+        {
+            message += fmt::format(" |cFF808080(base: {} XP, bonus +{}%: {} XP)|r", baseXp, bonusPct, totalXp - baseXp);
+        }
+
+        ChatHandler(player->GetSession()).SendSysMessage(message);
+    }
+
+    uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
+    {
+        auto count = progressiveCounts.find(type);
+        if (count == progressiveCounts.end())
+        {
+            return 0;
+        }
+
+        const Items::ProgressiveItem* progressive = items.progressive.GetProgressiveItemByType(type);
+        if (!progressive)
+        {
+            return 0;
+        }
+
+        return progressive->ValueAt(count->second);
+    }
+
+    void AP_Character::ApplyMovementSpeedBonus()
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        player->RemoveAurasDueToSpell(MOVEMENT_SPEED_SPELL_ID);
+
+        int32 bonus = static_cast<int32>(GetProgressiveStep(Items::ProgressiveType::MovementSpeed));
+        if (bonus <= 0)
+        {
+            return;
+        }
+
+        if (!sSpellMgr->GetSpellInfo(MOVEMENT_SPEED_SPELL_ID))
+        {
+            LOG_ERROR("module.archipelawow",
+                "Spell {} is missing, so the Progressive Movement Speed bonus cannot be granted. "
+                "The module's world database updates have not been applied.", MOVEMENT_SPEED_SPELL_ID);
+            return;
+        }
+
+        // One aura carrying three effects: on foot, on a ground mount and on a flying mount. All
+        // three are of the "always" kind, which the core multiplies into the speed it has already
+        // worked out, so the bonus rides on top of mount speed instead of being swallowed by it.
+        player->CastCustomSpell(player, MOVEMENT_SPEED_SPELL_ID, &bonus, &bonus, &bonus, true);
+    }
+
+    void AP_Character::RemoveOutgrownProgressiveItems(Items::ProgressiveType type)
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        const Items::ProgressiveItem* progressive = items.progressive.GetProgressiveItemByType(type);
+        if (!progressive)
+        {
+            return;
+        }
+
+        // An eternal food or drink is strictly better than every tier below it, and the character
+        // cannot bin the old ones itself -- they are ITEM_FLAG_NO_USER_DESTROY -- so left alone
+        // they would cost a bag slot per step for the rest of the seed.
+        const std::vector<uint32>& steps = progressive->steps;
+
+        // What matters is the best tier the character already holds, not the best one it has been
+        // sent: a newer tier may still be sitting in the mail, and taking away the one it is living
+        // on until it gets round to collecting would defeat the point of mailing rewards.
+        //
+        // The bank counts as holding it, on both passes. A character that parks its outgrown tiers
+        // there to keep its bags clear still expects them cleared out, and cannot bin them itself:
+        // they are ITEM_FLAG_NO_USER_DESTROY, and HandleSellItemOpcode refuses an item worth no
+        // money. DestroyItemCount searches the bags before the bank, and maxcount 1 means there is
+        // only ever the one copy to find.
+        Optional<size_t> best;
+        for (size_t i = 0; i < steps.size(); ++i)
+        {
+            if (player->HasItemCount(steps[i], 1, true))
+            {
+                best = i;
+            }
+        }
+
+        if (!best.has_value())
+        {
+            return;
+        }
+
+        for (size_t i = 0; i < best.value(); ++i)
+        {
+            if (player->HasItemCount(steps[i], 1, true))
+            {
+                player->DestroyItemCount(steps[i], 1, true);
+            }
         }
     }
 
@@ -723,6 +907,16 @@ namespace ModArchipelaWoW
                 }
                 items.gear.AddItem(item.at(0), category.value(), item.at(2));
             }
+            for (const auto& item : itemData.at("progressive"))
+            {
+                uint32 rawType = item.at(1).get<uint32>();
+                Optional<Items::ProgressiveType> type = Items::ProgressiveTypeFromValue(rawType);
+                if (!type)
+                {
+                    throw std::runtime_error(fmt::format("unknown progressive type {}", rawType));
+                }
+                items.progressive.AddItem(item.at(0), type.value(), item.at(2).get<std::vector<uint32>>());
+            }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");
 
@@ -835,21 +1029,44 @@ namespace ModArchipelaWoW
         LOG_DEBUG("module.archipelawow", "Received {} items", items.size());
 
         int newItemIndex = itemIndex;
+        int newCountedItemIndex = countedItemIndex;
+        uint32 movementSpeedBefore = GetProgressiveStep(Items::ProgressiveType::MovementSpeed);
 
         for (const auto& item : items)
         {
             bool alreadyRewarded = itemIndex >= item.index;
+            // countedItemIndex, unlike itemIndex, is not persisted: progressive bonuses live only
+            // in memory and are rebuilt from the item list the server replays on every connection.
+            bool alreadyCounted = countedItemIndex >= item.index;
             int sender = item.player;
 
             if (item.index > newItemIndex)
             {
                 newItemIndex = item.index;
             }
+            if (item.index > newCountedItemIndex)
+            {
+                newCountedItemIndex = item.index;
+            }
 
             LOG_DEBUG("module.archipelawow", "Received item: index {}, sender {}, item ID {}, flags {}, already rewarded {}",
                 item.index, sender, item.item, item.flags, alreadyRewarded);
-            RewardItem(item.item, alreadyRewarded, sender);
+            RewardItem(item.item, alreadyRewarded, alreadyCounted, sender);
         }
+
+        countedItemIndex = newCountedItemIndex;
+
+        if (GetProgressiveStep(Items::ProgressiveType::MovementSpeed) != movementSpeedBefore)
+        {
+            ApplyMovementSpeedBonus();
+        }
+
+        // The safety net behind OnPlayerAfterTakeItemFromMail, which does the tidying up as tiers are
+        // actually collected. This catches anything that hook missed -- items collected while the
+        // slot was disconnected, or a tier that arrived before the module was installed -- and
+        // costs nothing when there is nothing to sweep.
+        RemoveOutgrownProgressiveItems(Items::ProgressiveType::Food);
+        RemoveOutgrownProgressiveItems(Items::ProgressiveType::Drink);
 
         if (newItemIndex != itemIndex)
         {

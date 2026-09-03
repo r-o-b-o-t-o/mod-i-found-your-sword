@@ -50,6 +50,7 @@ namespace ModArchipelaWoW
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level);
         void OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId);
+        void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count);
 
         // CommandScripts methods
         bool HandleAPConnectCommand(Player* player, std::string slot);

@@ -7,6 +7,7 @@
 #include "Define.h"
 #include "Item.h"
 #include "items/AP_ItemsContainer.h"
+#include "items/AP_Progressive.h"
 #include "items/AP_Zones.h"
 #include "locations/AP_LocationsContainer.h"
 #include "Mail.h"
@@ -21,6 +22,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace ModArchipelaWoW
@@ -49,6 +51,7 @@ namespace ModArchipelaWoW
         void OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(uint8& level);
         void OnPlayerLearnTaxiNode(uint32 nodeId);
+        void OnPlayerAfterTakeItemFromMail(uint32 wowItemId);
         void OnPlayerBeforeLogout();
 
         // ItemScripts events
@@ -62,6 +65,7 @@ namespace ModArchipelaWoW
         std::string uuid;
         std::string slot;
         int itemIndex;
+        int countedItemIndex;
         double lastDeathTime;
         bool deathLinkEnabled;
         bool itemsSynced;
@@ -70,6 +74,7 @@ namespace ModArchipelaWoW
         Items::ItemsContainer items;
         Locations::LocationsContainer locations;
         std::unordered_set<uint32> unlockedZones;
+        std::unordered_map<Items::ProgressiveType, uint32> progressiveCounts;
         PlayerPosition lastUnlockedPosition;
         std::chrono::seconds nextLockedZoneCheck;
         std::chrono::seconds nextSave;
@@ -84,13 +89,18 @@ namespace ModArchipelaWoW
 
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
+        void AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const;
+        uint32 GetProgressiveStep(Items::ProgressiveType type) const;
+        void ApplyMovementSpeedBonus();
+        void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);
+
         void CreateAPClient();
         void AddArchipelagoClientHandlers();
         void ConnectAPSlot();
 
         void SaveToDatabase();
         void SyncLocationChecks();
-        void RewardItem(int64_t itemId, bool alreadyRewarded, int sender);
+        void RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender);
         void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);
         void CheckIsInLockedZone();
         void SavePosition();

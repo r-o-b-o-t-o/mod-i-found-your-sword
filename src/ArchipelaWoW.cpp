@@ -339,6 +339,24 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 /*count*/)
+    {
+        ReturnIfModDisabled;
+
+        if (!player || !item)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            // Only the entry travels onwards: which tier was collected is all the character needs,
+            // and nothing downstream then holds a raw Item* it would have to reason about.
+            apCharacters[guid]->OnPlayerAfterTakeItemFromMail(item->GetEntry());
+        }
+    }
+
     bool ArchipelaWoW::HandleAPConnectCommand(Player* player, std::string slot)
     {
         if (!config.IsEnabled() || !player || !player->GetSession())
