@@ -1,3 +1,8 @@
+-- Dropped first, not only at the end: the DROP below runs only if every statement before it
+-- succeeded, so without this a half-applied run would leave the procedure behind and the
+-- retry would fail on CREATE PROCEDURE.
+DROP PROCEDURE IF EXISTS ArchipelaWoW_InsertCommand;
+
 DELIMITER //
 CREATE PROCEDURE ArchipelaWoW_InsertCommand(cmdName VARCHAR(50), securityLevel TINYINT unsigned, helpText LONGTEXT)
 BEGIN
