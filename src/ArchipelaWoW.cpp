@@ -381,6 +381,24 @@ namespace ModArchipelaWoW
         return true;
     }
 
+    bool ArchipelaWoW::HandleAPLevelCommand(Player* player)
+    {
+        if (!config.IsEnabled() || !player || !player->GetSession())
+        {
+            return true;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000This character is not bound to an Archipelago slot. Use |cFF5F5FD7.ap connect SlotName|cFFFF0000 first.");
+            return true;
+        }
+
+        apCharacters[guid]->SendLevelReport();
+        return true;
+    }
+
     bool ArchipelaWoW::OnUseArchipelagoStone(Player* player, Item* item)
     {
         if (player && item)

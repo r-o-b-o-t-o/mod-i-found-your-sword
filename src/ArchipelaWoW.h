@@ -54,6 +54,7 @@ namespace ModArchipelaWoW
 
         // CommandScripts methods
         bool HandleAPConnectCommand(Player* player, std::string slot);
+        bool HandleAPLevelCommand(Player* player);
 
         // ItemScripts methods
         bool OnUseArchipelagoStone(Player* player, Item* item);

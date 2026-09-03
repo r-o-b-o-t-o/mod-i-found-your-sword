@@ -43,6 +43,7 @@ namespace ModArchipelaWoW
         bool IsZoneUnlocked(uint32 zoneId) const;
         void Teleport(const Items::ZoneItem& zone);
         uint32 GetGoldPouchAmount() const;
+        void SendLevelReport() const;
 
         // PlayerScripts events
         void OnPlayerAchievementComplete(const AchievementEntry* achievement);

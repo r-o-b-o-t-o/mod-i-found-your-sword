@@ -25,6 +25,8 @@ namespace ModArchipelaWoW::Scripts
             static ChatCommandTable APCommandTable =
             {
                 { "connect", HandleAPConnectCommand, SEC_PLAYER, Console::No },
+                { "level",   HandleAPLevelCommand,   SEC_PLAYER, Console::No },
+                { "xp",      HandleAPLevelCommand,   SEC_PLAYER, Console::No },
             };
 
             static ChatCommandTable commandTable =
@@ -53,6 +55,17 @@ namespace ModArchipelaWoW::Scripts
             }
 
             return sArchipelaWoW->HandleAPConnectCommand(player, slot);
+        }
+
+        static bool HandleAPLevelCommand(ChatHandler* handler)
+        {
+            Player* player = handler->GetPlayer();
+            if (!player)
+            {
+                return false;
+            }
+
+            return sArchipelaWoW->HandleAPLevelCommand(player);
         }
     };
 

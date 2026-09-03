@@ -192,6 +192,41 @@ namespace ModArchipelaWoW
         return static_cast<uint32>(std::round(result));
     }
 
+    void AP_Character::SendLevelReport() const
+    {
+        ChatHandler chat(player->GetSession());
+
+        // maxLevel arrives with the slot data. Until it does, OnPlayerGiveXP treats the character
+        // as capped and banks nothing, so saying nothing about it would be misleading.
+        if (maxLevel == 0)
+        {
+            chat.SendSysMessage(fmt::format("Archipelago level |cFF4CFF00{}|r", apLevel));
+            chat.SendSysMessage("|cFFFFF380Waiting for slot data from the Archipelago server - experience is not being counted yet.");
+            return;
+        }
+
+        if (apLevel >= maxLevel)
+        {
+            chat.SendSysMessage(fmt::format("Archipelago level |cFF4CFF00{}|r of |cFF4CFF00{}|r - level cap reached.", apLevel, maxLevel));
+            return;
+        }
+
+        chat.SendSysMessage(fmt::format("Archipelago level |cFF4CFF00{}|r of |cFF4CFF00{}|r", apLevel, maxLevel));
+
+        // player_xp_for_level has no row for every level on every core, so do not divide blindly.
+        if (xpForLevel == 0)
+        {
+            chat.SendSysMessage(fmt::format("Experience: |cFF4CFF00{}|r |cFF808080(no requirement on record for this level)|r", apExp));
+            return;
+        }
+
+        double progress = 100.0 * static_cast<double>(apExp) / static_cast<double>(xpForLevel);
+        uint32 remaining = xpForLevel > apExp ? xpForLevel - apExp : 0;
+
+        chat.SendSysMessage(fmt::format("Experience: |cFF4CFF00{}|r / |cFF4CFF00{}|r |cFF5F5FD7({:.1f}%)|r", apExp, xpForLevel, progress));
+        chat.SendSysMessage(fmt::format("|cFF4CFF00{}|r experience to level |cFF4CFF00{}|r", remaining, apLevel + 1));
+    }
+
     void AP_Character::OnPlayerAchievementComplete(const AchievementEntry* achievement)
     {
         if (!achievement)
