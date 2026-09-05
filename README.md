@@ -24,17 +24,25 @@ The following modules are required for full progression:
    git clone https://github.com/r-o-b-o-t-o/mod-i-found-your-sword.git
    ```
 
-2. **Apply the core hook the module depends on**
+2. **Build against the core branch carrying the hooks the module depends on**
 
-   The module subscribes to `PlayerScript::OnPlayerAfterTakeItemFromMail`, which is not in
-   AzerothCore yet - it is proposed in
-   [azerothcore/azerothcore-wotlk#27447](https://github.com/azerothcore/azerothcore-wotlk/pull/27447).
-   Without it the module will not compile.
+   The module subscribes to player hooks that are not in AzerothCore yet, and will not compile
+   without them: `OnPlayerAfterTakeItemFromMail`, proposed in
+   [azerothcore/azerothcore-wotlk#27447](https://github.com/azerothcore/azerothcore-wotlk/pull/27447),
+   and four more for trainers and spell learning that the spell randomization needs.
+
+   Until they are merged upstream, use the
+   [`archipelawow`](https://github.com/r-o-b-o-t-o/azerothcore-wotlk/tree/archipelawow) branch of the
+   fork, which carries both sets on top of AzerothCore's master:
 
    ```bash
    cd path/to/azerothcore-wotlk
-   curl -L https://github.com/azerothcore/azerothcore-wotlk/pull/27447.patch | git am -3
+   git remote add roboto https://github.com/r-o-b-o-t-o/azerothcore-wotlk.git
+   git fetch roboto
+   git checkout -b archipelawow roboto/archipelawow
    ```
+
+   This step goes away once the hooks land upstream.
 
 3. **Re-run CMake**
 
