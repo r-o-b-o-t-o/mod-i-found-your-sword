@@ -16,6 +16,7 @@ namespace ModArchipelaWoW::Items
             case static_cast<uint32>(ProgressiveType::ExperienceRate):
             case static_cast<uint32>(ProgressiveType::Food):
             case static_cast<uint32>(ProgressiveType::Drink):
+            case static_cast<uint32>(ProgressiveType::Riding):
                 return static_cast<ProgressiveType>(value);
             default:
                 return {};

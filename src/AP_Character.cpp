@@ -12,22 +12,26 @@
 #include "Field.h"
 #include "fmt/format.h"
 #include "GameTime.h"
+#include "GossipDef.h"
 #include "Item.h"
 #include "items/AP_Gear.h"
 #include "items/AP_GearPool.h"
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Progressive.h"
+#include "items/AP_Spells.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
 #include "Log.h"
 #include "Mail.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
+#include "NPCPackets.h"
 #include "ObjectMgr.h"
 #include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "SpellMgr.h"
+#include "Trainer.h"
 #include "Unit.h"
 
 #include <algorithm>
@@ -53,6 +57,9 @@ constexpr uint32 TELEPORT_SPELL_ID = 7141; // Simple Teleport - visual effect, u
 constexpr uint32 MOVEMENT_SPEED_SPELL_ID = 100500;
 // Stands in until the slot sends its own, which it does before any item can arrive
 constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 3;
+// Stands in for the taught list of an entry the slot does not carry, so GrantSpell can bind a
+// reference either way
+static const std::vector<uint32> EMPTY_SPELL_LIST;
 
 namespace ModArchipelaWoW
 {
@@ -70,6 +77,8 @@ namespace ModArchipelaWoW
         items(),
         locations(),
         unlockedZones(),
+        grantedSpells(),
+        checkedLocations(),
         progressiveCounts(),
         lastUnlockedPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation()),
         nextLockedZoneCheck(GameTime::GetGameTime() + std::chrono::seconds(6)),
@@ -81,7 +90,8 @@ namespace ModArchipelaWoW
         apLevel(1),
         apExp(0),
         xpForLevel(0),
-        goalCompleted(false)
+        goalCompleted(false),
+        grantingSpells()
     {
         ASSERT_NOTNULL(player);
         ASSERT_NOTNULL(player->GetSession());
@@ -348,6 +358,138 @@ namespace ModArchipelaWoW
         }
     }
 
+    bool AP_Character::OnPlayerCanLearnSpell(uint32 spellId)
+    {
+        // A randomized spell is the multiworld's to hand over, so every other way of picking it up
+        // -- a trainer, a quest reward, a spell that teaches another -- comes away empty.
+        return grantingSpells.contains(spellId) || !items.spells.IsRandomized(spellId);
+    }
+
+    void AP_Character::OnPlayerGetTrainerSpellState(uint32 spellId, Trainer::SpellState& state)
+    {
+        Optional<int> locationId = locations.spells.GetLocationId(spellId);
+        if (!locationId.has_value())
+        {
+            return;
+        }
+
+        if (checkedLocations.contains(locationId.value()))
+        {
+            // The check has been sent, so there is nothing left here to buy -- including for a
+            // character still waiting on the spell itself to come back from the multiworld.
+            state = Trainer::SpellState::Known;
+            return;
+        }
+
+        if (state != Trainer::SpellState::Known)
+        {
+            // Whatever the trainer worked out stands: the check is bought the ordinary way.
+            return;
+        }
+
+        // The multiworld handed the spell over before its check was bought, and the trainer will
+        // not sell what a character already knows. The level requirement is all that is left of
+        // the trainer's own answer, so it is applied here and the entry goes back on offer.
+        Optional<Items::SpellItem> spell = items.spells.GetSpellBySpellId(spellId);
+        uint8 reqLevel = spell.has_value() ? spell.value().reqLevel : 0;
+        state = player->GetLevel() >= reqLevel
+            ? Trainer::SpellState::Available
+            : Trainer::SpellState::Unavailable;
+    }
+
+    void AP_Character::OnPlayerBeforeReceiveSpellListFromTrainer(WorldPackets::NPC::TrainerList& trainerList)
+    {
+        // A spent row is dropped from the list rather than sent as known, because a row the client
+        // has ever seen is one it can bring back: it redraws an open trainer window from its own
+        // spellbook, and a check never adds to that, so every spent row turns green again the next
+        // time anything at all is learned -- an Archipelago item landing is enough. A row that was
+        // never in the packet has nothing to redraw from.
+        std::erase_if(trainerList.Spells, [this](const WorldPackets::NPC::TrainerListSpell& spell)
+        {
+            Optional<int> locationId = locations.spells.GetLocationId(spell.SpellID);
+            return locationId.has_value() && checkedLocations.contains(locationId.value());
+        });
+    }
+
+    void AP_Character::OnPlayerAfterTrainSpell(Creature* trainer, uint32 spellId)
+    {
+        Optional<int> locationId = locations.spells.GetLocationId(spellId);
+        if (!locationId.has_value() || checkedLocations.contains(locationId.value()))
+        {
+            return;
+        }
+
+        CheckLocation(locationId.value());
+        ReopenTrainerWindow(trainer);
+    }
+
+    void AP_Character::ReopenTrainerWindow(Creature* trainer)
+    {
+        if (!trainer || !player)
+        {
+            return;
+        }
+
+        // A check teaches nothing, and the client works an open trainer window out from its own
+        // spellbook: the row just bought stays on offer, and it throws away any spell list the
+        // server sends it uninvited. The one list it does honour is the one it asked for itself,
+        // so the trainer is handed back the way talking to it does -- except that the menu is cut
+        // down to the training option alone. A single-option menu is auto-selected by the client,
+        // which turns into the request that gets the window redrawn; leaving the other options on
+        // it (talent unlearning, from level 10) would stop at the menu and cost a manual click.
+        //
+        // The quests are left out for the same reason. Most class and mount trainers are quest
+        // givers as well, and SendGossipMenu writes whatever the quest menu holds into the same
+        // packet -- so a trainer with a quest to offer would arrive as more than one entry and stop
+        // at the menu again. Nothing here wants them: the menu is thrown away either way.
+        player->PrepareGossipMenu(trainer, trainer->GetGossipMenuId(), false);
+
+        GossipMenu& menu = player->PlayerTalkClass->GetGossipMenu();
+
+        // The menu is keyed by option id rather than laid out as a run of indices, and the ids come
+        // from the database, so the option is looked for over what the menu actually holds.
+        const GossipMenuItem* trainingOption = nullptr;
+        const GossipMenuItemData* trainingData = nullptr;
+        for (const auto& [itemId, item] : menu.GetMenuItems())
+        {
+            if (item.OptionType == GOSSIP_OPTION_TRAINER)
+            {
+                trainingOption = &item;
+                trainingData = menu.GetItemData(itemId);
+                break;
+            }
+        }
+
+        if (!trainingOption)
+        {
+            // Nothing to cut the menu down to, so hand over whatever the creature would have shown
+            player->SendPreparedGossip(trainer);
+            return;
+        }
+
+        // Copied out before the menu is emptied, which invalidates both pointers
+        uint8 icon = trainingOption->MenuItemIcon;
+        std::string message = trainingOption->Message;
+        uint32 sender = trainingOption->Sender;
+        uint32 actionMenuId = trainingData ? trainingData->GossipActionMenuId : 0;
+        uint32 actionPoi = trainingData ? trainingData->GossipActionPoi : 0;
+
+        uint32 textId = player->GetGossipTextId(trainer);
+        if (uint32 menuId = menu.GetMenuId())
+        {
+            textId = player->GetGossipTextId(menuId, trainer);
+        }
+
+        // The data goes back alongside the option: Player::OnGossipSelect drops any selection whose
+        // item has none, which would leave the client waiting on a reply that never comes and the
+        // creature unable to be talked to again until it is out of range.
+        constexpr uint32 onlyItemId = 0;
+        menu.ClearMenu();
+        menu.AddMenuItem(onlyItemId, icon, message, sender, GOSSIP_OPTION_TRAINER, "", 0);
+        menu.AddGossipMenuItemData(onlyItemId, actionMenuId, actionPoi);
+        player->PlayerTalkClass->SendGossipMenu(textId, trainer->GetGUID());
+    }
+
     void AP_Character::OnPlayerAfterTakeItemFromMail(uint32 wowItemId)
     {
         // Collecting a tier from the mailbox is the moment a character can end up holding two rungs
@@ -399,6 +541,90 @@ namespace ModArchipelaWoW
         }
 
         apStone.OnGossipSelect(item, sender, action);
+    }
+
+    void AP_Character::GrantSpell(uint32 spellId)
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        // Recorded whether or not the spell has to be taught now, because this is also what tells
+        // RemoveUngrantedSpells that the character came by it honestly.
+        grantedSpells.insert(spellId);
+
+        Optional<Items::SpellItem> spell = items.spells.GetSpellBySpellId(spellId);
+        const std::vector<uint32>& taughtSpells = spell.has_value() ? spell.value().taughtSpells : EMPTY_SPELL_LIST;
+
+        if (taughtSpells.empty())
+        {
+            if (player->HasSpell(spellId))
+            {
+                return;
+            }
+
+            grantingSpells = { spellId };
+            player->learnSpell(spellId);
+            grantingSpells.clear();
+            return;
+        }
+
+        // A wrapper is cast rather than learned, the same way the trainer would hand it over, and
+        // that cast teaches everything hanging off it. Anything with an item of its own is left out
+        // of the pass: a paladin buying Judgement must not come away with Seal of Righteousness too,
+        // and a class mount must not carry Apprentice Riding in with it.
+        bool anythingMissing = false;
+        for (uint32 taughtSpell : taughtSpells)
+        {
+            if (items.spells.HasItemOfItsOwn(taughtSpell))
+            {
+                continue;
+            }
+
+            grantedSpells.insert(taughtSpell);
+            grantingSpells.insert(taughtSpell);
+            anythingMissing = anythingMissing || !player->HasSpell(taughtSpell);
+        }
+
+        if (anythingMissing)
+        {
+            player->CastSpell(player, spellId, true);
+        }
+
+        grantingSpells.clear();
+    }
+
+    void AP_Character::RemoveSpellIfUngranted(uint32 spellId)
+    {
+        if (grantedSpells.contains(spellId) || !player->HasSpell(spellId))
+        {
+            return;
+        }
+
+        player->removeSpell(spellId, SPEC_MASK_ALL, false);
+    }
+
+    void AP_Character::RemoveUngrantedSpells()
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        // A character bound to a slot after it was rolled up keeps whatever it had already learned,
+        // and with the starter abilities option on it starts out knowing several of them outright.
+        // Anything randomized that the multiworld has not handed over is taken back, higher ranks
+        // included -- removeSpell walks the chain -- so the trainer has something left to sell.
+        for (auto itr = items.spells.Begin(); itr != items.spells.End(); ++itr)
+        {
+            uint32 spellId = itr->second.spellId;
+            RemoveSpellIfUngranted(spellId);
+            for (uint32 taughtSpell : itr->second.taughtSpells)
+            {
+                RemoveSpellIfUngranted(taughtSpell);
+            }
+        }
     }
 
     void AP_Character::CreateAPClient()
@@ -515,6 +741,7 @@ namespace ModArchipelaWoW
                 Field* fields = result->Fetch();
                 int32 locationId = fields[0].Get<int32>();
                 locationChecks.push_back(locationId);
+                checkedLocations.insert(locationId);
             } while (result->NextRow());
 
             ap->LocationChecks(locationChecks);
@@ -580,6 +807,16 @@ namespace ModArchipelaWoW
             return;
         }
 
+        auto spell = items.spells.GetSpellByItemId(itemId);
+        if (spell.has_value())
+        {
+            // Granted on every pass rather than only the first: unlike a mailed reward, a spell can
+            // go missing from a character -- a spec reset, a hand-edited database -- and teaching it
+            // again costs nothing when it is already known.
+            GrantSpell(spell.value().spellId);
+            return;
+        }
+
         auto progressive = items.progressive.GetProgressiveItem(itemId);
         if (progressive.has_value())
         {
@@ -593,6 +830,20 @@ namespace ModArchipelaWoW
             if (!alreadyCounted)
             {
                 ++count;
+            }
+
+            if (track.type == Items::ProgressiveType::Riding)
+            {
+                // Every rank up to the count rather than only the newest, and on every pass rather
+                // than only on a fresh copy: the item list is replayed on each connection, and the
+                // ranks a character already learned have to be recorded again or the sweep below
+                // would take them back off it.
+                for (uint32 rank = 0; rank < count && rank < track.steps.size(); ++rank)
+                {
+                    GrantSpell(track.steps[rank]);
+                }
+
+                return;
             }
 
             // The food and drink tracks pay out a real item per copy rather than a percentage
@@ -810,6 +1061,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::CheckLocation(int32 locationId)
     {
+        checkedLocations.insert(locationId);
         ap->LocationChecks({ locationId });
         CharacterDatabase.Execute(
             "REPLACE INTO `ap_location_check` (`guid`, `locationId`) VALUES ({}, {})",
@@ -933,6 +1185,10 @@ namespace ModArchipelaWoW
             {
                 locations.flightPaths.AddLocation(fp.at(0), fp.at(1));
             }
+            for (const auto& spell : locationData.at("spells"))
+            {
+                locations.spells.AddLocation(spell.at(0), spell.at(1));
+            }
 
             const auto& itemData = data.at("items");
             for (const auto& item : itemData.at("zones"))
@@ -963,7 +1219,27 @@ namespace ModArchipelaWoW
                 {
                     throw std::runtime_error(fmt::format("unknown progressive type {}", rawType));
                 }
-                items.progressive.AddItem(item.at(0), type.value(), item.at(2).get<std::vector<uint32>>());
+
+                std::vector<uint32> steps = item.at(2).get<std::vector<uint32>>();
+
+                if (type.value() == Items::ProgressiveType::Riding)
+                {
+                    // The ladder shares one item between its ranks, so the ranks themselves are
+                    // registered by spell: that is what tells the trainer hooks these are the seed's
+                    // to hand over, and what each one waits on a character reaching. The levels the
+                    // slot sends are wanted here and nowhere else, so they go no further.
+                    std::vector<uint32> levels = item.at(3).get<std::vector<uint32>>();
+                    for (size_t i = 0; i < steps.size(); ++i)
+                    {
+                        items.spells.AddTrainerSpell(steps[i], i < levels.size() ? static_cast<uint8>(levels[i]) : 0);
+                    }
+                }
+
+                items.progressive.AddItem(item.at(0), type.value(), std::move(steps));
+            }
+            for (const auto& item : itemData.at("spells"))
+            {
+                items.spells.AddItem(item.at(0), item.at(1), item.at(2), item.at(3).get<std::vector<uint32>>());
             }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");
@@ -1115,6 +1391,10 @@ namespace ModArchipelaWoW
         // costs nothing when there is nothing to sweep.
         RemoveOutgrownProgressiveItems(Items::ProgressiveType::Food);
         RemoveOutgrownProgressiveItems(Items::ProgressiveType::Drink);
+
+        // Runs after the loop above, so every spell the multiworld has already handed over has been
+        // recorded and only the ones the character was never meant to have are taken back.
+        RemoveUngrantedSpells();
 
         if (newItemIndex != itemIndex)
         {

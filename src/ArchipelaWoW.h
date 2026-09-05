@@ -8,9 +8,11 @@
 #include "Item.h"
 #include "items/AP_GearPool.h"
 #include "network/AP_WebSocketService.h"
+#include "NPCPackets.h"
 #include "ObjectGuid.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Trainer.h"
 #include "Unit.h"
 
 #include <memory>
@@ -51,6 +53,10 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level);
         void OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId);
         void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count);
+        bool OnPlayerCanLearnSpell(Player* player, uint32 spellId);
+        void OnPlayerGetTrainerSpellState(const Player* player, uint32 spellId, Trainer::SpellState& state);
+        void OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, WorldPackets::NPC::TrainerList& trainerList);
+        void OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId);
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count);
 
         // CommandScripts methods

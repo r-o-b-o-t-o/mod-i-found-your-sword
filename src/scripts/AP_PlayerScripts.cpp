@@ -3,11 +3,13 @@
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
+#include "NPCPackets.h"
 #include "ObjectGuid.h"
 #include "Player.h"
 #include "PlayerScript.h"
 #include "QuestDef.h"
 #include "scripts/AP_PlayerScripts.h"
+#include "Trainer.h"
 #include "Unit.h"
 
 #include <string>
@@ -31,6 +33,10 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
                 PLAYERHOOK_ON_AFTER_TAKE_ITEM_FROM_MAIL,
                 PLAYERHOOK_ON_CREATE_ITEM,
+                PLAYERHOOK_CAN_LEARN_SPELL,
+                PLAYERHOOK_ON_GET_TRAINER_SPELL_STATE,
+                PLAYERHOOK_ON_BEFORE_RECEIVE_SPELL_LIST_FROM_TRAINER,
+                PLAYERHOOK_ON_AFTER_TRAIN_SPELL,
             })
         {
         }
@@ -119,6 +125,26 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count) override
         {
             sArchipelaWoW->OnPlayerCreateItem(player, item, count);
+        }
+
+        bool OnPlayerCanLearnSpell(Player* player, uint32 spellId) override
+        {
+            return sArchipelaWoW->OnPlayerCanLearnSpell(player, spellId);
+        }
+
+        void OnPlayerGetTrainerSpellState(const Player* player, uint32 /*trainerId*/, uint32 spellId, Trainer::SpellState& state) override
+        {
+            sArchipelaWoW->OnPlayerGetTrainerSpellState(player, spellId, state);
+        }
+
+        void OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, Creature* /*creature*/, WorldPackets::NPC::TrainerList& trainerList) override
+        {
+            sArchipelaWoW->OnPlayerBeforeReceiveSpellListFromTrainer(player, trainerList);
+        }
+
+        void OnPlayerAfterTrainSpell(Player* player, Creature* creature, uint32 spellId) override
+        {
+            sArchipelaWoW->OnPlayerAfterTrainSpell(player, creature, spellId);
         }
     };
 

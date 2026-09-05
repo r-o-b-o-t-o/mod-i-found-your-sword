@@ -3,6 +3,7 @@
 
 #include "AP_PlayerPosition.h"
 #include "AP_Stone.h"
+#include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
@@ -13,8 +14,10 @@
 #include "Mail.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
+#include "NPCPackets.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Trainer.h"
 #include "Unit.h"
 
 #include <chrono>
@@ -54,6 +57,11 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeGetLevelForXPGain(uint8& level);
         void OnPlayerLearnTaxiNode(uint32 nodeId);
         void OnPlayerAfterTakeItemFromMail(uint32 wowItemId);
+        bool OnPlayerCanLearnSpell(uint32 spellId);
+        void OnPlayerGetTrainerSpellState(uint32 spellId, Trainer::SpellState& state);
+        void OnPlayerBeforeReceiveSpellListFromTrainer(WorldPackets::NPC::TrainerList& trainerList);
+        void OnPlayerAfterTrainSpell(Creature* trainer, uint32 spellId);
+        void ReopenTrainerWindow(Creature* trainer);
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
 
@@ -77,6 +85,8 @@ namespace ModArchipelaWoW
         Items::ItemsContainer items;
         Locations::LocationsContainer locations;
         std::unordered_set<uint32> unlockedZones;
+        std::unordered_set<uint32> grantedSpells;
+        std::unordered_set<int32> checkedLocations;
         std::unordered_map<Items::ProgressiveType, uint32> progressiveCounts;
         PlayerPosition lastUnlockedPosition;
         std::chrono::seconds nextLockedZoneCheck;
@@ -89,6 +99,11 @@ namespace ModArchipelaWoW
         uint32 apExp;
         uint32 xpForLevel;
         bool goalCompleted;
+        /// The spells the module is in the middle of handing over, which the block that keeps a
+        /// randomized spell out of the character's hands stands aside for. A set rather than a flag
+        /// because a wrapper teaches several spells at once, and the ones with an Archipelago item
+        /// of their own have to stay blocked while the rest go through.
+        std::unordered_set<uint32> grantingSpells;
 
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
@@ -96,6 +111,9 @@ namespace ModArchipelaWoW
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);
+        void GrantSpell(uint32 spellId);
+        void RemoveUngrantedSpells();
+        void RemoveSpellIfUngranted(uint32 spellId);
 
         void CreateAPClient();
         void AddArchipelagoClientHandlers();

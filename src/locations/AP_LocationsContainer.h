@@ -5,6 +5,7 @@
 #include "locations/AP_FlightPaths.h"
 #include "locations/AP_Levels.h"
 #include "locations/AP_Quests.h"
+#include "locations/AP_Spells.h"
 
 namespace ModArchipelaWoW::Locations
 {
@@ -15,7 +16,8 @@ namespace ModArchipelaWoW::Locations
             achievements(),
             flightPaths(),
             levels(),
-            quests()
+            quests(),
+            spells()
         {
         }
 
@@ -23,6 +25,7 @@ namespace ModArchipelaWoW::Locations
         FlightPaths flightPaths;
         Levels levels;
         Quests quests;
+        Spells spells;
     };
 }
 

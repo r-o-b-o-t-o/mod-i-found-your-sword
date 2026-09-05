@@ -9,6 +9,7 @@
 #include "GossipDef.h"
 #include "Item.h"
 #include "items/AP_Zones.h"
+#include "Optional.h"
 #include "Player.h"
 #include "SharedDefines.h"
 #include "Util.h"

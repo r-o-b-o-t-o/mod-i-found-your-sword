@@ -21,6 +21,7 @@ namespace ModArchipelaWoW::Items
         ExperienceRate  = 2,
         Food            = 3,
         Drink           = 4,
+        Riding          = 5,
 
         Count
     };

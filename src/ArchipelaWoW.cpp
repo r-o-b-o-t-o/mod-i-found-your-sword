@@ -2,6 +2,7 @@
 #include "AP_Config.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
+#include "Creature.h"
 #include "DatabaseEnv.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -15,6 +16,7 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Trainer.h"
 #include "Unit.h"
 
 #include <memory>
@@ -22,6 +24,7 @@
 #include <unordered_set>
 
 #define ReturnIfModDisabled if (!config.IsEnabled()) { return; }
+#define ReturnValueIfModDisabled(value) if (!config.IsEnabled()) { return value; }
 
 namespace ModArchipelaWoW
 {
@@ -354,6 +357,72 @@ namespace ModArchipelaWoW
             // Only the entry travels onwards: which tier was collected is all the character needs,
             // and nothing downstream then holds a raw Item* it would have to reason about.
             apCharacters[guid]->OnPlayerAfterTakeItemFromMail(item->GetEntry());
+        }
+    }
+
+    bool ArchipelaWoW::OnPlayerCanLearnSpell(Player* player, uint32 spellId)
+    {
+        ReturnValueIfModDisabled(true);
+
+        if (!player)
+        {
+            return true;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->OnPlayerCanLearnSpell(spellId);
+    }
+
+    void ArchipelaWoW::OnPlayerGetTrainerSpellState(const Player* player, uint32 spellId, Trainer::SpellState& state)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerGetTrainerSpellState(spellId, state);
+        }
+    }
+
+    void ArchipelaWoW::OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, WorldPackets::NPC::TrainerList& trainerList)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerBeforeReceiveSpellListFromTrainer(trainerList);
+        }
+    }
+
+    void ArchipelaWoW::OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerAfterTrainSpell(trainer, spellId);
         }
     }
 
