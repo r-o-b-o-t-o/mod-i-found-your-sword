@@ -45,3 +45,42 @@ ArchipelaWoW.ArchipelagoServerPort = 38281
 #        Default:     ""
 
 ArchipelaWoW.ArchipelagoPassword = ""
+
+
+#    ArchipelaWoW.Chat.RelaySay
+#        Description: Send what a bound character says in /say to the Archipelago multiworld,
+#                     through the slot that character is bound to.
+#        Values:      0 - Disabled
+#                     1 - Enabled
+#        Default:     1
+
+ArchipelaWoW.Chat.RelaySay = 1
+
+
+#    ArchipelaWoW.Chat.RelayChannels
+#        Description: Chat channels relayed to the Archipelago multiworld, comma-separated and
+#                     case-insensitive. Relayed whether or not ArchipelaWoW.Chat.RelaySay is on.
+#                     The default value allows players to chat with the Archipelago room
+#                     by typing /join archipelago.
+#        Default:     "archipelago"
+
+ArchipelaWoW.Chat.RelayChannels = "archipelago"
+
+
+#    ArchipelaWoW.Chat.CommandPrefix
+#        Description: What a chat message must start with to be run by the Archipelago server
+#                     as a command instead of being said in game, for instance "!!hint Holy Light",
+#                     "!!status" or "!!countdown 10". Use "!!help" in game for the list the
+#                     server accepts.
+#                     Works in /say or any of the channels listed in ArchipelaWoW.Chat.RelayChannels.
+#                     Archipelago's marker is "!", but it cannot be used here: the core takes
+#                     both "." and "!" as prefixes for its own commands and parses them before
+#                     the module sees the message. It makes an exception for a doubled marker,
+#                     which is why the default is "!!" -- the module translates it before
+#                     sending, so the Archipelago server still receives "!".
+#                     Any prefix that starts with "." or "!" without doubling it is swallowed
+#                     the same way; the module logs an error on startup if you set one.
+#                     Leave empty to disable commands typed in chat entirely.
+#        Default:     "!!"
+
+ArchipelaWoW.Chat.CommandPrefix = "!!"

@@ -432,6 +432,46 @@ namespace ModArchipelaWoW::Network
         return true;
     }
 
+    bool Client::Say(const std::string& text)
+    {
+        std::string sanitized = StripUnprintable(text);
+
+        // The server rejects an empty Say outright, and the room has nothing to show for it
+        // either, so it never leaves the client.
+        if (state != State::SlotConnected || sanitized.empty())
+        {
+            return false;
+        }
+
+        json packet = json::array({ json({
+            {"cmd", "Say"},
+            {"text", sanitized}
+        }) });
+
+        Send(packet);
+        return true;
+    }
+
+    std::string Client::StripUnprintable(const std::string& text)
+    {
+        // The server drops a Say whose text is not printable to Python, which counts the whole
+        // ASCII control block as unprintable -- tabs included, and the game lets those through.
+        // Bytes at 0x80 and above are left alone: they are the continuation of a UTF-8 sequence,
+        // and cutting into one would corrupt the character it belongs to.
+        std::string stripped;
+        stripped.reserve(text.size());
+
+        for (unsigned char c : text)
+        {
+            if (c >= 0x20 && c != 0x7F)
+            {
+                stripped += static_cast<char>(c);
+            }
+        }
+
+        return stripped;
+    }
+
     // ---------------------------------------------------------------------------
     // Queries
     // ---------------------------------------------------------------------------
@@ -665,7 +705,7 @@ namespace ModArchipelaWoW::Network
     void Client::SetRoomInfoHandler(std::function<void()> handler) { onRoomInfo = std::move(handler); }
     void Client::SetDataPackageChangedHandler(std::function<void(const json&)> handler) { onDataPackageChanged = std::move(handler); }
     void Client::SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler) { onItemsReceived = std::move(handler); }
-    void Client::SetPrintJsonHandler(std::function<void(const std::list<TextNode>&)> handler) { onPrintJson = std::move(handler); }
+    void Client::SetPrintJsonHandler(std::function<void(const PrintJson&)> handler) { onPrintJson = std::move(handler); }
     void Client::SetBouncedHandler(std::function<void(const json&)> handler) { onBounced = std::move(handler); }
     void Client::SetMessageErrorHandler(std::function<void(const std::string&)> handler) { onMessageError = std::move(handler); }
 
@@ -884,13 +924,18 @@ namespace ModArchipelaWoW::Network
         {
             if (onPrintJson)
             {
-                std::list<TextNode> data;
+                PrintJson msg;
+                msg.type = command.value("type", "");
+                msg.team = command.value("team", -1);
+                msg.slot = command.value("slot", -1);
+                msg.message = command.value("message", "");
+
                 for (const auto& part : command.at("data"))
                 {
-                    data.push_back(TextNode::FromJson(part));
+                    msg.data.push_back(TextNode::FromJson(part));
                 }
 
-                onPrintJson(data);
+                onPrintJson(msg);
             }
         }
         else if (cmd == "Bounced")

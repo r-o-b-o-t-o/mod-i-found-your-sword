@@ -48,6 +48,7 @@ namespace ModArchipelaWoW
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
         bool IsSlotConnected() const;
+        void SayToArchipelago(const std::string& text);
 
         // PlayerScripts events
         void OnPlayerAchievementComplete(const AchievementEntry* achievement);
@@ -64,6 +65,7 @@ namespace ModArchipelaWoW
         void ReopenTrainerWindow(Creature* trainer);
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
+        bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
 
         // ItemScripts events
         void OnUseArchipelagoStone(Item* item);
@@ -104,6 +106,9 @@ namespace ModArchipelaWoW
         /// because a wrapper teaches several spells at once, and the ones with an Archipelago item
         /// of their own have to stay blocked while the rest go through.
         std::unordered_set<uint32> grantingSpells;
+        /// The messages this character relayed to the room and has already read in its own chat
+        /// box, waiting for the room to echo them back so the copy can be dropped.
+        std::list<std::string> pendingChatEchoes;
 
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
@@ -128,6 +133,8 @@ namespace ModArchipelaWoW
         void LoadXPForLevel();
         void CheckLocation(int32 locationId);
         MailSender GetMailSender(int sender);
+        void RelayChatToArchipelago(const std::string& text);
+        void SendCommandToArchipelago(const std::string& command);
 
         // AP Handlers
         void APSlotConnectedHandler(const nlohmann::json& data);
@@ -137,7 +144,7 @@ namespace ModArchipelaWoW
         void APRoomInfoHandler();
         void APDataPackageHandler(const nlohmann::json& data);
         void APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items);
-        void APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg);
+        void APPrintJsonHandler(const Network::Client::PrintJson& msg);
         void APSlotRefusedHandler(const std::list<std::string>& errors);
         void APMessageErrorHandler(const std::string& error);
 

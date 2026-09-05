@@ -27,6 +27,7 @@ namespace ModArchipelaWoW::Scripts
                 { "connect", HandleAPConnectCommand, SEC_PLAYER, Console::No },
                 { "level",   HandleAPLevelCommand,   SEC_PLAYER, Console::No },
                 { "xp",      HandleAPLevelCommand,   SEC_PLAYER, Console::No },
+                { "say",     HandleAPSayCommand,     SEC_PLAYER, Console::No },
             };
 
             static ChatCommandTable commandTable =
@@ -66,6 +67,23 @@ namespace ModArchipelaWoW::Scripts
             }
 
             return sArchipelaWoW->HandleAPLevelCommand(player);
+        }
+
+        static bool HandleAPSayCommand(ChatHandler* handler, const char* args)
+        {
+            Player* player = handler->GetPlayer();
+            if (!player)
+            {
+                return false;
+            }
+
+            std::string text(args);
+            if (text.empty())
+            {
+                return false;
+            }
+
+            return sArchipelaWoW->HandleAPSayCommand(player, text);
         }
     };
 

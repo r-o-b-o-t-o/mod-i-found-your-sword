@@ -30,6 +30,7 @@
 #include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "SharedDefines.h"
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "Unit.h"
@@ -60,6 +61,12 @@ constexpr uint8 DEFAULT_GEAR_REWARD_LEVEL_WINDOW = 3;
 // Stands in for the taught list of an entry the slot does not carry, so GrantSpell can bind a
 // reference either way
 static const std::vector<uint32> EMPTY_SPELL_LIST;
+// The marker Archipelago's own command processor looks for at the start of a Say command.
+// The module's in-game prefix is configurable, this one is not: it is what the server understands.
+constexpr char AP_COMMAND_MARKER = '!';
+// How many relayed lines can be waiting for their echo at once. Only ever more than a couple
+// when the room is echoing slowly, and a dropped entry costs nothing but a duplicated line.
+constexpr size_t MAX_PENDING_CHAT_ECHOES = 16;
 
 namespace ModArchipelaWoW
 {
@@ -91,7 +98,8 @@ namespace ModArchipelaWoW
         apExp(0),
         xpForLevel(0),
         goalCompleted(false),
-        grantingSpells()
+        grantingSpells(),
+        pendingChatEchoes()
     {
         ASSERT_NOTNULL(player);
         ASSERT_NOTNULL(player->GetSession());
@@ -240,6 +248,24 @@ namespace ModArchipelaWoW
     bool AP_Character::IsSlotConnected() const
     {
         return ap && ap->GetState() >= Network::Client::State::SlotConnected;
+    }
+
+    void AP_Character::SayToArchipelago(const std::string& text)
+    {
+        if (!run)
+        {
+            return;
+        }
+
+        if (!IsSlotConnected())
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Not connected to the Archipelago server, the message was not sent.");
+            return;
+        }
+
+        // Deliberately not remembered as a pending echo: the text never went through the chat
+        // box, so the room's echo of it is the only confirmation the player gets.
+        ap->Say(text);
     }
 
     void AP_Character::OnPlayerAchievementComplete(const AchievementEntry* achievement)
@@ -521,6 +547,37 @@ namespace ModArchipelaWoW
     void AP_Character::OnPlayerBeforeLogout()
     {
         SaveToDatabase();
+    }
+
+    bool AP_Character::OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName)
+    {
+        if (msg.empty() || !run)
+        {
+            return true;
+        }
+
+        bool relayedChannel = type == CHAT_MSG_CHANNEL && sConfig.IsChatChannelRelayed(channelName);
+        if (type != CHAT_MSG_SAY && !relayedChannel)
+        {
+            return true;
+        }
+
+        const std::string& prefix = sConfig.GetChatCommandPrefix();
+        if (!prefix.empty() && msg.size() > prefix.size() && msg.compare(0, prefix.size(), prefix) == 0)
+        {
+            SendCommandToArchipelago(msg.substr(prefix.size()));
+
+            // Kept out of the game world: the room echoes the command back to every slot, so
+            // letting it through as well would say the same thing twice.
+            return false;
+        }
+
+        if (relayedChannel || sConfig.IsSayRelayed())
+        {
+            RelayChatToArchipelago(msg);
+        }
+
+        return true;
     }
 
     void AP_Character::OnUseArchipelagoStone(Item* item)
@@ -1113,6 +1170,37 @@ namespace ModArchipelaWoW
         return mailSender;
     }
 
+    void AP_Character::RelayChatToArchipelago(const std::string& text)
+    {
+        // Stripped up front rather than left to `Say()`: what the room echoes back is
+        // what the server received, and the echo is recognized by comparing against it.
+        std::string sent = Network::Client::StripUnprintable(text);
+
+        if (!IsSlotConnected() || !ap->Say(sent))
+        {
+            return;
+        }
+
+        // The room broadcasts the message back to every slot, this one included. It is already
+        // on screen, so the copy is remembered here and dropped when it comes around.
+        pendingChatEchoes.push_back(sent);
+        if (pendingChatEchoes.size() > MAX_PENDING_CHAT_ECHOES)
+        {
+            pendingChatEchoes.pop_front();
+        }
+    }
+
+    void AP_Character::SendCommandToArchipelago(const std::string& command)
+    {
+        if (!IsSlotConnected())
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Not connected to the Archipelago server, the command was not sent.");
+            return;
+        }
+
+        ap->Say(AP_COMMAND_MARKER + command);
+    }
+
     void AP_Character::APSlotConnectedHandler(const nlohmann::json& data)
     {
         if (!ap)
@@ -1276,6 +1364,8 @@ namespace ModArchipelaWoW
     {
         LOG_WARN("module.archipelawow", "Disconnected from Archipelago server");
         ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago server");
+
+        pendingChatEchoes.clear();
     }
 
     void AP_Character::APBouncedHandler(const nlohmann::json& packet)
@@ -1405,14 +1495,24 @@ namespace ModArchipelaWoW
         itemsSynced = true;
     }
 
-    void AP_Character::APPrintJsonHandler(const std::list<Network::Client::TextNode>& msg)
+    void AP_Character::APPrintJsonHandler(const Network::Client::PrintJson& msg)
     {
         if (!ap || !run)
         {
             return;
         }
 
-        std::string str = ap->RenderJson(msg, Network::Client::RenderFormat::Ansi);
+        if (msg.type == "Chat" && msg.slot == ap->GetPlayerNumber())
+        {
+            auto echo = std::find(pendingChatEchoes.begin(), pendingChatEchoes.end(), msg.message);
+            if (echo != pendingChatEchoes.end())
+            {
+                pendingChatEchoes.erase(echo);
+                return;
+            }
+        }
+
+        std::string str = ap->RenderJson(msg.data, Network::Client::RenderFormat::Ansi);
         str = ConvertANSIColoredString(str);
         ChatHandler(player->GetSession()).SendSysMessage(str);
     }

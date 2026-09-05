@@ -58,10 +58,14 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, WorldPackets::NPC::TrainerList& trainerList);
         void OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId);
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count);
+        /// Relays what the character typed to its Archipelago slot. Returns false when the
+        /// message was an Archipelago command and must not also reach the game world.
+        bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
 
         // CommandScripts methods
         bool HandleAPConnectCommand(Player* player, std::string slot);
         bool HandleAPLevelCommand(Player* player);
+        bool HandleAPSayCommand(Player* player, const std::string& text);
 
         // ItemScripts methods
         bool OnUseArchipelagoStone(Player* player, Item* item);

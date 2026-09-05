@@ -442,6 +442,24 @@ namespace ModArchipelaWoW
         }
     }
 
+    bool ArchipelaWoW::OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName)
+    {
+        ReturnValueIfModDisabled(true);
+
+        if (!player)
+        {
+            return true;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->OnPlayerChat(type, msg, channelName);
+    }
+
     bool ArchipelaWoW::HandleAPConnectCommand(Player* player, std::string slot)
     {
         if (!config.IsEnabled() || !player || !player->GetSession())
@@ -481,6 +499,24 @@ namespace ModArchipelaWoW
         }
 
         apCharacters[guid]->SendLevelReport();
+        return true;
+    }
+
+    bool ArchipelaWoW::HandleAPSayCommand(Player* player, const std::string& text)
+    {
+        if (!config.IsEnabled() || !player || !player->GetSession())
+        {
+            return true;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000This character is not bound to an Archipelago slot. Use |cFF5F5FD7.ap connect SlotName|cFFFF0000 first.");
+            return true;
+        }
+
+        apCharacters[guid]->SayToArchipelago(text);
         return true;
     }
 

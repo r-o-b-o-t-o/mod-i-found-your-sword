@@ -52,6 +52,50 @@ The following modules are required for full progression:
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
 
+## 💬 Chat
+
+A character bound to a slot shares that slot's seat in the multiworld, so the Archipelago room is
+reachable from the game's own chat box - no need for a second client to alt-tab to.
+
+### Talking to the room
+
+What the character says in `/say` is sent to the room as chat from its slot, and everything the
+room says back arrives as a system message, the same way item and hint announcements already do.
+Set `ArchipelaWoW.Chat.RelaySay = 0` to disable relaying `/say` to the Archipelago room.
+
+`ArchipelaWoW.Chat.RelayChannels` can also be used to relay chat messages. The default is a
+channel named `archipelago`, which players can opt-in by typing `/join archipelago`, and
+`/leave archipelago` to stop relaying.
+Set `ArchipelaWoW.Chat.RelayChannels = ""` to disable relaying channels the the Archipelago room.
+
+### Running Archipelago commands
+
+A message starting with `!!` is handed to the Archipelago server as a command instead of being said
+in game. It works in `/say` or any of the relayed channels.
+Every command the server accepts is available:
+
+| Command | What it does |
+|---------|--------------|
+| `!!hint Holy Light` | Buy a hint revealing where an item is |
+| `!!hint_location Level 12` | Buy a hint revealing what a location holds |
+| `!!status` | Show which slots are connected and how far along they are |
+| `!!countdown 10` | Start a room-wide countdown, for a synchronized start |
+| `!!players` | List the slots in the multiworld |
+| `!!remaining`, `!!missing`, `!!checked` | Report on this slot's locations |
+| `!!release`, `!!collect` | Send out this slot's remaining items, or claim its own |
+| `!!alias Roboto` | Rename this slot in the room |
+| `!!help` | The full list, straight from the server |
+
+Archipelago's own marker is a single `!`, and the doubling is not decoration: AzerothCore takes
+both `.` and `!` as prefixes for its own commands and parses them before any module is consulted,
+so `!hint` would not work. The parser allows a doubled marker, so `!!` reaches the module,
+which strips it and sends the Archipelago room the `!hint` it expects.
+
+Set `ArchipelaWoW.Chat.CommandPrefix` to change the default `!!` marker.
+Note that anything starting with a single `.` or `!` is swallowed by the core.
+
+Set `ArchipelaWoW.Chat.CommandPrefix = ""` to disable sending commands to the Archipelago room.
+
 ## 🧩 Custom content
 
 The module claims a small amount of space in shared game data. If you run other modules alongside

@@ -5,6 +5,7 @@
 #include "Define.h"
 
 #include <string>
+#include <unordered_set>
 
 namespace ModArchipelaWoW
 {
@@ -15,6 +16,9 @@ namespace ModArchipelaWoW
         ARCHIPELAGO_SERVER_HOST,
         ARCHIPELAGO_SERVER_PORT,
         ARCHIPELAGO_PASSWORD,
+        CHAT_RELAY_SAY,
+        CHAT_RELAY_CHANNELS,
+        CHAT_COMMAND_PREFIX,
 
         NUM_CONFIGS,
     };
@@ -30,6 +34,16 @@ namespace ModArchipelaWoW
         std::string GetArchipelagoServerHost() const;
         uint32 GetArchipelagoServerPort() const;
         std::string GetArchipelagoPassword() const;
+
+        bool IsSayRelayed() const;
+        const std::string& GetChatCommandPrefix() const;
+        bool IsChatChannelRelayed(const std::string& channelName) const;
+
+    private:
+        std::unordered_set<std::string> relayedChannels;
+        std::string chatCommandPrefix;
+
+        void BuildChatCache();
     };
 }
 

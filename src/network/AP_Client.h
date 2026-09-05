@@ -103,6 +103,17 @@ namespace ModArchipelaWoW::Network
             static TextNode FromJson(const json& j);
         };
 
+        /// A PrintJSON packet: the parts to render, plus the metadata saying what kind of
+        /// message it is and, for room chat, which slot it came from.
+        struct PrintJson
+        {
+            std::string type;
+            int team = -1;
+            int slot = -1;
+            std::string message;
+            std::list<TextNode> data;
+        };
+
         Client(WebSocketService& wsService, const std::string& uuid, const std::string& game,
             const std::string& host, const std::string& port);
         ~Client();
@@ -139,6 +150,15 @@ namespace ModArchipelaWoW::Network
         bool Bounce(const json& data, const std::list<std::string>& games = {},
             const std::list<int>& slots = {}, const std::list<std::string>& tags = {});
 
+        /// Send a Say command. The server broadcasts the text to the room as chat from this
+        /// slot, and additionally runs it as a server command when it starts with '!'.
+        /// The text is stripped of what the server refuses to print before it goes out.
+        bool Say(const std::string& text);
+
+        /// Drop the characters a Say packet may not carry. Public so a caller that has to know
+        /// what the room will echo back can ask for the same text Say would send.
+        static std::string StripUnprintable(const std::string& text);
+
         State GetState() const;
         int GetPlayerNumber() const;
         std::string GetPlayerAlias(int slot) const;
@@ -158,7 +178,7 @@ namespace ModArchipelaWoW::Network
         void SetRoomInfoHandler(std::function<void()> handler);
         void SetDataPackageChangedHandler(std::function<void(const json&)> handler);
         void SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler);
-        void SetPrintJsonHandler(std::function<void(const std::list<TextNode>&)> handler);
+        void SetPrintJsonHandler(std::function<void(const PrintJson&)> handler);
         void SetBouncedHandler(std::function<void(const json&)> handler);
         void SetMessageErrorHandler(std::function<void(const std::string&)> handler);
 
@@ -216,7 +236,7 @@ namespace ModArchipelaWoW::Network
         std::function<void()> onRoomInfo;
         std::function<void(const json&)> onDataPackageChanged;
         std::function<void(const std::list<NetworkItem>&)> onItemsReceived;
-        std::function<void(const std::list<TextNode>&)> onPrintJson;
+        std::function<void(const PrintJson&)> onPrintJson;
         std::function<void(const json&)> onBounced;
         std::function<void(const std::string&)> onMessageError;
     };

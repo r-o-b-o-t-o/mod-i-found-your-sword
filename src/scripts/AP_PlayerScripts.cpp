@@ -1,4 +1,5 @@
 #include "ArchipelaWoW.h"
+#include "Channel.h"
 #include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -37,6 +38,8 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_GET_TRAINER_SPELL_STATE,
                 PLAYERHOOK_ON_BEFORE_RECEIVE_SPELL_LIST_FROM_TRAINER,
                 PLAYERHOOK_ON_AFTER_TRAIN_SPELL,
+                PLAYERHOOK_CAN_PLAYER_USE_CHAT,
+                PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
             })
         {
         }
@@ -145,6 +148,16 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerAfterTrainSpell(Player* player, Creature* creature, uint32 spellId) override
         {
             sArchipelaWoW->OnPlayerAfterTrainSpell(player, creature, spellId);
+        }
+
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*language*/, std::string& msg) override
+        {
+            return sArchipelaWoW->OnPlayerCanUseChat(player, type, msg);
+        }
+
+        bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*language*/, std::string& msg, Channel* channel) override
+        {
+            return sArchipelaWoW->OnPlayerCanUseChat(player, type, msg, channel ? channel->GetName() : "");
         }
     };
 
