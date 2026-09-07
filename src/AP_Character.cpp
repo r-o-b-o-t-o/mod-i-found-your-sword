@@ -28,6 +28,7 @@
 #include "NPCPackets.h"
 #include "ObjectMgr.h"
 #include "Optional.h"
+#include "Pet.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "SharedDefines.h"
@@ -330,8 +331,13 @@ namespace ModArchipelaWoW
         }
     }
 
-    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* /*victim*/, uint8 /*xpSource*/)
+    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* /*victim*/, uint8 xpSource)
     {
+        // KillRewarder pays the hunter pet out of whatever is left of xp once this hook returns,
+        // and the character's experience is diverted into the hidden Archipelago bar below. Give
+        // the pet its XP first, or it never earns a level of its own.
+        GivePetXP(xp, xpSource);
+
         if (apLevel >= maxLevel)
         {
             xp = 0;
@@ -935,6 +941,27 @@ namespace ModArchipelaWoW
             }
             return;
         }
+    }
+
+    void AP_Character::GivePetXP(uint32 xp, uint8 xpSource) const
+    {
+        // Only a kill should give a pet experience -- not quest, exploration or battleground.
+        if (xpSource != PlayerXPSource::XPSOURCE_KILL)
+        {
+            return;
+        }
+
+        Pet* pet = player->GetPet();
+        if (!pet)
+        {
+            return;
+        }
+
+        // Mirrors KillRewarder: full kill experience solo, half in a group, before the Progressive
+        // Experience Rate bonus -- that bonus buys Archipelago levels. Pet::GivePetXP screens out
+        // non-hunter and dead pets and applies the rate config. Its cap is the character's real
+        // level, not apLevel: intended, so the pet follows the levels the multiworld hands over.
+        pet->GivePetXP(player->GetGroup() ? xp / 2 : xp);
     }
 
     void AP_Character::AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const

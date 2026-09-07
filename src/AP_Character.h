@@ -112,6 +112,7 @@ namespace ModArchipelaWoW
 
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
+        void GivePetXP(uint32 xp, uint8 xpSource) const;
         void AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const;
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
