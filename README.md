@@ -18,31 +18,22 @@ The following modules are required for full progression:
 
 ### Setup guide
 
-1. **Clone the repository** into the `modules` folder of your AzerothCore local clone
+1. **Update AzerothCore**
+   The module subscribes to player hooks that landed in AzerothCore on September 9th, 2026.  
+   Without them the module will not compile, so build against
+   [`301401c`](https://github.com/azerothcore/azerothcore-wotlk/commit/301401c9da2626f6155de92d969bf2eb26086a77)
+   or later:
+
+   ```bash
+   cd path/to/azerothcore-wotlk
+   git pull
+   ```
+
+2. **Clone the repository** into the `modules` folder of your AzerothCore local clone
    ```bash
    cd path/to/azerothcore-wotlk/modules
    git clone https://github.com/r-o-b-o-t-o/mod-i-found-your-sword.git
    ```
-
-2. **Build against the core branch carrying the hooks the module depends on**
-
-   The module subscribes to player hooks that are not in AzerothCore yet, and will not compile
-   without them: `OnPlayerAfterTakeItemFromMail`, proposed in
-   [azerothcore/azerothcore-wotlk#27447](https://github.com/azerothcore/azerothcore-wotlk/pull/27447),
-   and four more for trainers and spell learning that the spell randomization needs.
-
-   Until they are merged upstream, use the
-   [`archipelawow`](https://github.com/r-o-b-o-t-o/azerothcore-wotlk/tree/archipelawow) branch of the
-   fork, which carries both sets on top of AzerothCore's master:
-
-   ```bash
-   cd path/to/azerothcore-wotlk
-   git remote add roboto https://github.com/r-o-b-o-t-o/azerothcore-wotlk.git
-   git fetch roboto
-   git checkout -b archipelawow roboto/archipelawow
-   ```
-
-   This step goes away once the hooks land upstream.
 
 3. **Re-run CMake**
 
