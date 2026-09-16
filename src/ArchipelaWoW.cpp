@@ -326,6 +326,38 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerLevelChanged(Player* player)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerLevelChanged();
+        }
+    }
+
+    void ArchipelaWoW::OnPlayerSendInitialPacketsBeforeAddToMap(Player* player)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerSendInitialPacketsBeforeAddToMap();
+        }
+    }
+
     void ArchipelaWoW::OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId)
     {
         ReturnIfModDisabled;

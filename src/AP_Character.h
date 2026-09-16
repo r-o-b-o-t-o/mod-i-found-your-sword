@@ -47,6 +47,7 @@ namespace ModArchipelaWoW
         void Teleport(const Items::ZoneItem& zone);
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
+        void SendExperienceBar() const;
         bool IsSlotConnected() const;
         void SayToArchipelago(const std::string& text);
 
@@ -56,6 +57,8 @@ namespace ModArchipelaWoW
         void OnPlayerCompleteQuest(const Quest* quest);
         void OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(uint8& level);
+        void OnPlayerLevelChanged();
+        void OnPlayerSendInitialPacketsBeforeAddToMap();
         void OnPlayerLearnTaxiNode(uint32 nodeId);
         void OnPlayerAfterTakeItemFromMail(uint32 wowItemId);
         bool OnPlayerCanLearnSpell(uint32 spellId);
@@ -101,6 +104,9 @@ namespace ModArchipelaWoW
         uint32 apExp;
         uint32 xpForLevel;
         bool goalCompleted;
+        /// Set when the core is about to overwrite the client's experience bar, so Update sends
+        /// the Archipelago one again once the core's own update has gone out.
+        bool experienceBarStale;
         /// The spells the module is in the middle of handing over, which the block that keeps a
         /// randomized spell out of the character's hands stands aside for. A set rather than a flag
         /// because a wrapper teaches several spells at once, and the ones with an Archipelago item
@@ -113,7 +119,6 @@ namespace ModArchipelaWoW
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
         void GivePetXP(uint32 xp, uint8 xpSource) const;
-        void AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const;
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);
@@ -131,6 +136,7 @@ namespace ModArchipelaWoW
         void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);
         void CheckIsInLockedZone();
         void SavePosition();
+        void InitExperience();
         void LoadXPForLevel();
         void CheckLocation(int32 locationId);
         MailSender GetMailSender(int sender);

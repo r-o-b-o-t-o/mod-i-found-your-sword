@@ -51,6 +51,8 @@ namespace ModArchipelaWoW
         void OnPlayerDelete(ObjectGuid playerGuid);
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level);
+        void OnPlayerLevelChanged(Player* player);
+        void OnPlayerSendInitialPacketsBeforeAddToMap(Player* player);
         void OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId);
         void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count);
         bool OnPlayerCanLearnSpell(Player* player, uint32 spellId);

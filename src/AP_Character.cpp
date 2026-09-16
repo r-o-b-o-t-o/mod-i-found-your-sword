@@ -35,6 +35,9 @@
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "Unit.h"
+#include "UpdateData.h"
+#include "UpdateMask.h"
+#include "WorldPacket.h"
 
 #include <algorithm>
 #include <boost/uuid/random_generator.hpp>
@@ -99,6 +102,7 @@ namespace ModArchipelaWoW
         apExp(0),
         xpForLevel(0),
         goalCompleted(false),
+        experienceBarStale(false),
         grantingSpells(),
         pendingChatEchoes()
     {
@@ -106,7 +110,7 @@ namespace ModArchipelaWoW
         ASSERT_NOTNULL(player->GetSession());
 
         uuid = GenerateUUID();
-        LoadXPForLevel();
+        InitExperience();
     }
 
     AP_Character::AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted) :
@@ -118,7 +122,8 @@ namespace ModArchipelaWoW
         this->apExp = apExp;
         this->goalCompleted = goalCompleted;
 
-        LoadXPForLevel();
+        // The delegated constructor ran this on the defaults; the real values are in now.
+        InitExperience();
     }
 
     AP_Character::~AP_Character()
@@ -131,6 +136,13 @@ namespace ModArchipelaWoW
 
     bool AP_Character::Update()
     {
+        // Whatever the core sent over the bar has gone out by now, so ours lands on top.
+        if (experienceBarStale)
+        {
+            experienceBarStale = false;
+            SendExperienceBar();
+        }
+
         if (run)
         {
             if (!ap)
@@ -246,6 +258,33 @@ namespace ModArchipelaWoW
         chat.SendSysMessage(fmt::format("|cFF4CFF00{}|r experience to level |cFF4CFF00{}|r", remaining, apLevel + 1));
     }
 
+    void AP_Character::SendExperienceBar() const
+    {
+        // The real experience fields never move, so the client is shown the Archipelago bar
+        // through a hand-built values update the server-side player object never sees.
+        UpdateMask mask;
+        mask.SetCount(player->GetValuesCount());
+        mask.SetBit(PLAYER_XP);
+        mask.SetBit(PLAYER_NEXT_LEVEL_XP);
+
+        bool capped = maxLevel > 0 && apLevel >= maxLevel;
+
+        ByteBuffer block;
+        block << uint8(UPDATETYPE_VALUES);
+        block << player->GetPackGUID();
+        block << uint8(mask.GetBlockCount());
+        mask.AppendToPacket(&block);
+        block << uint32(capped ? xpForLevel : apExp);
+        block << uint32(xpForLevel);
+
+        UpdateData data;
+        data.AddUpdateBlock(block);
+
+        WorldPacket packet;
+        data.BuildPacket(packet);
+        player->SendDirectMessage(&packet);
+    }
+
     bool AP_Character::IsSlotConnected() const
     {
         return ap && ap->GetState() >= Network::Client::State::SlotConnected;
@@ -331,7 +370,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* /*victim*/, uint8 xpSource)
+    void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource)
     {
         // KillRewarder pays the hunter pet out of whatever is left of xp once this hook returns,
         // and the character's experience is diverted into the hidden Archipelago bar below. Give
@@ -347,7 +386,6 @@ namespace ModArchipelaWoW
         // The character's own experience bar never moves -- xp is zeroed below -- so the
         // Progressive Experience Rate bonus has to be applied here, to the hidden Archipelago
         // experience that drives apLevel and the level location checks.
-        uint32 baseXp = xp;
         uint32 xpBonusPct = GetProgressiveStep(Items::ProgressiveType::ExperienceRate);
         if (xpBonusPct > 0)
         {
@@ -355,7 +393,11 @@ namespace ModArchipelaWoW
             xp = static_cast<uint32>(std::min<uint64>(boosted, std::numeric_limits<uint32>::max()));
         }
 
-        AnnounceXPGain(baseXp, xp, xpBonusPct);
+        // The native combat-log line and floating text, which the core skips once xp is zeroed.
+        if (xp > 0)
+        {
+            player->SendLogXPGain(xp, victim, 0);
+        }
 
         apExp += xp;
 
@@ -373,12 +415,27 @@ namespace ModArchipelaWoW
             LoadXPForLevel();
         }
 
+        SendExperienceBar();
         xp = 0;
     }
 
     void AP_Character::OnPlayerBeforeGetLevelForXPGain(uint8& level)
     {
         level = apLevel;
+    }
+
+    void AP_Character::OnPlayerLevelChanged()
+    {
+        // GiveLevel rewrote PLAYER_NEXT_LEVEL_XP; the core batches it into the next map update,
+        // which precedes the world update that flushes the flag, so a send from here would lose.
+        experienceBarStale = true;
+    }
+
+    void AP_Character::OnPlayerSendInitialPacketsBeforeAddToMap()
+    {
+        // Fires right before a fresh create block with the real fields: a far teleport, or a client
+        // reconnecting to a character still in world. A first login has no character yet.
+        experienceBarStale = true;
     }
 
     void AP_Character::OnPlayerLearnTaxiNode(uint32 nodeId)
@@ -964,24 +1021,6 @@ namespace ModArchipelaWoW
         pet->GivePetXP(player->GetGroup() ? xp / 2 : xp);
     }
 
-    void AP_Character::AnnounceXPGain(uint32 baseXp, uint32 totalXp, uint32 bonusPct) const
-    {
-        if (totalXp == 0)
-        {
-            return;
-        }
-
-        // Nothing the player can see moves when they earn experience, so without this there is no
-        // way to tell a worthwhile kill from a worthless one -- or that anything was earned at all.
-        std::string message = fmt::format("Gained |cFF4CFF00{}|r Archipelago XP", totalXp);
-        if (bonusPct > 0)
-        {
-            message += fmt::format(" |cFF808080(base: {} XP, bonus +{}%: {} XP)|r", baseXp, bonusPct, totalXp - baseXp);
-        }
-
-        ChatHandler(player->GetSession()).SendSysMessage(message);
-    }
-
     uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
     {
         auto count = progressiveCounts.find(type);
@@ -1128,6 +1167,12 @@ namespace ModArchipelaWoW
         {
             lastUnlockedPosition = PlayerPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation());
         }
+    }
+
+    void AP_Character::InitExperience()
+    {
+        LoadXPForLevel();
+        SendExperienceBar();
     }
 
     void AP_Character::LoadXPForLevel()
@@ -1378,6 +1423,7 @@ namespace ModArchipelaWoW
 
         apStone.CreateItem();
         SaveToDatabase();
+        SendExperienceBar();
         SyncLocationChecks();
         ap->GetDataPackage(ap->GetAllGames());
     }

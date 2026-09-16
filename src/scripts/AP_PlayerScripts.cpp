@@ -31,6 +31,8 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_DELETE,
                 PLAYERHOOK_ON_GIVE_EXP,
                 PLAYERHOOK_ON_BEFORE_GET_LEVEL_FOR_XP_GAIN,
+                PLAYERHOOK_ON_LEVEL_CHANGED,
+                PLAYERHOOK_ON_SEND_INITIAL_PACKETS_BEFORE_ADD_TO_MAP,
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
                 PLAYERHOOK_ON_AFTER_TAKE_ITEM_FROM_MAIL,
                 PLAYERHOOK_ON_CREATE_ITEM,
@@ -113,6 +115,16 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level) override
         {
             sArchipelaWoW->OnPlayerBeforeGetLevelForXPGain(player, level);
+        }
+
+        void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
+        {
+            sArchipelaWoW->OnPlayerLevelChanged(player);
+        }
+
+        void OnPlayerSendInitialPacketsBeforeAddToMap(Player* player, WorldPacket& /*data*/) override
+        {
+            sArchipelaWoW->OnPlayerSendInitialPacketsBeforeAddToMap(player);
         }
 
         void OnPlayerLearnTaxiNode(const Player* player, uint32 node) override
