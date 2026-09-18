@@ -51,6 +51,13 @@ namespace ModArchipelaWoW
     {
         SetConfigValue<bool>(ConfigField::ENABLE, "ArchipelaWoW.Enable", true);
         SetConfigValue<bool>(ConfigField::ANNOUNCE, "ArchipelaWoW.Announce", true);
+        // The pool is opened once, before the world loads, so none of these can be reloaded.
+        SetConfigValue<std::string>(ConfigField::DATABASE_INFO, "ArchipelaWoW.DatabaseInfo", "127.0.0.1;3306;acore;acore;acore_archipelawow", Reloadable::No);
+        SetConfigValue<uint32>(ConfigField::DATABASE_SYNCH_THREADS, "ArchipelaWoW.Database.SynchThreads", static_cast<uint32>(1), Reloadable::No,
+            [](const uint32& value) { return value >= 1 && value <= 32; }, "between 1 and 32");
+        SetConfigValue<bool>(ConfigField::DATABASE_AUTO_UPDATE, "ArchipelaWoW.Database.AutoUpdate", true, Reloadable::No);
+        // The core's own switch, cached here so the pool has a single source of options.
+        SetConfigValue<bool>(ConfigField::DATABASE_AUTO_SETUP, "Updates.AutoSetup", true, Reloadable::No);
         SetConfigValue<std::string>(ConfigField::ARCHIPELAGO_SERVER_HOST, "ArchipelaWoW.ArchipelagoServerHost", "archipelago.gg");
         SetConfigValue<uint32>(ConfigField::ARCHIPELAGO_SERVER_PORT, "ArchipelaWoW.ArchipelagoServerPort", static_cast<uint32>(38281));
         SetConfigValue<std::string>(ConfigField::ARCHIPELAGO_PASSWORD, "ArchipelaWoW.ArchipelagoPassword", "");
@@ -101,6 +108,26 @@ namespace ModArchipelaWoW
     bool Config::ShouldAnnounce() const
     {
         return GetConfigValue<bool>(ConfigField::ANNOUNCE);
+    }
+
+    std::string Config::GetDatabaseInfo() const
+    {
+        return GetConfigValue<std::string>(ConfigField::DATABASE_INFO);
+    }
+
+    uint8 Config::GetDatabaseSynchThreads() const
+    {
+        return static_cast<uint8>(GetConfigValue<uint32>(ConfigField::DATABASE_SYNCH_THREADS));
+    }
+
+    bool Config::ShouldUpdateDatabase() const
+    {
+        return GetConfigValue<bool>(ConfigField::DATABASE_AUTO_UPDATE);
+    }
+
+    bool Config::ShouldCreateDatabase() const
+    {
+        return GetConfigValue<bool>(ConfigField::DATABASE_AUTO_SETUP);
     }
 
     std::string Config::GetArchipelagoServerHost() const

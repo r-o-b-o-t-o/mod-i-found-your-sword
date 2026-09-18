@@ -3,6 +3,8 @@
 #include "ArchipelaWoW.h"
 #include "Chat.h"
 #include "Creature.h"
+#include "database/AP_Database.h"
+#include "database/AP_DatabaseConnection.h"
 #include "DatabaseEnv.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -59,17 +61,19 @@ namespace ModArchipelaWoW
             }
         }
 
+        // A core table, so no prepared statement to reach for; synchronous because the reload
+        // right below has to see the row.
         std::string escapedName(name);
         WorldDatabase.EscapeString(escapedName);
-
-        WorldDatabase.Query(
+        WorldDatabase.DirectExecute(
             "INSERT INTO `creature_template` (`entry`, `name`, `faction`, `unit_class`) VALUES ({}, '{}', 18, 1)",
             nextEntry, escapedName
         );
-        WorldDatabase.Execute(
-            "INSERT INTO `ap_player_creature_template` (`player`, `creatureEntry`) VALUES ('{}', {})",
-            escapedName, nextEntry
-        );
+
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_INS_PLAYER_CREATURE_TEMPLATE);
+        stmt->SetArguments(name, nextEntry);
+        Database::ArchipelaWoWDatabase.Execute(stmt);
+
         sObjectMgr->LoadCreatureTemplates();
 
         playerCreatureTemplates[name] = nextEntry;
@@ -95,7 +99,12 @@ namespace ModArchipelaWoW
 
     void ArchipelaWoW::InitializeConfig(bool reload)
     {
-        config.Initialize(reload);
+        // First built in OnModuleDatabasesLoading; a second build trips the cache's overwrite guard.
+        if (reload)
+        {
+            config.Initialize(true);
+        }
+
         LoadPlayerCreatureTemplates();
 
         // A reload is how the module gets switched on without restarting worldserver, and OnStartup
@@ -126,7 +135,8 @@ namespace ModArchipelaWoW
         playerCreatureTemplates.clear();
         ReturnIfModDisabled;
 
-        QueryResult result = WorldDatabase.Query("SELECT `player`, `creatureEntry` FROM `ap_player_creature_template`");
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_PLAYER_CREATURE_TEMPLATES);
+        PreparedQueryResult result = Database::ArchipelaWoWDatabase.Query(stmt);
         if (!result)
         {
             return;
@@ -138,6 +148,14 @@ namespace ModArchipelaWoW
             uint32 entry = (*result)[1].Get<uint32>();
             playerCreatureTemplates[name] = entry;
         } while (result->NextRow());
+    }
+
+    bool ArchipelaWoW::OnModuleDatabasesLoading()
+    {
+        // The config file is read by now and the pool needs its options, so the cache is built
+        // here rather than in OnBeforeConfigLoad, which then only ever reloads it.
+        config.Initialize(false);
+        return Database::ArchipelaWoWDatabase.Load(config);
     }
 
     void ArchipelaWoW::OnBeforeConfigLoad(bool reload)
@@ -290,8 +308,18 @@ namespace ModArchipelaWoW
             delete apCharacters[guid];
             apCharacters.erase(guid);
         }
-        CharacterDatabase.Execute("DELETE FROM `ap_character` WHERE `guid` = {}", guid);
-        CharacterDatabase.Execute("DELETE FROM `ap_location_check` WHERE `guid` = {}", guid);
+
+        Database::AP_DatabaseTransaction trans = Database::ArchipelaWoWDatabase.BeginTransaction();
+
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_DEL_CHARACTER);
+        stmt->SetData(0, guid);
+        trans->Append(stmt);
+
+        stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_DEL_LOCATION_CHECKS);
+        stmt->SetData(0, guid);
+        trans->Append(stmt);
+
+        Database::ArchipelaWoWDatabase.CommitTransaction(trans);
     }
 
     void ArchipelaWoW::OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource)

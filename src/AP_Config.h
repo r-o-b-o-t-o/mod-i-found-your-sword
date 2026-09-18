@@ -13,6 +13,10 @@ namespace ModArchipelaWoW
     {
         ENABLE,
         ANNOUNCE,
+        DATABASE_INFO,
+        DATABASE_SYNCH_THREADS,
+        DATABASE_AUTO_UPDATE,
+        DATABASE_AUTO_SETUP,
         ARCHIPELAGO_SERVER_HOST,
         ARCHIPELAGO_SERVER_PORT,
         ARCHIPELAGO_PASSWORD,
@@ -31,6 +35,10 @@ namespace ModArchipelaWoW
 
         bool IsEnabled() const;
         bool ShouldAnnounce() const;
+        std::string GetDatabaseInfo() const;
+        uint8 GetDatabaseSynchThreads() const;
+        bool ShouldUpdateDatabase() const;
+        bool ShouldCreateDatabase() const;
         std::string GetArchipelagoServerHost() const;
         uint32 GetArchipelagoServerPort() const;
         std::string GetArchipelagoPassword() const;

@@ -22,6 +22,37 @@ ArchipelaWoW.Enable = 1
 ArchipelaWoW.Announce = 1
 
 
+#    ArchipelaWoW.DatabaseInfo
+#        Description: Connection settings for the module's own database, which holds the slot
+#                     bindings, level progress, location checks and mail sender creatures.
+#                     Same format as the core's *DatabaseInfo entries:
+#                     hostname;port;username;password;database
+#                     Opened on startup whether or not ArchipelaWoW.Enable is set, so the module
+#                     can be switched on with a config reload.
+#        Default:     "127.0.0.1;3306;acore;acore;acore_archipelawow"
+
+ArchipelaWoW.DatabaseInfo = "127.0.0.1;3306;acore;acore;acore_archipelawow"
+
+
+#    ArchipelaWoW.Database.SynchThreads
+#        Description: Number of connections to the module database. Every query on it is
+#                     synchronous, so raise it if many characters play at once.
+#        Default:     1
+
+ArchipelaWoW.Database.SynchThreads = 1
+
+
+#    ArchipelaWoW.Database.AutoUpdate
+#        Description: Create the module database when it does not exist (also requires
+#                     Updates.AutoSetup), populate it when it is empty and apply the updates in
+#                     data/sql/updates/db_archipelawow, the way the core databases are managed.
+#        Values:      0 - Disabled
+#                     1 - Enabled
+#        Default:     1
+
+ArchipelaWoW.Database.AutoUpdate = 1
+
+
 #    ArchipelaWoW.ArchipelagoServerHost
 #        Description: Domain or IP address of the Archipelago server.
 #                     If the game is being hosted on the main Archipelago website, this will be "archipelago.gg".

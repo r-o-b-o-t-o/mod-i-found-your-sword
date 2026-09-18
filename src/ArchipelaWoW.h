@@ -36,6 +36,9 @@ namespace ModArchipelaWoW
         // Config methods
         const Config& GetConfig();
 
+        // DatabaseScripts methods
+        bool OnModuleDatabasesLoading();
+
         // WorldScripts methods
         void OnBeforeConfigLoad(bool reload);
         void OnStartup();

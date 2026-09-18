@@ -2,6 +2,8 @@
 #include "AP_PlayerPosition.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
+#include "database/AP_Database.h"
+#include "database/AP_DatabaseConnection.h"
 #include "DatabaseEnv.h"
 #include "DatabaseEnvFwd.h"
 #include "DBCEnums.h"
@@ -244,7 +246,7 @@ namespace ModArchipelaWoW
 
         chat.SendSysMessage(fmt::format("Archipelago level |cFF4CFF00{}|r of |cFF4CFF00{}|r", apLevel, maxLevel));
 
-        // player_xp_for_level has no row for every level on every core, so do not divide blindly.
+        // The XP table stops at the realm's level cap, so do not divide blindly.
         if (xpForLevel == 0)
         {
             chat.SendSysMessage(fmt::format("Experience: |cFF4CFF00{}|r |cFF808080(no requirement on record for this level)|r", apExp));
@@ -799,10 +801,9 @@ namespace ModArchipelaWoW
             return nullptr;
         }
 
-        QueryResult result = CharacterDatabase.Query(
-            "SELECT `uuid`, `slot`, `itemIndex`, `apLevel`, `apExp`, `goalCompleted` FROM `ap_character` WHERE `guid` = {}",
-            player->GetGUID().GetCounter()
-        );
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_CHARACTER);
+        stmt->SetData(0, player->GetGUID().GetCounter());
+        PreparedQueryResult result = Database::ArchipelaWoWDatabase.Query(stmt);
         if (!result)
         {
             return nullptr;
@@ -819,10 +820,9 @@ namespace ModArchipelaWoW
 
     bool AP_Character::IsSlotBound(const std::string& slot)
     {
-        std::string escapedSlot(slot);
-        CharacterDatabase.EscapeString(escapedSlot);
-        QueryResult result = CharacterDatabase.Query("SELECT `guid` FROM `ap_character` WHERE `slot` = '{}'", escapedSlot);
-        return !!result;
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_CHARACTER_BY_SLOT);
+        stmt->SetData(0, slot);
+        return !!Database::ArchipelaWoWDatabase.Query(stmt);
     }
 
     void AP_Character::SaveToDatabase()
@@ -832,12 +832,9 @@ namespace ModArchipelaWoW
             return;
         }
 
-        std::string escapedSlot(slot);
-        CharacterDatabase.EscapeString(escapedSlot);
-        CharacterDatabase.Execute(
-            "REPLACE INTO `ap_character` (`guid`, `uuid`, `slot`, `itemIndex`, `apLevel`, `apExp`, `goalCompleted`) VALUES ({}, '{}', '{}', {}, {}, {}, {})",
-            player->GetGUID().GetCounter(), uuid, escapedSlot, itemIndex, apLevel, apExp, goalCompleted
-        );
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_CHARACTER);
+        stmt->SetArguments(player->GetGUID().GetCounter(), uuid, slot, itemIndex, apLevel, apExp, goalCompleted);
+        Database::ArchipelaWoWDatabase.Execute(stmt);
 
         nextSave = GameTime::GetGameTime() + std::chrono::seconds(15);
     }
@@ -849,10 +846,9 @@ namespace ModArchipelaWoW
             return;
         }
 
-        QueryResult result = CharacterDatabase.Query(
-            "SELECT `locationId` FROM `ap_location_check` WHERE `guid` = {}",
-            player->GetGUID().GetCounter()
-        );
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_LOCATION_CHECKS);
+        stmt->SetData(0, player->GetGUID().GetCounter());
+        PreparedQueryResult result = Database::ArchipelaWoWDatabase.Query(stmt);
         if (result)
         {
             std::list<int64> locationChecks;
@@ -1177,25 +1173,17 @@ namespace ModArchipelaWoW
 
     void AP_Character::LoadXPForLevel()
     {
-        xpForLevel = 0;
-
-        QueryResult result = WorldDatabase.Query("SELECT `Experience` FROM `player_xp_for_level` WHERE `Level` = {}", apLevel);
-        if (!result)
-        {
-            return;
-        }
-
-        xpForLevel = (*result)[0].Get<uint32>();
+        // 0 from the realm's level cap up, which is where the table stops as well.
+        xpForLevel = sObjectMgr->GetXPForLevel(apLevel);
     }
 
     void AP_Character::CheckLocation(int32 locationId)
     {
         checkedLocations.insert(locationId);
         ap->LocationChecks({ locationId });
-        CharacterDatabase.Execute(
-            "REPLACE INTO `ap_location_check` (`guid`, `locationId`) VALUES ({}, {})",
-            player->GetGUID().GetCounter(), locationId
-        );
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_LOCATION_CHECK);
+        stmt->SetArguments(player->GetGUID().GetCounter(), locationId);
+        Database::ArchipelaWoWDatabase.Execute(stmt);
     }
 
     void AP_Character::MailItemReward(uint32 wowItemId, int64_t apItemId, int sender)

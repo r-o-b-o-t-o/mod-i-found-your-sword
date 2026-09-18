@@ -19,10 +19,9 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 ### Setup guide
 
 1. **Update AzerothCore**
-   The module subscribes to player hooks that landed in AzerothCore on September 9th, 2026.  
-   Without them the module will not compile, so build against
-   [`301401c`](https://github.com/azerothcore/azerothcore-wotlk/commit/301401c9da2626f6155de92d969bf2eb26086a77)
-   or later:
+   Build against
+   [`e1823bb`](https://github.com/azerothcore/azerothcore-wotlk/commit/e1823bb2db751a7cc0a90a8543e778449ebf7d84)
+   (September 14th, 2026) or later:
 
    ```bash
    cd path/to/azerothcore-wotlk
@@ -42,6 +41,19 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 5. **Copy the configuration file**
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
+
+6. **Point the module to a database of its own**
+   `ArchipelaWoW.DatabaseInfo` in `archipelawow.conf` takes the same `host;port;user;password;database`
+   string as the core's `*DatabaseInfo` entries, and defaults to `acore_archipelawow` on the local
+   server. Like the core databases, it is populated and kept up to date by worldserver on startup
+   while `ArchipelaWoW.Database.AutoUpdate` is on, and created when missing if `Updates.AutoSetup`
+   is on too and the MySQL user may create databases.
+
+   > 🔄 **Upgrading from a version that stored its tables in the core databases?**
+   > Start worldserver once so the new database exists, then run
+   > [`data/sql/migration/migrate_from_core_databases.sql`](data/sql/migration/migrate_from_core_databases.sql)
+   > against your MySQL server to carry the slot bindings, level progress and location checks over.
+   > The three schema names at the top of the file are the defaults; adjust them to your realm.
 
 ## 💬 Chat
 
@@ -138,11 +150,16 @@ rows are deleted, so clients in every locale fall back to the English names abov
 
 ### Database objects
 
+The module's own tables live in the database named by `ArchipelaWoW.DatabaseInfo`, built from
+`data/sql/base/db_archipelawow/` and updated from `data/sql/updates/db_archipelawow/`. The rows below
+are the only ones it adds to a core database.
+
 | Object | Database | Added by |
 |--------|----------|----------|
-| `ap_character` | characters | `archipelawow_char_000_create_table_ap_character.sql` |
-| `ap_location_check` | characters | `archipelawow_char_001_create_table_ap_location_check.sql` |
-| `ap_player_creature_template` | world | `archipelawow_world_002_create_player_creature_template_table.sql` |
+| `characters` | module | `base/db_archipelawow/characters.sql` |
+| `location_check` | module | `base/db_archipelawow/location_check.sql` |
+| `player_creature_template` | module | `base/db_archipelawow/player_creature_template.sql` |
+| One `creature_template` row per Archipelago player that mails an item, entries `5150000` and up | world | at runtime, as mail senders |
 | `.ap`, `.archipelago` and `.archipelawow` command prefixes | world (`command`) | `archipelawow_world_000_insert_commands.sql` |
 
 ## 📄 License
