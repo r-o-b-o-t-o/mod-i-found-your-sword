@@ -18,7 +18,7 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 
 ### Setup guide
 
-1. **Update AzerothCore**
+1. **Update AzerothCore**  
    Build against
    [`e1823bb`](https://github.com/azerothcore/azerothcore-wotlk/commit/e1823bb2db751a7cc0a90a8543e778449ebf7d84)
    (September 14th, 2026) or later:
@@ -42,7 +42,7 @@ This repository contains the code for the [client](https://archipelago.miraheze.
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
 
-6. **Point the module to a database of its own**
+6. **Point the module to a database of its own**  
    `ArchipelaWoW.DatabaseInfo` in `archipelawow.conf` takes the same `host;port;user;password;database`
    string as the core's `*DatabaseInfo` entries, and defaults to `acore_archipelawow` on the local
    server. Like the core databases, it is populated and kept up to date by worldserver on startup
