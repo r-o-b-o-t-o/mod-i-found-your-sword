@@ -35,7 +35,9 @@ namespace ModArchipelaWoW::Items
         /// What this entry teaches when it is cast, for the few trainer entries that wrap a spell
         /// rather than being one -- a paladin's Judgement, the class mounts, Flight Form. The
         /// trainer casts those instead of teaching them, so the wrapper never passes the hook that
-        /// keeps a randomized spell out of the character's hands: what comes out of it does.
+        /// keeps a randomized spell out of the character's hands: what comes out of it does. Only
+        /// what the seed holds back is listed: a starting ability it left alone is not, even though
+        /// the cast teaches it too, since the character was created holding it.
         std::vector<uint32> taughtSpells;
     };
 

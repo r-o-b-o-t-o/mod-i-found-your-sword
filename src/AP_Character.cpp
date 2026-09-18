@@ -742,6 +742,8 @@ namespace ModArchipelaWoW
         {
             uint32 spellId = itr->second.spellId;
             RemoveSpellIfUngranted(spellId);
+
+            // A wrapper lists only what the seed holds back, so all of it goes
             for (uint32 taughtSpell : itr->second.taughtSpells)
             {
                 RemoveSpellIfUngranted(taughtSpell);
