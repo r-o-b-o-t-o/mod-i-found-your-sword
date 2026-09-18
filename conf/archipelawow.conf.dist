@@ -27,11 +27,14 @@ ArchipelaWoW.Announce = 1
 #                     bindings, level progress, location checks and mail sender creatures.
 #                     Same format as the core's *DatabaseInfo entries:
 #                     hostname;port;username;password;database
+#                     Leave empty to use the server and credentials of CharacterDatabaseInfo
+#                     with the database acore_archipelawow.
 #                     Opened on startup whether or not ArchipelaWoW.Enable is set, so the module
 #                     can be switched on with a config reload.
-#        Default:     "127.0.0.1;3306;acore;acore;acore_archipelawow"
+#        Example:     "127.0.0.1;3306;acore;acore;acore_archipelawow"
+#        Default:     "" - (Same server and credentials as CharacterDatabaseInfo)
 
-ArchipelaWoW.DatabaseInfo = "127.0.0.1;3306;acore;acore;acore_archipelawow"
+ArchipelaWoW.DatabaseInfo = ""
 
 
 #    ArchipelaWoW.Database.SynchThreads

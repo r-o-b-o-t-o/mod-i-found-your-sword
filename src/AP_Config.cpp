@@ -1,12 +1,16 @@
 #include "AP_Config.h"
+#include "Config.h"
 #include "ConfigValueCache.h"
 #include "Define.h"
 #include "Log.h"
 #include "Tokenize.h"
 #include "Util.h"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace ModArchipelaWoW
 {
@@ -52,7 +56,7 @@ namespace ModArchipelaWoW
         SetConfigValue<bool>(ConfigField::ENABLE, "ArchipelaWoW.Enable", true);
         SetConfigValue<bool>(ConfigField::ANNOUNCE, "ArchipelaWoW.Announce", true);
         // The pool is opened once, before the world loads, so none of these can be reloaded.
-        SetConfigValue<std::string>(ConfigField::DATABASE_INFO, "ArchipelaWoW.DatabaseInfo", "127.0.0.1;3306;acore;acore;acore_archipelawow", Reloadable::No);
+        SetConfigValue<std::string>(ConfigField::DATABASE_INFO, "ArchipelaWoW.DatabaseInfo", "", Reloadable::No);
         SetConfigValue<uint32>(ConfigField::DATABASE_SYNCH_THREADS, "ArchipelaWoW.Database.SynchThreads", static_cast<uint32>(1), Reloadable::No,
             [](const uint32& value) { return value >= 1 && value <= 32; }, "between 1 and 32");
         SetConfigValue<bool>(ConfigField::DATABASE_AUTO_UPDATE, "ArchipelaWoW.Database.AutoUpdate", true, Reloadable::No);
@@ -112,7 +116,24 @@ namespace ModArchipelaWoW
 
     std::string Config::GetDatabaseInfo() const
     {
-        return GetConfigValue<std::string>(ConfigField::DATABASE_INFO);
+        std::string info = GetConfigValue<std::string>(ConfigField::DATABASE_INFO);
+        if (!info.empty())
+        {
+            return info;
+        }
+
+        // Empty: the character database's server and credentials with a database of the module's
+        // own. The core has opened that database by the time the module's pool loads, so this is
+        // the string the realm actually connects with, whether from the config file, the
+        // environment or the core default.
+        std::string characterInfo = sConfigMgr->GetOption<std::string>("CharacterDatabaseInfo", "127.0.0.1;3306;acore;acore;acore_characters", false);
+        std::vector<std::string_view> tokens = Acore::Tokenize(characterInfo, ';', true);
+        if (tokens.size() >= 5)
+        {
+            tokens[4] = "acore_archipelawow";
+        }
+
+        return fmt::format("{}", fmt::join(tokens, ";"));
     }
 
     uint8 Config::GetDatabaseSynchThreads() const

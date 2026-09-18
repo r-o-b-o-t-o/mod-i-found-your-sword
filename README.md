@@ -42,12 +42,14 @@ This repository contains the code for the [client](https://archipelago.miraheze.
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
 
-6. **Point the module to a database of its own**  
-   `ArchipelaWoW.DatabaseInfo` in `archipelawow.conf` takes the same `host;port;user;password;database`
-   string as the core's `*DatabaseInfo` entries, and defaults to `acore_archipelawow` on the local
-   server. Like the core databases, it is populated and kept up to date by worldserver on startup
-   while `ArchipelaWoW.Database.AutoUpdate` is on, and created when missing if `Updates.AutoSetup`
-   is on too and the MySQL user may create databases.
+6. **Give the module a database of its own**  
+   The module keeps its tables in a database of its own, `acore_archipelawow` by default, on the
+   server and with the credentials of the core's `CharacterDatabaseInfo`, so there is nothing to set
+   up on a realm that keeps all its databases together. To host it elsewhere, set
+   `ArchipelaWoW.DatabaseInfo` in `archipelawow.conf` to a `host;port;user;password;database` string
+   like the core's `*DatabaseInfo` entries. Like the core databases, it is populated and kept up to
+   date by worldserver on startup while `ArchipelaWoW.Database.AutoUpdate` is on, and created when
+   missing if `Updates.AutoSetup` is on too and the MySQL user may create databases.
 
    > 🔄 **Upgrading from a version that stored its tables in the core databases?**
    > Start worldserver once so the new database exists, then run
@@ -150,9 +152,9 @@ rows are deleted, so clients in every locale fall back to the English names abov
 
 ### Database objects
 
-The module's own tables live in the database named by `ArchipelaWoW.DatabaseInfo`, built from
-`data/sql/base/db_archipelawow/` and updated from `data/sql/updates/db_archipelawow/`. The rows below
-are the only ones it adds to a core database.
+The module's own tables live in the database named by `ArchipelaWoW.DatabaseInfo`
+(`acore_archipelawow` by default), built from `data/sql/base/db_archipelawow/` and updated from
+`data/sql/updates/db_archipelawow/`. The rows below are the only ones it adds to a core database.
 
 | Object | Database | Added by |
 |--------|----------|----------|
