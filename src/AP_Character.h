@@ -107,11 +107,9 @@ namespace ModArchipelaWoW
         /// Set when the core is about to overwrite the client's experience bar, so Update sends
         /// the Archipelago one again once the core's own update has gone out.
         bool experienceBarStale;
-        /// The spells the module is in the middle of handing over, which the block that keeps a
-        /// randomized spell out of the character's hands stands aside for. A set rather than a flag
-        /// because a wrapper teaches several spells at once, and the ones with an Archipelago item
-        /// of their own have to stay blocked while the rest go through.
-        std::unordered_set<uint32> grantingSpells;
+        /// The spell the module is in the middle of handing over, which the block that keeps a
+        /// randomized spell out of the character's hands stands aside for. Zero outside a hand-over.
+        uint32 grantingSpell;
         /// The messages this character relayed to the room and has already read in its own chat
         /// box, waiting for the room to echo them back so the copy can be dropped.
         std::list<std::string> pendingChatEchoes;
@@ -123,6 +121,7 @@ namespace ModArchipelaWoW
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);
         void GrantSpell(uint32 spellId);
+        void LearnGrantedSpell(uint32 spellId);
         void RemoveUngrantedSpells();
         void RemoveSpellIfUngranted(uint32 spellId);
 

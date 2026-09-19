@@ -105,7 +105,7 @@ namespace ModArchipelaWoW
         xpForLevel(0),
         goalCompleted(false),
         experienceBarStale(false),
-        grantingSpells(),
+        grantingSpell(0),
         pendingChatEchoes()
     {
         ASSERT_NOTNULL(player);
@@ -453,7 +453,7 @@ namespace ModArchipelaWoW
     {
         // A randomized spell is the multiworld's to hand over, so every other way of picking it up
         // -- a trainer, a quest reward, a spell that teaches another -- comes away empty.
-        return grantingSpells.contains(spellId) || !items.spells.IsRandomized(spellId);
+        return spellId == grantingSpell || !items.spells.IsRandomized(spellId);
     }
 
     void AP_Character::OnPlayerGetTrainerSpellState(uint32 spellId, Trainer::SpellState& state)
@@ -681,40 +681,38 @@ namespace ModArchipelaWoW
 
         if (taughtSpells.empty())
         {
-            if (player->HasSpell(spellId))
-            {
-                return;
-            }
-
-            grantingSpells = { spellId };
-            player->learnSpell(spellId);
-            grantingSpells.clear();
+            LearnGrantedSpell(spellId);
             return;
         }
 
-        // A wrapper is cast rather than learned, the same way the trainer would hand it over, and
-        // that cast teaches everything hanging off it. Anything with an item of its own is left out
-        // of the pass: a paladin buying Judgement must not come away with Seal of Righteousness too,
-        // and a class mount must not carry Apprentice Riding in with it.
-        bool anythingMissing = false;
+        // A wrapper is not cast the way the trainer hands it over: the cast runs everything the
+        // entry does, and a class mount's also steps the Riding skill, which would leave a bare
+        // skill line behind while the riding rank is withheld. What hangs off it is learned one by
+        // one instead, less anything the seed registers on its own: a paladin handed Judgement must
+        // not come away with Seal of Righteousness too, and a class mount must not carry Apprentice
+        // Riding in with it.
         for (uint32 taughtSpell : taughtSpells)
         {
-            if (items.spells.HasItemOfItsOwn(taughtSpell))
+            if (items.spells.HasEntryOfItsOwn(taughtSpell))
             {
                 continue;
             }
 
             grantedSpells.insert(taughtSpell);
-            grantingSpells.insert(taughtSpell);
-            anythingMissing = anythingMissing || !player->HasSpell(taughtSpell);
+            LearnGrantedSpell(taughtSpell);
         }
+    }
 
-        if (anythingMissing)
+    void AP_Character::LearnGrantedSpell(uint32 spellId)
+    {
+        if (player->HasSpell(spellId))
         {
-            player->CastSpell(player, spellId, true);
+            return;
         }
 
-        grantingSpells.clear();
+        grantingSpell = spellId;
+        player->learnSpell(spellId);
+        grantingSpell = 0;
     }
 
     void AP_Character::RemoveSpellIfUngranted(uint32 spellId)

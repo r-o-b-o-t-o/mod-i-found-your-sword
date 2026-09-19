@@ -57,9 +57,8 @@ namespace ModArchipelaWoW::Items
         return bySpellId.contains(spellId) || taught.contains(spellId);
     }
 
-    bool Spells::HasItemOfItsOwn(uint32 spellId) const
+    bool Spells::HasEntryOfItsOwn(uint32 spellId) const
     {
-        auto item = bySpellId.find(spellId);
-        return item != bySpellId.end() && item->second.itemId != 0;
+        return bySpellId.contains(spellId);
     }
 }

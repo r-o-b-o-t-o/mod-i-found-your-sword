@@ -34,10 +34,11 @@ namespace ModArchipelaWoW::Items
         uint8 reqLevel;
         /// What this entry teaches when it is cast, for the few trainer entries that wrap a spell
         /// rather than being one -- a paladin's Judgement, the class mounts, Flight Form. The
-        /// trainer casts those instead of teaching them, so the wrapper never passes the hook that
-        /// keeps a randomized spell out of the character's hands: what comes out of it does. Only
-        /// what the seed holds back is listed: a starting ability it left alone is not, even though
-        /// the cast teaches it too, since the character was created holding it.
+        /// trainer casts those instead of teaching them, and the hook that keeps a randomized spell
+        /// out of the character's hands is asked about the wrapper before that cast, then about each
+        /// spell the cast teaches. Only what the seed holds back is listed: a starting ability it
+        /// left alone is not, even though the cast teaches it too, since the character was created
+        /// holding it.
         std::vector<uint32> taughtSpells;
     };
 
@@ -56,9 +57,10 @@ namespace ModArchipelaWoW::Items
         Optional<SpellItem> GetSpellByItemId(int64_t itemId) const;
         Optional<SpellItem> GetSpellBySpellId(uint32 spellId) const;
         bool IsRandomized(uint32 spellId) const;
-        /// Whether the spell has an Archipelago item of its own, as opposed to only being something
-        /// a wrapper would teach. A wrapper must not hand these out as a side effect.
-        bool HasItemOfItsOwn(uint32 spellId) const;
+        /// Whether the seed registers the spell on its own, with an item of its own or as a rank of
+        /// a ladder, as opposed to only being something a wrapper would teach. A wrapper must not
+        /// hand these out as a side effect.
+        bool HasEntryOfItsOwn(uint32 spellId) const;
         auto Begin() const { return bySpellId.cbegin(); }
         auto End() const { return bySpellId.cend(); }
 
