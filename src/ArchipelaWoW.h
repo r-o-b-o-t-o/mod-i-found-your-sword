@@ -51,7 +51,7 @@ namespace ModArchipelaWoW
         void OnPlayerAchievementComplete(Player* player, const AchievementEntry* achievement);
         void OnPlayerCompleteQuest(Player* player, const Quest* quest);
         void OnPlayerDied(Player* player, const std::string& cause);
-        void OnPlayerDelete(ObjectGuid playerGuid);
+        void OnPlayerDeleteFromDB(ObjectGuid::LowType guid);
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource);
         void OnPlayerBeforeGetLevelForXPGain(const Player* player, uint8& level);
         void OnPlayerLevelChanged(Player* player);

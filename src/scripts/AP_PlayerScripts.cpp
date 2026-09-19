@@ -1,6 +1,7 @@
 #include "ArchipelaWoW.h"
 #include "Channel.h"
 #include "Creature.h"
+#include "DatabaseEnvFwd.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
@@ -28,7 +29,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
                 PLAYERHOOK_ON_PVP_KILL,
                 PLAYERHOOK_ON_PLAYER_COMPLETE_QUEST,
-                PLAYERHOOK_ON_DELETE,
+                PLAYERHOOK_ON_DELETE_FROM_DB,
                 PLAYERHOOK_ON_GIVE_EXP,
                 PLAYERHOOK_ON_BEFORE_GET_LEVEL_FOR_XP_GAIN,
                 PLAYERHOOK_ON_LEVEL_CHANGED,
@@ -102,9 +103,9 @@ namespace ModArchipelaWoW::Scripts
             sArchipelaWoW->OnPlayerCompleteQuest(player, quest);
         }
 
-        void OnPlayerDelete(ObjectGuid guid, uint32 /*account*/) override
+        void OnPlayerDeleteFromDB(CharacterDatabaseTransaction /*trans*/, uint32 guid) override
         {
-            sArchipelaWoW->OnPlayerDelete(guid);
+            sArchipelaWoW->OnPlayerDeleteFromDB(guid);
         }
 
         void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override

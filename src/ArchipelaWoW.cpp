@@ -296,11 +296,15 @@ namespace ModArchipelaWoW
         }
     }
 
-    void ArchipelaWoW::OnPlayerDelete(ObjectGuid playerGuid)
+    void ArchipelaWoW::OnPlayerDeleteFromDB(ObjectGuid::LowType guid)
     {
-        ReturnIfModDisabled;
-
-        auto guid = playerGuid.GetCounter();
+        // OnPlayerDelete only covers the client's delete button -- `.character erase`, account
+        // deletion and the old-character purge bypass it -- and fires even when CharDelete.Method
+        // merely unlinks a restorable character. This hook runs at the real removal on every path,
+        // and must run with the module disabled too: the guid is gone for good afterwards.
+        //
+        // Freed without a save: `.character erase` on an online character removes the rows first
+        // and logs the player out a tick later, and that logout would write the row straight back.
         if (apCharacters.contains(guid))
         {
             delete apCharacters[guid];
