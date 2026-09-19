@@ -234,8 +234,6 @@ namespace ModArchipelaWoW
 
     void ArchipelaWoW::OnPlayerBeforeLogout(Player* player)
     {
-        ReturnIfModDisabled;
-
         if (!player)
         {
             return;
