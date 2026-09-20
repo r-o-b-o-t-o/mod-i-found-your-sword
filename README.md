@@ -20,8 +20,8 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 
 1. **Update AzerothCore**  
    Build against
-   [`e1823bb`](https://github.com/azerothcore/azerothcore-wotlk/commit/e1823bb2db751a7cc0a90a8543e778449ebf7d84)
-   (September 14th, 2026) or later:
+   [`fd43d2b`](https://github.com/azerothcore/azerothcore-wotlk/commit/fd43d2b5adcd358a2493ab5c3d6e6b0f90edaba8)
+   (September 20th, 2026) or later:
 
    ```bash
    cd path/to/azerothcore-wotlk
