@@ -42,7 +42,13 @@ This repository contains the code for the [client](https://archipelago.miraheze.
    - Locate the configuration directory of your AzerothCore installation, usually `configs` for Windows or `etc` for Linux
    - In the `modules` subdirectory, copy `archipelawow.conf.dist` into `archipelawow.conf`
 
-6. **Give the module a database of its own**  
+6. (*Optional*) **Refresh mailboxes on delivery**  
+   Rewards arrive by mail, often several in a row. Once a mailbox is opened, the game client
+   refuses to fetch new mail for the next 60 seconds, so a reward delivered in that window stays
+   hidden until the countdown ends. Set `Mail.PushInboxOnDelivery = 1` in `worldserver.conf` to
+   have the server refresh the inbox on every delivery instead.
+
+7. **Give the module a database of its own**  
    The module keeps its tables in a database of its own, `acore_archipelawow` by default, on the
    server and with the credentials of the core's `CharacterDatabaseInfo`, so there is nothing to set
    up on a realm that keeps all its databases together. To host it elsewhere, set
