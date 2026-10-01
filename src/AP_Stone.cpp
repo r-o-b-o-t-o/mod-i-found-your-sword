@@ -251,6 +251,15 @@ namespace ModArchipelaWoW
             return;
         }
 
+        // The client steps off a ground mount before using the real item, but the stone opens its menu
+        // mounted, so the dismount falls to the server. A taxi or a flying mount in the air stays: the
+        // cast then fails as the real item would.
+        if (player->IsMounted() && !player->IsInFlight() && !player->IsFlying())
+        {
+            player->Dismount();
+            player->RemoveAurasByType(SPELL_AURA_MOUNTED);
+        }
+
         // Cast untriggered so the core runs the full CheckCast: the cooldown, the ten second cast and
         // its interrupts all apply exactly as they do to the real item. Nothing is lost by casting
         // without item 6948 in hand -- it carries spellcooldown_1 and spellcategorycooldown_1 of -1,
