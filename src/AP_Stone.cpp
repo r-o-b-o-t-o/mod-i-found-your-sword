@@ -366,11 +366,7 @@ namespace ModArchipelaWoW
             return transmogrifier;
         }
 
-        if (transmogrifier)
-        {
-            transmogrifier->DespawnOrUnsummon();
-        }
-
+        DespawnTransmogrifier();
         TempSummon* summon = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
         if (!summon)
         {
@@ -386,6 +382,18 @@ namespace ModArchipelaWoW
         summon->SetOwnerGUID(player->GetGUID());
         player->UpdateVisibilityOf(summon);
         return summon;
+    }
+
+    void AP_Stone::DespawnTransmogrifier()
+    {
+        // Also called on logout and before a teleport, which would put the transmogrifier out of
+        // reach, left to linger until its lifetime runs out.
+        if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
+        {
+            transmogrifier->DespawnOrUnsummon();
+        }
+
+        transmogrifierGuid.Clear();
     }
 #endif
 

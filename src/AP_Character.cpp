@@ -611,8 +611,18 @@ namespace ModArchipelaWoW
 
     void AP_Character::OnPlayerBeforeLogout()
     {
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        apStone.DespawnTransmogrifier();
+#endif
         SaveToDatabase();
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Character::OnPlayerBeforeTeleport()
+    {
+        apStone.DespawnTransmogrifier();
+    }
+#endif
 
     bool AP_Character::OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName)
     {

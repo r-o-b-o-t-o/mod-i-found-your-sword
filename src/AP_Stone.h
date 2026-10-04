@@ -26,6 +26,7 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void OnGossipSelectCode(uint32 sender, uint32 action, const char* code);
         bool CanSendGossipMessage(const WorldPacket& packet);
+        void DespawnTransmogrifier();
 #endif
         void OnPlayerCreateItem(Item* item);
 

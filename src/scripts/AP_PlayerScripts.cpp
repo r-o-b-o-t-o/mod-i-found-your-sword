@@ -43,6 +43,9 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_AFTER_TRAIN_SPELL,
                 PLAYERHOOK_CAN_PLAYER_USE_CHAT,
                 PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+                PLAYERHOOK_ON_BEFORE_TELEPORT,
+#endif
             })
         {
         }
@@ -172,6 +175,14 @@ namespace ModArchipelaWoW::Scripts
         {
             return sArchipelaWoW->OnPlayerCanUseChat(player, type, msg, channel ? channel->GetName() : "");
         }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        bool OnPlayerBeforeTeleport(Player* player, uint32 /*mapid*/, float /*x*/, float /*y*/, float /*z*/, float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
+        {
+            sArchipelaWoW->OnPlayerBeforeTeleport(player);
+            return true;
+        }
+#endif
     };
 
     void AddPlayerScripts()

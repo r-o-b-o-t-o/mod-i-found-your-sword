@@ -65,6 +65,9 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, WorldPackets::NPC::TrainerList& trainerList);
         void OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId);
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void OnPlayerBeforeTeleport(Player* player);
+#endif
         /// Relays what the character typed to its Archipelago slot. Returns false when the
         /// message was an Archipelago command and must not also reach the game world.
         bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
