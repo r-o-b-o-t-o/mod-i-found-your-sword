@@ -208,10 +208,15 @@ namespace ModArchipelaWoW
             return;
         }
 
-        // Safe here: Spell::DoCreateItem fires this hook as its last act on the item and never touches
-        // it again.
-        player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
-        ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
+        // Not right away: destroying a new item deletes it, and the create-item hooks of the modules
+        // loaded after this one (mod-transmog's among them) still read it. The player's next update
+        // comes after all of them. The event belongs to the player, which outlives it; this AP_Stone
+        // may not, so it is left out of the capture.
+        player->m_Events.AddEventAtOffset([player = player]()
+            {
+                player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
+                ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
+            }, 0ms);
     }
 
     const char* AP_Stone::GetZoneTeleportIcon()
