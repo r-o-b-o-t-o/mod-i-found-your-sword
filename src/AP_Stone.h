@@ -6,6 +6,7 @@
 #include "ObjectGuid.h"
 #include "Optional.h"
 #include "Player.h"
+#include "WorldPacket.h"
 
 #include <string>
 
@@ -21,6 +22,10 @@ namespace ModArchipelaWoW
         void CreateItem();
         void OnUse(Item* item);
         void OnGossipSelect(Item* item, uint32 sender, uint32 action);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void OnGossipSelectCode(uint32 sender, uint32 action, const char* code);
+        bool CanSendGossipMessage(const WorldPacket& packet);
+#endif
         void OnPlayerCreateItem(Item* item);
 
     private:
@@ -31,6 +36,8 @@ namespace ModArchipelaWoW
         uint32 gossipTitleTextId;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid;
+        ObjectGuid transmogStoneGuid;
+        bool transmogMenuShown = false;
 #endif
 
         const char* GetZoneTeleportIcon();
@@ -40,7 +47,8 @@ namespace ModArchipelaWoW
         void HandleMailboxAction();
         void HandleHearthstoneAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void HandleTransmogAction();
+        void HandleTransmogAction(Item* item);
+        Creature* GetTransmogrifier();
 #endif
         static uint64 CooldownSeconds(uint32 milliseconds);
         Optional<std::string> GetHearthstoneLocation();

@@ -115,6 +115,20 @@ namespace ModArchipelaWoW
 
     void AP_Stone::OnGossipSelect(Item* item, uint32 sender, uint32 action)
     {
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        // mod-transmog's senders overlap the stone's own (0 is its head slot), hence the flag.
+        if (transmogMenuShown)
+        {
+            Creature* transmogrifier = GetTransmogrifier();
+            if (!transmogrifier || !sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action))
+            {
+                player->PlayerTalkClass->SendCloseGossip();
+            }
+
+            return;
+        }
+#endif
+
         if (action == GOSSIP_ITEM_BACK_TO_MAIN)
         {
             SendMainMenu(item);
@@ -142,6 +156,40 @@ namespace ModArchipelaWoW
             HandleDungeonTeleportAction(item, action);
         }
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
+    {
+        // Only mod-transmog's menus ask for input: an item search or a set name.
+        if (!transmogMenuShown)
+        {
+            return;
+        }
+
+        Creature* transmogrifier = GetTransmogrifier();
+        if (!transmogrifier || !sScriptMgr->OnGossipSelectCode(player, transmogrifier, sender, action, code))
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+        }
+    }
+
+    bool AP_Stone::CanSendGossipMessage(const WorldPacket& packet)
+    {
+        if (!transmogrifierGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
+        {
+            return true;
+        }
+
+        // mod-transmog sends its menus on the transmogrifier. Shown and answered as the stone's instead,
+        // they stay open wherever the player goes, and the core hands their clicks to the stone with no
+        // range check. The hook gets the packet read-only, so it goes out again as a copy.
+        player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(transmogStoneGuid);
+        WorldPacket redirected(packet);
+        redirected.put<uint64>(0, transmogStoneGuid.GetRawValue());
+        player->SendDirectMessage(&redirected);
+        return false;
+    }
+#endif
 
     void AP_Stone::OnPlayerCreateItem(Item* item)
     {
@@ -230,7 +278,7 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction();
+        else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
 #endif
     }
 
@@ -284,45 +332,56 @@ namespace ModArchipelaWoW
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void AP_Stone::HandleTransmogAction()
+    void AP_Stone::HandleTransmogAction(Item* item)
     {
-        // The core ignores clicks in a creature's gossip on a taxi, so the menu would open but do nothing.
-        if (player->IsInFlight())
-        {
-            player->PlayerTalkClass->SendCloseGossip();
-            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while on a flight path.");
-            return;
-        }
-
-        // mod-transmog's menu is a creature script, and the core only hands a gossip click to the
-        // creature the window was opened on while the player can interact with it. So the stone
-        // summons a transmogrifier of its own, that nobody can see or click, and opens its menu. Like
-        // a real one, it stops answering when the player walks away from where it was summoned.
-        if (Creature* previous = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
-        {
-            previous->DespawnOrUnsummon();
-        }
-
-        TempSummon* transmogrifier = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
+        // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
+        // the player, one nobody can see or click. CanSendGossipMessage makes its windows the stone's.
+        Creature* transmogrifier = GetTransmogrifier();
         if (!transmogrifier)
         {
             player->PlayerTalkClass->SendCloseGossip();
             return;
         }
 
-        transmogrifierGuid = transmogrifier->GetGUID();
-        transmogrifier->SetDisplayId(INVISIBLE_DISPLAY_ID);
-        transmogrifier->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-
-        // With Transmogrification.EnablePortable, mod-transmog shows a summoned transmogrifier to its
-        // owner only, and the client must know the creature before a gossip window opens on it.
-        transmogrifier->SetOwnerGUID(player->GetGUID());
-        player->UpdateVisibilityOf(transmogrifier);
+        transmogStoneGuid = item->GetGUID();
+        transmogMenuShown = true;
 
         if (!sScriptMgr->OnGossipHello(player, transmogrifier))
         {
             player->PlayerTalkClass->SendCloseGossip();
         }
+    }
+
+    Creature* AP_Stone::GetTransmogrifier()
+    {
+        // Kept within reach of the player: mod-transmog's vendor interface opens a merchant window on
+        // the transmogrifier itself, which the client closes out of range.
+        Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid);
+        if (transmogrifier && transmogrifier->IsWithinDistInMap(player, INTERACTION_DISTANCE))
+        {
+            return transmogrifier;
+        }
+
+        if (transmogrifier)
+        {
+            transmogrifier->DespawnOrUnsummon();
+        }
+
+        TempSummon* summon = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
+        if (!summon)
+        {
+            return nullptr;
+        }
+
+        transmogrifierGuid = summon->GetGUID();
+        summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
+        summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+
+        // With Transmogrification.EnablePortable, mod-transmog shows a summoned transmogrifier to its
+        // owner only, and the client must know the creature before a merchant window opens on it.
+        summon->SetOwnerGUID(player->GetGUID());
+        player->UpdateVisibilityOf(summon);
+        return summon;
     }
 #endif
 
@@ -417,6 +476,9 @@ namespace ModArchipelaWoW
     void AP_Stone::StartGossipMenu(uint32 titleTextId, uint32 sender)
     {
         player->PlayerTalkClass->ClearMenus();
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        transmogMenuShown = false;
+#endif
         gossipIdx = 0;
         gossipSender = sender;
         gossipTitleTextId = titleTextId;

@@ -34,6 +34,18 @@ namespace ModArchipelaWoW::Scripts
 
             sArchipelaWoW->OnSelectArchipelagoStoneGossip(player, item, sender, action);
         }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void OnGossipSelectCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code) override
+        {
+            if (!player || !item)
+            {
+                return;
+            }
+
+            sArchipelaWoW->OnSelectArchipelagoStoneGossipCode(player, item, sender, action, code);
+        }
+#endif
     };
 
     void AddItemScripts()

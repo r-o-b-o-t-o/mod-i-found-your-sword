@@ -16,6 +16,7 @@
 #include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
+#include "Opcodes.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Trainer.h"
@@ -610,8 +611,43 @@ namespace ModArchipelaWoW
         }
     }
 
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void ArchipelaWoW::OnSelectArchipelagoStoneGossipCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code)
+    {
+        if (!player || !item)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnSelectArchipelagoStoneGossipCode(item, sender, action, code);
+        }
+    }
+#endif
+
     void ArchipelaWoW::OnNetworkStart(Acore::Asio::IoContext& ioContext)
     {
         wsService = std::make_unique<Network::WebSocketService>(ioContext.get_executor());
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    bool ArchipelaWoW::CanPacketSend(WorldSession* session, const WorldPacket& packet)
+    {
+        // Every packet the server sends goes through here: bail out before the lookup.
+        if (packet.GetOpcode() != SMSG_GOSSIP_MESSAGE || !session || !session->GetPlayer())
+        {
+            return true;
+        }
+
+        auto guid = session->GetPlayer()->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->CanSendGossipMessage(packet);
+    }
+#endif
 }
