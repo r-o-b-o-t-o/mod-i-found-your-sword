@@ -8,6 +8,7 @@
 #include "Player.h"
 #include "WorldPacket.h"
 
+#include <functional>
 #include <string>
 
 namespace ModArchipelaWoW
@@ -48,6 +49,7 @@ namespace ModArchipelaWoW
         void HandleHearthstoneAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void HandleTransmogAction(Item* item);
+        void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
         Creature* GetTransmogrifier();
 #endif
         static uint64 CooldownSeconds(uint32 milliseconds);

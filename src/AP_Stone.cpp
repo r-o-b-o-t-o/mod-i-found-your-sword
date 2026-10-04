@@ -119,12 +119,10 @@ namespace ModArchipelaWoW
         // mod-transmog's senders overlap the stone's own (0 is its head slot), hence the flag.
         if (transmogMenuShown)
         {
-            Creature* transmogrifier = GetTransmogrifier();
-            if (!transmogrifier || !sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action))
-            {
-                player->PlayerTalkClass->SendCloseGossip();
-            }
-
+            ForwardToTransmogrifier([&](Creature* transmogrifier)
+                {
+                    return sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action);
+                });
             return;
         }
 #endif
@@ -166,11 +164,10 @@ namespace ModArchipelaWoW
             return;
         }
 
-        Creature* transmogrifier = GetTransmogrifier();
-        if (!transmogrifier || !sScriptMgr->OnGossipSelectCode(player, transmogrifier, sender, action, code))
-        {
-            player->PlayerTalkClass->SendCloseGossip();
-        }
+        ForwardToTransmogrifier([&](Creature* transmogrifier)
+            {
+                return sScriptMgr->OnGossipSelectCode(player, transmogrifier, sender, action, code);
+            });
     }
 
     bool AP_Stone::CanSendGossipMessage(const WorldPacket& packet)
@@ -339,19 +336,21 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
     void AP_Stone::HandleTransmogAction(Item* item)
     {
-        // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
-        // the player, one nobody can see or click. CanSendGossipMessage makes its windows the stone's.
-        Creature* transmogrifier = GetTransmogrifier();
-        if (!transmogrifier)
-        {
-            player->PlayerTalkClass->SendCloseGossip();
-            return;
-        }
-
         transmogStoneGuid = item->GetGUID();
         transmogMenuShown = true;
 
-        if (!sScriptMgr->OnGossipHello(player, transmogrifier))
+        ForwardToTransmogrifier([&](Creature* transmogrifier)
+            {
+                return sScriptMgr->OnGossipHello(player, transmogrifier);
+            });
+    }
+
+    void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
+    {
+        // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
+        // the player, one nobody can see or click. CanSendGossipMessage makes its windows the stone's.
+        Creature* transmogrifier = GetTransmogrifier();
+        if (!transmogrifier || !forward(transmogrifier))
         {
             player->PlayerTalkClass->SendCloseGossip();
         }
