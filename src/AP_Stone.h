@@ -50,6 +50,7 @@ namespace ModArchipelaWoW
         void HandleHearthstoneAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void HandleTransmogAction(Item* item);
+        static bool IsTransmogEnabled();
         void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
         Creature* GetTransmogrifier();
 #endif

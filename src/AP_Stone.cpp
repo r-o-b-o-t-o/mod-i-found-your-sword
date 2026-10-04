@@ -2,6 +2,7 @@
 #include "AP_Stone.h"
 #include "Chat.h"
 #include "Common.h"
+#include "Config.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -268,7 +269,7 @@ namespace ModArchipelaWoW
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        AddGossipItem("PaperDoll/UI-PaperDoll-Slot-Chest", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
+        if (IsTransmogEnabled()) AddGossipItem("PaperDoll/UI-PaperDoll-Slot-Chest", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
 #endif
         SendGossipMenu(item);
     }
@@ -345,11 +346,18 @@ namespace ModArchipelaWoW
             });
     }
 
+    bool AP_Stone::IsTransmogEnabled()
+    {
+        // mod-transmog hides its own transmogrifiers while this is off. Read straight from the config:
+        // this module never links against mod-transmog's code, which may be built as a library of its own.
+        return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true);
+    }
+
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
         // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
         // the player, one nobody can see or click. CanSendGossipMessage makes its windows the stone's.
-        Creature* transmogrifier = GetTransmogrifier();
+        Creature* transmogrifier = IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
         if (!transmogrifier || !forward(transmogrifier))
         {
             player->PlayerTalkClass->SendCloseGossip();
