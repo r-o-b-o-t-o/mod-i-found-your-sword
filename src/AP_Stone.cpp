@@ -9,9 +9,12 @@
 #include "GossipDef.h"
 #include "Item.h"
 #include "items/AP_Zones.h"
+#include "ObjectAccessor.h"
 #include "Optional.h"
 #include "Player.h"
+#include "ScriptMgr.h"
 #include "SharedDefines.h"
+#include "TemporarySummon.h"
 #include "Util.h"
 
 #include <algorithm>
@@ -28,6 +31,13 @@ constexpr uint32 GOSSIP_ITEM_MAILBOX = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE = 2;
 constexpr uint32 GOSSIP_ITEM_TELE_DUNGEON = 3;
 constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
+constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
+constexpr uint32 TRANSMOGRIFIER_LIFETIME = 10 * MINUTE * IN_MILLISECONDS;
+constexpr uint32 INVISIBLE_DISPLAY_ID = 11686;
+#endif
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -207,6 +217,9 @@ namespace ModArchipelaWoW
 
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        AddGossipItem("PaperDoll/UI-PaperDoll-Slot-Chest", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
+#endif
         SendGossipMenu(item);
     }
 
@@ -216,6 +229,9 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_HEARTHSTONE) HandleHearthstoneAction();
         else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction();
+#endif
     }
 
     void AP_Stone::HandleMailboxAction()
@@ -266,6 +282,49 @@ namespace ModArchipelaWoW
         // which Player::AddSpellAndCategoryCooldowns reads as "take the values from the spell".
         player->CastSpell(player, HEARTHSTONE_SPELL_ID, false);
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Stone::HandleTransmogAction()
+    {
+        // The core ignores clicks in a creature's gossip on a taxi, so the menu would open but do nothing.
+        if (player->IsInFlight())
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while on a flight path.");
+            return;
+        }
+
+        // mod-transmog's menu is a creature script, and the core only hands a gossip click to the
+        // creature the window was opened on while the player can interact with it. So the stone
+        // summons a transmogrifier of its own, that nobody can see or click, and opens its menu. Like
+        // a real one, it stops answering when the player walks away from where it was summoned.
+        if (Creature* previous = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
+        {
+            previous->DespawnOrUnsummon();
+        }
+
+        TempSummon* transmogrifier = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
+        if (!transmogrifier)
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+            return;
+        }
+
+        transmogrifierGuid = transmogrifier->GetGUID();
+        transmogrifier->SetDisplayId(INVISIBLE_DISPLAY_ID);
+        transmogrifier->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+
+        // With Transmogrification.EnablePortable, mod-transmog shows a summoned transmogrifier to its
+        // owner only, and the client must know the creature before a gossip window opens on it.
+        transmogrifier->SetOwnerGUID(player->GetGUID());
+        player->UpdateVisibilityOf(transmogrifier);
+
+        if (!sScriptMgr->OnGossipHello(player, transmogrifier))
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+        }
+    }
+#endif
 
     Optional<std::string> AP_Stone::GetHearthstoneLocation()
     {

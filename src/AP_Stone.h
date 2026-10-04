@@ -3,6 +3,7 @@
 
 #include "Define.h"
 #include "Item.h"
+#include "ObjectGuid.h"
 #include "Optional.h"
 #include "Player.h"
 
@@ -28,6 +29,9 @@ namespace ModArchipelaWoW
         uint32 gossipIdx;
         uint32 gossipSender;
         uint32 gossipTitleTextId;
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        ObjectGuid transmogrifierGuid;
+#endif
 
         const char* GetZoneTeleportIcon();
         const char* GetDungeonTeleportIcon();
@@ -35,6 +39,9 @@ namespace ModArchipelaWoW
         void HandleMainMenuAction(Item* item, uint32 action);
         void HandleMailboxAction();
         void HandleHearthstoneAction();
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void HandleTransmogAction();
+#endif
         static uint64 CooldownSeconds(uint32 milliseconds);
         Optional<std::string> GetHearthstoneLocation();
         void SendZoneTeleportMenu(Item* item);

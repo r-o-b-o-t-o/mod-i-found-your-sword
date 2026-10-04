@@ -16,6 +16,10 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 - [mod-autobalance](https://github.com/azerothcore/mod-autobalance)
 - [mod-solo-lfg](https://github.com/azerothcore/mod-solo-lfg)
 
+(*Optional*) With [mod-transmog](https://github.com/azerothcore/mod-transmog) in the `modules` folder
+too, the Archipelago Stone opens its transmogrification menu, so no transmogrifier needs to be
+spawned. The menu entry is only compiled in when CMake finds mod-transmog.
+
 ### Setup guide
 
 1. **Update AzerothCore**  
