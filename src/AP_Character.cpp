@@ -666,13 +666,8 @@ namespace ModArchipelaWoW
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void AP_Character::OnSelectArchipelagoStoneGossipCode(Item* item, uint32 sender, uint32 action, const char* code)
+    void AP_Character::OnSelectArchipelagoStoneGossipCode(uint32 sender, uint32 action, const char* code)
     {
-        if (!item)
-        {
-            return;
-        }
-
         apStone.OnGossipSelectCode(sender, action, code);
     }
 

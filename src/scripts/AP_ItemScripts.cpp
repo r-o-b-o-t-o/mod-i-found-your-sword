@@ -36,14 +36,14 @@ namespace ModArchipelaWoW::Scripts
         }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void OnGossipSelectCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code) override
+        void OnGossipSelectCode(Player* player, Item* /*item*/, uint32 sender, uint32 action, const char* code) override
         {
-            if (!player || !item)
+            if (!player)
             {
                 return;
             }
 
-            sArchipelaWoW->OnSelectArchipelagoStoneGossipCode(player, item, sender, action, code);
+            sArchipelaWoW->OnSelectArchipelagoStoneGossipCode(player, sender, action, code);
         }
 #endif
     };

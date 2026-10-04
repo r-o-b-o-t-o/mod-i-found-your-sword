@@ -78,7 +78,7 @@ namespace ModArchipelaWoW
         bool OnUseArchipelagoStone(Player* player, Item* item);
         void OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void OnSelectArchipelagoStoneGossipCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code);
+        void OnSelectArchipelagoStoneGossipCode(Player* player, uint32 sender, uint32 action, const char* code);
 #endif
 
         // ServerScripts methods

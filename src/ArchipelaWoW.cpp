@@ -612,9 +612,9 @@ namespace ModArchipelaWoW
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void ArchipelaWoW::OnSelectArchipelagoStoneGossipCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code)
+    void ArchipelaWoW::OnSelectArchipelagoStoneGossipCode(Player* player, uint32 sender, uint32 action, const char* code)
     {
-        if (!player || !item)
+        if (!player)
         {
             return;
         }
@@ -622,7 +622,7 @@ namespace ModArchipelaWoW
         auto guid = player->GetGUID().GetCounter();
         if (apCharacters.contains(guid))
         {
-            apCharacters[guid]->OnSelectArchipelagoStoneGossipCode(item, sender, action, code);
+            apCharacters[guid]->OnSelectArchipelagoStoneGossipCode(sender, action, code);
         }
     }
 #endif
