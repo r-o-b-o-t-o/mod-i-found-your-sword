@@ -276,7 +276,7 @@ namespace ModArchipelaWoW
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        if (IsTransmogEnabled()) AddGossipItem("PaperDoll/UI-PaperDoll-Slot-Chest", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
+        if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
 #endif
         SendGossipMenu(item);
     }
