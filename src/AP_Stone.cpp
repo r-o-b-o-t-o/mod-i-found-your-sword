@@ -355,15 +355,17 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::IsTransmogEnabled()
     {
-        // mod-transmog hides its own transmogrifiers while this is off. Read straight from the config:
-        // this module never links against mod-transmog's code, which may be built as a library of its own.
+        // With this off, mod-transmog shows real gear in place of transmogs and hides the transmogrifiers
+        // spawned in the world. Read straight from the config: this module never links against
+        // mod-transmog's code, which may be built as a library of its own.
         return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
     }
 
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
         // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
-        // the player, one nobody can see or click. CanSendGossipMessage makes its windows the stone's.
+        // the player, invisible and unselectable. CanSendGossipMessage turns its gossip windows into the
+        // stone's; the merchant window of its vendor interface stays on the transmogrifier.
         Creature* transmogrifier = IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
         if (!transmogrifier || !forward(transmogrifier))
         {
@@ -391,6 +393,9 @@ namespace ModArchipelaWoW
         }
 
         transmogrifierGuid = summon->GetGUID();
+
+        // Only once it is on the map: with Transmogrification.EnablePortable off, mod-transmog lets the
+        // player see it from the start, as a Warpweaver until the next update.
         summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
         summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
 
