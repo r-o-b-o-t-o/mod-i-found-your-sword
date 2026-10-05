@@ -357,7 +357,7 @@ namespace ModArchipelaWoW
     {
         // mod-transmog hides its own transmogrifiers while this is off. Read straight from the config:
         // this module never links against mod-transmog's code, which may be built as a library of its own.
-        return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true);
+        return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
     }
 
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
