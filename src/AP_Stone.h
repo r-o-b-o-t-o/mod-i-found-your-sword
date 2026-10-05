@@ -19,6 +19,9 @@ namespace ModArchipelaWoW
     {
     public:
         AP_Stone(AP_Character* apCharacter);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        ~AP_Stone();
+#endif
 
         void CreateItem();
         void OnUse(Item* item);

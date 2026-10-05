@@ -74,6 +74,13 @@ namespace ModArchipelaWoW
     {
     }
 
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    AP_Stone::~AP_Stone()
+    {
+        DespawnTransmogrifier();
+    }
+#endif
+
     void AP_Stone::CreateItem()
     {
         if (!player)
@@ -396,8 +403,8 @@ namespace ModArchipelaWoW
 
     void AP_Stone::DespawnTransmogrifier()
     {
-        // Also called on logout and before a teleport, which would put the transmogrifier out of
-        // reach, left to linger until its lifetime runs out.
+        // Also called before a teleport and when the character's data is freed, both of which would
+        // leave the transmogrifier out of reach until its lifetime runs out.
         if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
         {
             transmogrifier->DespawnOrUnsummon();

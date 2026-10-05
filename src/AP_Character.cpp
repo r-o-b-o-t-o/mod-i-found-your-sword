@@ -611,9 +611,6 @@ namespace ModArchipelaWoW
 
     void AP_Character::OnPlayerBeforeLogout()
     {
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        apStone.DespawnTransmogrifier();
-#endif
         SaveToDatabase();
     }
 
