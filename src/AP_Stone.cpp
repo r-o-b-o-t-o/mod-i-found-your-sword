@@ -413,6 +413,11 @@ namespace ModArchipelaWoW
         // Also called before a teleport, which would leave the transmogrifier out of reach, and when the
         // stone is freed, which would leave it untracked: either way, it would linger until its lifetime
         // runs out.
+        if (!transmogrifierGuid)
+        {
+            return;
+        }
+
         if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
         {
             transmogrifier->DespawnOrUnsummon();
