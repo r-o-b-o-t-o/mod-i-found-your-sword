@@ -1,6 +1,7 @@
 #ifndef _MOD_ARCHIPELAWOW_AP_STONE_H_
 #define _MOD_ARCHIPELAWOW_AP_STONE_H_
 
+#include "Creature.h"
 #include "Define.h"
 #include "Item.h"
 #include "ObjectGuid.h"
