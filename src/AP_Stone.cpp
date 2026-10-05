@@ -124,8 +124,9 @@ namespace ModArchipelaWoW
     void AP_Stone::OnGossipSelect(Item* item, uint32 sender, uint32 action)
     {
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        // mod-transmog's senders overlap the stone's own (0 is its head slot), hence the flag.
-        if (transmogMenuShown)
+        // mod-transmog's senders overlap the stone's own (0 is its head slot), so only transmogStoneGuid
+        // tells its menu apart.
+        if (transmogStoneGuid)
         {
             ForwardToTransmogrifier([&](Creature* transmogrifier)
                 {
@@ -167,7 +168,7 @@ namespace ModArchipelaWoW
     void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
     {
         // Only mod-transmog's menus ask for input: an item search or a set name.
-        if (!transmogMenuShown)
+        if (!transmogStoneGuid)
         {
             return;
         }
@@ -180,7 +181,7 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::CanSendGossipMessage(const WorldPacket& packet)
     {
-        if (!transmogrifierGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
+        if (!transmogStoneGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
         {
             return true;
         }
@@ -345,8 +346,6 @@ namespace ModArchipelaWoW
     void AP_Stone::HandleTransmogAction(Item* item)
     {
         transmogStoneGuid = item->GetGUID();
-        transmogMenuShown = true;
-
         ForwardToTransmogrifier([&](Creature* transmogrifier)
             {
                 return sScriptMgr->OnGossipHello(player, transmogrifier);
@@ -515,7 +514,7 @@ namespace ModArchipelaWoW
     {
         player->PlayerTalkClass->ClearMenus();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        transmogMenuShown = false;
+        transmogStoneGuid.Clear();
 #endif
         gossipIdx = 0;
         gossipSender = sender;
