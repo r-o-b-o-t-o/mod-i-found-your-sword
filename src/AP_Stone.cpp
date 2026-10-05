@@ -380,7 +380,8 @@ namespace ModArchipelaWoW
         Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid);
         if (transmogrifier && transmogrifier->IsWithinDistInMap(player, INTERACTION_DISTANCE))
         {
-            // Its lifetime counts from the last use, or it could vanish under a merchant window just opened.
+            // Its lifetime restarts with each click on the stone's menu, so it cannot vanish under a
+            // merchant window just opened. Purchases in that window do not restart it.
             transmogrifier->ToTempSummon()->SetTimer(TRANSMOGRIFIER_LIFETIME);
             return transmogrifier;
         }
@@ -399,8 +400,10 @@ namespace ModArchipelaWoW
         summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
         summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
 
-        // With Transmogrification.EnablePortable, mod-transmog shows a summoned transmogrifier to its
-        // owner only, and the client must know the creature before a merchant window opens on it.
+        // The client must know the creature before a merchant window opens on it. The core shows a unit
+        // to its owner, and to whoever Visibility.GroupMode groups with the owner, ahead of the
+        // summoner-only flag and of mod-transmog's own rule, which with Transmogrification.EnablePortable
+        // hides an ownerless summon from everyone.
         summon->SetOwnerGUID(player->GetGUID());
         player->UpdateVisibilityOf(summon);
         return summon;
@@ -408,8 +411,9 @@ namespace ModArchipelaWoW
 
     void AP_Stone::DespawnTransmogrifier()
     {
-        // Also called before a teleport and when the character's data is freed, both of which would
-        // leave the transmogrifier out of reach until its lifetime runs out.
+        // Also called before a teleport, which would leave the transmogrifier out of reach, and when the
+        // stone is freed, which would leave it untracked: either way, it would linger until its lifetime
+        // runs out.
         if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
         {
             transmogrifier->DespawnOrUnsummon();

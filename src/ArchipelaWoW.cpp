@@ -651,7 +651,7 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
     bool ArchipelaWoW::CanPacketSend(WorldSession* session, const WorldPacket& packet)
     {
-        // Every packet the server sends goes through here: bail out before the lookup.
+        // Nearly every packet sent to a client comes through here: bail out before the lookup.
         if (packet.GetOpcode() != SMSG_GOSSIP_MESSAGE || !session || !session->GetPlayer())
         {
             return true;
