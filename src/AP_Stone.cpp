@@ -371,6 +371,8 @@ namespace ModArchipelaWoW
         Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid);
         if (transmogrifier && transmogrifier->IsWithinDistInMap(player, INTERACTION_DISTANCE))
         {
+            // Its lifetime counts from the last use, or it could vanish under a merchant window just opened.
+            transmogrifier->ToTempSummon()->SetTimer(TRANSMOGRIFIER_LIFETIME);
             return transmogrifier;
         }
 
