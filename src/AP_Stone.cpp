@@ -10,10 +10,11 @@
 #include "fmt/format.h"
 #include "GossipDef.h"
 #include "Item.h"
+#include "ItemPackets.h"
 #include "items/AP_Zones.h"
 #include "Object.h"
 #include "ObjectAccessor.h"
-#include "ObjectDefines.h"
+#include "Opcodes.h"
 #include "Optional.h"
 #include "Player.h"
 #include "ScriptMgr.h"
@@ -187,20 +188,75 @@ namespace ModArchipelaWoW
             });
     }
 
-    bool AP_Stone::CanSendGossipMessage(const WorldPacket& packet)
+    bool AP_Stone::CanPacketSend(const WorldPacket& packet)
     {
-        if (!transmogStoneGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
+        if (!transmogrifierGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
         {
             return true;
         }
 
-        // mod-transmog sends its menus on the transmogrifier. Shown and answered as the stone's instead,
-        // they stay open wherever the player goes, and the core hands their clicks to the stone with no
-        // range check. The hook gets the packet read-only, so it goes out again as a copy.
-        player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(transmogStoneGuid);
+        // mod-transmog opens its windows on the transmogrifier; they are moved off it before the client
+        // sees them. Its menus go to the stone: they stay open wherever the player goes, and the core
+        // hands their clicks to the stone with no range check. The merchant window of its vendor interface
+        // goes to the player, as the stone's mailbox does: the client does not keep it open on the
+        // transmogrifier, and CanPacketReceive hands its purchases back. The hook gets the packet
+        // read-only, so it goes out again as a copy.
+        ObjectGuid target = player->GetGUID();
+        if (packet.GetOpcode() == SMSG_GOSSIP_MESSAGE)
+        {
+            if (!transmogStoneGuid)
+            {
+                return true;
+            }
+
+            target = transmogStoneGuid;
+            player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(target);
+        }
+
         WorldPacket redirected(packet);
-        redirected.put<uint64>(0, transmogStoneGuid.GetRawValue());
+        redirected.put<uint64>(0, target.GetRawValue());
         player->SendDirectMessage(&redirected);
+        return false;
+    }
+
+    bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
+    {
+        if (!transmogrifierGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
+        {
+            return true;
+        }
+
+        uint32 item;
+        uint32 slot;
+        uint32 count;
+        if (packet.GetOpcode() == CMSG_BUY_ITEM)
+        {
+            WorldPackets::Item::BuyItem buy{ WorldPacket(packet) };
+            buy.Read();
+            item = buy.Item;
+            slot = buy.Slot;
+            count = buy.Count;
+        }
+        else
+        {
+            WorldPackets::Item::BuyItemInSlot buy{ WorldPacket(packet) };
+            buy.Read();
+            item = buy.Item;
+            slot = buy.Slot;
+            count = buy.Count;
+        }
+
+        // The client counts vendor slots from 1; the core's handler drops a 0.
+        Creature* transmogrifier = slot && IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
+        if (!transmogrifier)
+        {
+            return true;
+        }
+
+        // A purchase in the merchant window CanPacketSend moved to the player, made again from the
+        // transmogrifier for mod-transmog to take over. Where the item would go does not matter:
+        // mod-transmog takes over every purchase from a transmogrifier and hands out no item.
+        player->BuyItemFromVendorSlot(transmogrifier->GetGUID(), slot - 1, item, count, NULL_BAG, NULL_SLOT);
         return false;
     }
 #endif
@@ -371,8 +427,7 @@ namespace ModArchipelaWoW
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
         // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
-        // the player, invisible and unselectable. CanSendGossipMessage turns its gossip windows into the
-        // stone's; the merchant window of its vendor interface stays on the transmogrifier.
+        // the player. CanPacketSend moves the windows it opens off it.
         Creature* transmogrifier = IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
         if (!transmogrifier || !forward(transmogrifier))
         {
@@ -382,18 +437,14 @@ namespace ModArchipelaWoW
 
     Creature* AP_Stone::GetTransmogrifier()
     {
-        // Kept within reach of the player: mod-transmog's vendor interface opens a merchant window on
-        // the transmogrifier itself, which the client closes out of range.
-        Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid);
-        if (transmogrifier && transmogrifier->IsWithinDistInMap(player, INTERACTION_DISTANCE))
+        // Its position does not matter: the client is never asked to interact with it.
+        if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
         {
-            // Its lifetime restarts with each click on the stone's menu, so it cannot vanish under a
-            // merchant window just opened. Purchases in that window do not restart it.
+            // Its lifetime restarts with each use.
             transmogrifier->ToTempSummon()->SetTimer(TRANSMOGRIFIER_LIFETIME);
             return transmogrifier;
         }
 
-        DespawnTransmogrifier();
         TempSummon* summon = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
         if (!summon)
         {
@@ -402,25 +453,19 @@ namespace ModArchipelaWoW
 
         transmogrifierGuid = summon->GetGUID();
 
-        // Only once it is on the map: with Transmogrification.EnablePortable off, mod-transmog lets the
-        // player see it from the start, as a Warpweaver until the next update.
+        // With Transmogrification.EnablePortable on, mod-transmog hides an ownerless summon from everyone.
+        // With it off, the player's client gets it from the start, shown as a Warpweaver until the next
+        // update brings these changes.
         summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
         summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-
-        // The client must know the creature before a merchant window opens on it. The core shows a unit
-        // to its owner, and to whoever Visibility.GroupMode groups with the owner, ahead of the
-        // summoner-only flag and of mod-transmog's own rule, which with Transmogrification.EnablePortable
-        // hides an ownerless summon from everyone.
-        summon->SetOwnerGUID(player->GetGUID());
-        player->UpdateVisibilityOf(summon);
         return summon;
     }
 
     void AP_Stone::DespawnTransmogrifier()
     {
-        // Also called before a teleport, which would leave the transmogrifier out of reach, and when the
-        // stone is freed, which would leave it untracked: either way, it would linger until its lifetime
-        // runs out.
+        // Also called before a teleport to another map, which would take the transmogrifier out of reach,
+        // and when the stone is freed, which would leave it untracked: either way, it would linger until
+        // its lifetime runs out.
         if (!transmogrifierGuid)
         {
             return;

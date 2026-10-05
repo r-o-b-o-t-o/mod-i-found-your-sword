@@ -69,7 +69,7 @@ namespace ModArchipelaWoW
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void OnPlayerBeforeTeleport();
+        void OnPlayerBeforeTeleport(uint32 mapId);
 #endif
         bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
 
@@ -80,7 +80,8 @@ namespace ModArchipelaWoW
         void OnSelectArchipelagoStoneGossipCode(uint32 sender, uint32 action, const char* code);
 
         // ServerScripts events
-        bool CanSendGossipMessage(const WorldPacket& packet);
+        bool CanPacketSend(const WorldPacket& packet);
+        bool CanPacketReceive(const WorldPacket& packet);
 #endif
 
     private:

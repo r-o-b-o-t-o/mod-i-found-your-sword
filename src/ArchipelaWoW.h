@@ -66,7 +66,7 @@ namespace ModArchipelaWoW
         void OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId);
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void OnPlayerBeforeTeleport(Player* player);
+        void OnPlayerBeforeTeleport(Player* player, uint32 mapId);
 #endif
         /// Relays what the character typed to its Archipelago slot. Returns false when the
         /// message was an Archipelago command and must not also reach the game world.
@@ -88,6 +88,7 @@ namespace ModArchipelaWoW
         void OnNetworkStart(Acore::Asio::IoContext& ioContext);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         bool CanPacketSend(WorldSession* session, const WorldPacket& packet);
+        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet);
 #endif
 
     private:

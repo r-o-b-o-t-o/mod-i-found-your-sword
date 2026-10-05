@@ -177,9 +177,9 @@ namespace ModArchipelaWoW::Scripts
         }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        bool OnPlayerBeforeTeleport(Player* player, uint32 /*mapid*/, float /*x*/, float /*y*/, float /*z*/, float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
+        bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float /*x*/, float /*y*/, float /*z*/, float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
         {
-            sArchipelaWoW->OnPlayerBeforeTeleport(player);
+            sArchipelaWoW->OnPlayerBeforeTeleport(player, mapid);
             return true;
         }
 #endif

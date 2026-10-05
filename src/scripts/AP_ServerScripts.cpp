@@ -15,6 +15,7 @@ namespace ModArchipelaWoW::Scripts
                 SERVERHOOK_ON_NETWORK_START,
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
                 SERVERHOOK_CAN_PACKET_SEND,
+                SERVERHOOK_CAN_PACKET_RECEIVE,
 #endif
             })
         {
@@ -29,6 +30,11 @@ namespace ModArchipelaWoW::Scripts
         bool CanPacketSend(WorldSession* session, const WorldPacket& packet) override
         {
             return sArchipelaWoW->CanPacketSend(session, packet);
+        }
+
+        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet) override
+        {
+            return sArchipelaWoW->CanPacketReceive(session, packet);
         }
 #endif
     };

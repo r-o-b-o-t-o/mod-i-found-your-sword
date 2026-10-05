@@ -615,9 +615,12 @@ namespace ModArchipelaWoW
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void AP_Character::OnPlayerBeforeTeleport()
+    void AP_Character::OnPlayerBeforeTeleport(uint32 mapId)
     {
-        apStone.DespawnTransmogrifier();
+        if (mapId != player->GetMapId())
+        {
+            apStone.DespawnTransmogrifier();
+        }
     }
 #endif
 
@@ -678,9 +681,14 @@ namespace ModArchipelaWoW
         apStone.OnGossipSelectCode(sender, action, code);
     }
 
-    bool AP_Character::CanSendGossipMessage(const WorldPacket& packet)
+    bool AP_Character::CanPacketSend(const WorldPacket& packet)
     {
-        return apStone.CanSendGossipMessage(packet);
+        return apStone.CanPacketSend(packet);
+    }
+
+    bool AP_Character::CanPacketReceive(const WorldPacket& packet)
+    {
+        return apStone.CanPacketReceive(packet);
     }
 #endif
 

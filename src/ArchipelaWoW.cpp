@@ -506,7 +506,7 @@ namespace ModArchipelaWoW
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void ArchipelaWoW::OnPlayerBeforeTeleport(Player* player)
+    void ArchipelaWoW::OnPlayerBeforeTeleport(Player* player, uint32 mapId)
     {
         if (!player)
         {
@@ -516,7 +516,7 @@ namespace ModArchipelaWoW
         auto guid = player->GetGUID().GetCounter();
         if (apCharacters.contains(guid))
         {
-            apCharacters[guid]->OnPlayerBeforeTeleport();
+            apCharacters[guid]->OnPlayerBeforeTeleport(mapId);
         }
     }
 #endif
@@ -652,7 +652,8 @@ namespace ModArchipelaWoW
     bool ArchipelaWoW::CanPacketSend(WorldSession* session, const WorldPacket& packet)
     {
         // Nearly every packet sent to a client comes through here: bail out before the lookup.
-        if (packet.GetOpcode() != SMSG_GOSSIP_MESSAGE || !session || !session->GetPlayer())
+        uint16 opcode = packet.GetOpcode();
+        if ((opcode != SMSG_GOSSIP_MESSAGE && opcode != SMSG_LIST_INVENTORY) || !session || !session->GetPlayer())
         {
             return true;
         }
@@ -663,7 +664,25 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        return apCharacters[guid]->CanSendGossipMessage(packet);
+        return apCharacters[guid]->CanPacketSend(packet);
+    }
+
+    bool ArchipelaWoW::CanPacketReceive(WorldSession* session, const WorldPacket& packet)
+    {
+        // Nearly every packet received from a client comes through here: bail out before the lookup.
+        uint16 opcode = packet.GetOpcode();
+        if ((opcode != CMSG_BUY_ITEM && opcode != CMSG_BUY_ITEM_IN_SLOT) || !session || !session->GetPlayer())
+        {
+            return true;
+        }
+
+        auto guid = session->GetPlayer()->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->CanPacketReceive(packet);
     }
 #endif
 }
