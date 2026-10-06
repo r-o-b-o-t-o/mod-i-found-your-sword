@@ -250,21 +250,21 @@ namespace ModArchipelaWoW
         uint32 item;
         uint32 slot;
         uint32 count;
+        auto readBuy = [&](auto&& buy)
+            {
+                buy.Read();
+                item = buy.Item;
+                slot = buy.Slot;
+                count = buy.Count;
+            };
+
         if (packet.GetOpcode() == CMSG_BUY_ITEM)
         {
-            WorldPackets::Item::BuyItem buy{ WorldPacket(packet) };
-            buy.Read();
-            item = buy.Item;
-            slot = buy.Slot;
-            count = buy.Count;
+            readBuy(WorldPackets::Item::BuyItem{ WorldPacket(packet) });
         }
         else
         {
-            WorldPackets::Item::BuyItemInSlot buy{ WorldPacket(packet) };
-            buy.Read();
-            item = buy.Item;
-            slot = buy.Slot;
-            count = buy.Count;
+            readBuy(WorldPackets::Item::BuyItemInSlot{ WorldPacket(packet) });
         }
 
         // The client counts vendor slots from 1; the core's handler drops a 0.
