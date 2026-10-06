@@ -12,7 +12,7 @@ This repository contains the code for the [client](https://archipelago.miraheze.
 ### Prerequisites
 
 (*Optional*) The following modules are strongly recommended for seeds that include dungeon content (Dungeonmaster goals, dungeon quests option):
-- [DungeonRespawn](https://github.com/Dreathean/DungeonRespawn)
+- [mod-dungeon-respawn](https://github.com/r-o-b-o-t-o/mod-dungeon-respawn)
 - [mod-autobalance](https://github.com/azerothcore/mod-autobalance)
 - [mod-solo-lfg](https://github.com/azerothcore/mod-solo-lfg)
 
