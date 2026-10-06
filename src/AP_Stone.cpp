@@ -447,9 +447,10 @@ namespace ModArchipelaWoW
 
         transmogrifierGuid = summon->GetGUID();
 
-        // With Transmogrification.EnablePortable on, mod-transmog hides an ownerless summon from everyone.
-        // With it off, the player's client gets it from the start, shown as a Warpweaver until the next
-        // update brings these changes.
+        // The client never needs it, its windows being moved off it. While
+        // Transmogrification.EnablePortable is on, mod-transmog hides an ownerless summon from everyone;
+        // with it off, the player's client can get it from the start, shown as a Warpweaver until the
+        // next update brings these changes.
         summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
         summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
         return summon;

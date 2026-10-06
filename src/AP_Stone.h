@@ -43,7 +43,7 @@ namespace ModArchipelaWoW
         uint32 gossipTitleTextId;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid;
-        ObjectGuid transmogStoneGuid; // Set while mod-transmog's menu shows in the stone's window
+        ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
 #endif
 
         const char* GetZoneTeleportIcon();
