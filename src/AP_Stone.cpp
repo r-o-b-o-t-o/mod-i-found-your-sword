@@ -133,7 +133,7 @@ namespace ModArchipelaWoW
         // tells its menu apart.
         if (transmogStoneGuid)
         {
-            if (!IsTransmogThrottled())
+            if (TakeTransmogSummon())
             {
                 ForwardToTransmogrifier([&](Creature* transmogrifier)
                     {
@@ -177,7 +177,7 @@ namespace ModArchipelaWoW
     void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
     {
         // Only mod-transmog's menus ask for input: an item search or a set name.
-        if (!transmogStoneGuid || IsTransmogThrottled())
+        if (!transmogStoneGuid || !TakeTransmogSummon())
         {
             return;
         }
@@ -252,7 +252,7 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        if (IsTransmogThrottled())
+        if (!TakeTransmogSummon())
         {
             return false;
         }
@@ -423,7 +423,7 @@ namespace ModArchipelaWoW
     void AP_Stone::HandleTransmogAction(Item* item)
     {
         // Before transmogStoneGuid is set: on a refusal, the stone's own menu stays open.
-        if (IsTransmogThrottled())
+        if (!TakeTransmogSummon())
         {
             return;
         }
@@ -472,7 +472,7 @@ namespace ModArchipelaWoW
         return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
     }
 
-    bool AP_Stone::IsTransmogThrottled()
+    bool AP_Stone::TakeTransmogSummon()
     {
         // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
         // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
@@ -489,7 +489,7 @@ namespace ModArchipelaWoW
 
         if (++transmogSummons <= MAX_TRANSMOG_SUMMONS_PER_SECOND)
         {
-            return false;
+            return true;
         }
 
         if (transmogSummons == MAX_TRANSMOG_SUMMONS_PER_SECOND + 1)
@@ -497,7 +497,7 @@ namespace ModArchipelaWoW
             ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000You are doing that too fast.");
         }
 
-        return true;
+        return false;
     }
 
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
