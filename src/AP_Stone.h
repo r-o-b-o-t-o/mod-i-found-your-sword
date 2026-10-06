@@ -9,6 +9,7 @@
 #include "Player.h"
 #include "WorldPacket.h"
 
+#include <chrono>
 #include <functional>
 #include <string>
 
@@ -40,6 +41,8 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid; // Set while a click or purchase runs on it
         ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
+        std::chrono::seconds transmogSummonSecond{};
+        uint32 transmogSummons = 0;
 #endif
 
         const char* GetZoneTeleportIcon();

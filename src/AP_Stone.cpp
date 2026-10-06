@@ -8,6 +8,7 @@
 #include "DBCStructure.h"
 #include "Define.h"
 #include "fmt/format.h"
+#include "GameTime.h"
 #include "GossipDef.h"
 #include "Item.h"
 #include "ItemPackets.h"
@@ -48,6 +49,7 @@ constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
 constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
 constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_insert_transmog_back_item.sql
+constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 #endif
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
@@ -468,6 +470,22 @@ namespace ModArchipelaWoW
         // mod-transmog's menu is a creature script, so each click and purchase runs on a transmogrifier
         // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
         // CanPacketSend moves the windows it opens off it.
+        //
+        // Each summon uses up one of the map's creature guids for good, and the server shuts down once
+        // they run out: a client looping clicks or purchases could get there. No one clicks that fast
+        // by hand.
+        std::chrono::seconds now = GameTime::GetGameTime();
+        if (now != transmogSummonSecond)
+        {
+            transmogSummonSecond = now;
+            transmogSummons = 0;
+        }
+
+        if (++transmogSummons > MAX_TRANSMOG_SUMMONS_PER_SECOND)
+        {
+            return false;
+        }
+
         TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
         if (!transmogrifier)
         {
