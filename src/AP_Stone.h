@@ -41,6 +41,7 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid; // Set while a click or purchase runs on it
         ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
+        bool transmogVendorShown = false; // Set while mod-transmog's merchant window is the last one sent
         std::chrono::seconds transmogSummonSecond{};
         uint32 transmogSummons = 0;
 #endif

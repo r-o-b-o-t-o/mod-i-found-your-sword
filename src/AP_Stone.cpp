@@ -195,7 +195,19 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::CanPacketSend(const WorldPacket& packet)
     {
-        if (!transmogrifierGuid || packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
+        if (!transmogrifierGuid)
+        {
+            // Any other merchant window replaces mod-transmog's. Not checked during a run: the copy sent
+            // below comes back through this hook.
+            if (packet.GetOpcode() == SMSG_LIST_INVENTORY)
+            {
+                transmogVendorShown = false;
+            }
+
+            return true;
+        }
+
+        if (packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
         {
             return true;
         }
@@ -216,6 +228,7 @@ namespace ModArchipelaWoW
         else
         {
             AddTransmogBackItem(redirected);
+            transmogVendorShown = true;
         }
 
         redirected.put<uint64>(0, target.GetRawValue());
@@ -225,8 +238,9 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
     {
-        // mod-transmog's merchant window only opens from its menu, which sets transmogStoneGuid.
-        if (!transmogStoneGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
+        // Only purchases from mod-transmog's merchant window, while it is the last one sent and its menu is
+        // still the stone's.
+        if (!transmogVendorShown || !transmogStoneGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
         {
             return true;
         }
