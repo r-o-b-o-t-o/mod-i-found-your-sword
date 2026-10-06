@@ -14,6 +14,7 @@
 #include "ItemPackets.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
+#include "Log.h"
 #include "Map.h"
 #include "Object.h"
 #include "ObjectGuid.h"
@@ -32,6 +33,7 @@
 #include <chrono>
 #include <functional>
 #include <limits>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -468,6 +470,13 @@ namespace ModArchipelaWoW
         const ItemTemplate* back = sObjectMgr->GetItemTemplate(TRANSMOG_BACK_ITEM_ID);
         if (!back)
         {
+            // Item templates only load at startup, so once is enough.
+            static std::once_flag logged;
+            std::call_once(logged, []()
+                {
+                    LOG_ERROR("module.archipelawow", "Item {} is missing, so mod-transmog's vendor interface has no Back entry. "
+                        "Apply archipelawow_world_010_insert_transmog_back_item.sql.", TRANSMOG_BACK_ITEM_ID);
+                });
             return;
         }
 
