@@ -12,8 +12,8 @@
 #include "Item.h"
 #include "ItemPackets.h"
 #include "items/AP_Zones.h"
+#include "Map.h"
 #include "Object.h"
-#include "ObjectAccessor.h"
 #include "ObjectGuid.h"
 #include "Opcodes.h"
 #include "Optional.h"
@@ -22,7 +22,6 @@
 #include "SharedDefines.h"
 #include "SpellAuraDefines.h"
 #include "TemporarySummon.h"
-#include "UnitDefines.h"
 #include "Util.h"
 #include "WorldPacket.h"
 
@@ -46,8 +45,6 @@ constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
 constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
 constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
-constexpr uint32 TRANSMOGRIFIER_LIFETIME = 10 * MINUTE * IN_MILLISECONDS;
-constexpr uint32 INVISIBLE_DISPLAY_ID = 11686;
 #endif
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
@@ -83,13 +80,6 @@ namespace ModArchipelaWoW
         gossipTitleTextId(0)
     {
     }
-
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    AP_Stone::~AP_Stone()
-    {
-        DespawnTransmogrifier();
-    }
-#endif
 
     void AP_Stone::CreateItem()
     {
@@ -217,7 +207,8 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
     {
-        if (!transmogrifierGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
+        // mod-transmog's merchant window only opens from its menu, which sets transmogStoneGuid.
+        if (!transmogStoneGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
         {
             return true;
         }
@@ -243,17 +234,19 @@ namespace ModArchipelaWoW
         }
 
         // The client counts vendor slots from 1; the core's handler drops a 0.
-        Creature* transmogrifier = slot && IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
-        if (!transmogrifier)
+        if (!slot || !IsTransmogEnabled())
         {
             return true;
         }
 
-        // A purchase in the merchant window CanPacketSend moved to the player, made again from the
+        // A purchase in the merchant window CanPacketSend moved to the player, made again from a
         // transmogrifier for mod-transmog to take over. Where the item would go does not matter:
         // mod-transmog takes over every purchase from a transmogrifier and hands out no item.
-        player->BuyItemFromVendorSlot(transmogrifier->GetGUID(), slot - 1, item, count, NULL_BAG, NULL_SLOT);
-        return false;
+        return !RunOnTransmogrifier([&](Creature* transmogrifier)
+            {
+                player->BuyItemFromVendorSlot(transmogrifier->GetGUID(), slot - 1, item, count, NULL_BAG, NULL_SLOT);
+                return true;
+            });
     }
 #endif
 
@@ -422,56 +415,28 @@ namespace ModArchipelaWoW
 
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
-        // mod-transmog's menu is a creature script, so it runs on a transmogrifier the stone summons for
-        // the player. CanPacketSend moves the windows it opens off it.
-        Creature* transmogrifier = IsTransmogEnabled() ? GetTransmogrifier() : nullptr;
-        if (!transmogrifier || !forward(transmogrifier))
+        if (!IsTransmogEnabled() || !RunOnTransmogrifier(forward))
         {
             player->PlayerTalkClass->SendCloseGossip();
         }
     }
 
-    Creature* AP_Stone::GetTransmogrifier()
+    bool AP_Stone::RunOnTransmogrifier(const std::function<bool(Creature*)>& run)
     {
-        // Its position does not matter: the client is never asked to interact with it.
-        if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
+        // mod-transmog's menu is a creature script, so each click and purchase runs on a transmogrifier
+        // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
+        // CanPacketSend moves the windows it opens off it.
+        TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
+        if (!transmogrifier)
         {
-            return transmogrifier;
+            return false;
         }
 
-        TempSummon* summon = player->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), TEMPSUMMON_TIMED_DESPAWN, TRANSMOGRIFIER_LIFETIME, 0, nullptr, true);
-        if (!summon)
-        {
-            return nullptr;
-        }
-
-        transmogrifierGuid = summon->GetGUID();
-
-        // The client never needs it, its windows being moved off it. While
-        // Transmogrification.EnablePortable is on, mod-transmog hides an ownerless summon from everyone;
-        // with it off, the player's client can get it from the start, shown as a Warpweaver until the
-        // next update brings these changes.
-        summon->SetDisplayId(INVISIBLE_DISPLAY_ID);
-        summon->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-        return summon;
-    }
-
-    void AP_Stone::DespawnTransmogrifier()
-    {
-        // Also called before a teleport to another map, which would take the transmogrifier out of reach,
-        // and when the stone is freed, which would leave it untracked: either way, it would linger until
-        // its lifetime runs out.
-        if (!transmogrifierGuid)
-        {
-            return;
-        }
-
-        if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
-        {
-            transmogrifier->DespawnOrUnsummon();
-        }
-
+        transmogrifierGuid = transmogrifier->GetGUID();
+        bool done = run(transmogrifier);
         transmogrifierGuid.Clear();
+        transmogrifier->DespawnOrUnsummon();
+        return done;
     }
 #endif
 

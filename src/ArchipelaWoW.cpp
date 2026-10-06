@@ -505,22 +505,6 @@ namespace ModArchipelaWoW
         }
     }
 
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void ArchipelaWoW::OnPlayerBeforeTeleport(Player* player, uint32 mapId)
-    {
-        if (!player)
-        {
-            return;
-        }
-
-        auto guid = player->GetGUID().GetCounter();
-        if (apCharacters.contains(guid))
-        {
-            apCharacters[guid]->OnPlayerBeforeTeleport(mapId);
-        }
-    }
-#endif
-
     bool ArchipelaWoW::OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName)
     {
         ReturnValueIfModDisabled(true);

@@ -20,9 +20,6 @@ namespace ModArchipelaWoW
     {
     public:
         AP_Stone(AP_Character* apCharacter);
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        ~AP_Stone();
-#endif
 
         void CreateItem();
         void OnUse(Item* item);
@@ -31,7 +28,6 @@ namespace ModArchipelaWoW
         void OnGossipSelectCode(uint32 sender, uint32 action, const char* code);
         bool CanPacketSend(const WorldPacket& packet);
         bool CanPacketReceive(const WorldPacket& packet);
-        void DespawnTransmogrifier();
 #endif
         void OnPlayerCreateItem(Item* item);
 
@@ -42,7 +38,7 @@ namespace ModArchipelaWoW
         uint32 gossipSender;
         uint32 gossipTitleTextId;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        ObjectGuid transmogrifierGuid;
+        ObjectGuid transmogrifierGuid; // Set while a click or purchase runs on it
         ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
 #endif
 
@@ -56,7 +52,7 @@ namespace ModArchipelaWoW
         void HandleTransmogAction(Item* item);
         static bool IsTransmogEnabled();
         void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
-        Creature* GetTransmogrifier();
+        bool RunOnTransmogrifier(const std::function<bool(Creature*)>& run);
 #endif
         static uint64 CooldownSeconds(uint32 milliseconds);
         Optional<std::string> GetHearthstoneLocation();

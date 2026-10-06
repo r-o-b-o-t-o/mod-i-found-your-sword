@@ -614,16 +614,6 @@ namespace ModArchipelaWoW
         SaveToDatabase();
     }
 
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-    void AP_Character::OnPlayerBeforeTeleport(uint32 mapId)
-    {
-        if (mapId != player->GetMapId())
-        {
-            apStone.DespawnTransmogrifier();
-        }
-    }
-#endif
-
     bool AP_Character::OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName)
     {
         if (msg.empty() || !run)

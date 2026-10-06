@@ -68,9 +68,6 @@ namespace ModArchipelaWoW
         void ReopenTrainerWindow(Creature* trainer);
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        void OnPlayerBeforeTeleport(uint32 mapId);
-#endif
         bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
 
         // ItemScripts events
