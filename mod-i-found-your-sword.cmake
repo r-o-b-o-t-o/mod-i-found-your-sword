@@ -5,6 +5,12 @@ target_include_directories(modules PUBLIC "mod-i-found-your-sword/libs")
 # dependency private to its database library, so the module has to pull it in itself.
 target_link_libraries(modules PRIVATE mysql)
 
+# The Archipelago Stone opens mod-transmog's menu when that module is built too. Runs in the core's
+# modules/CMakeLists.txt scope, where MODULE_<NAME> already holds each module's resolved linkage.
+if("mod-transmog" IN_LIST MODULES_MODULE_LIST AND NOT "${MODULE_MOD-TRANSMOG}" STREQUAL "disabled")
+  target_compile_definitions(modules PRIVATE MOD_ARCHIPELAWOW_TRANSMOG)
+endif()
+
 # AP_WebSocketClient.cpp instantiates the boost::beast websocket stream templates and
 # emits ~86k COMDAT sections, past the 65,279 limit of MSVC's default object format
 # (fatal error C1128). AzerothCore only appends /bigobj to CMAKE_CXX_FLAGS_DEBUG in

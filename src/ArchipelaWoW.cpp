@@ -16,6 +16,7 @@
 #include "network/AP_WebSocketService.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
+#include "Opcodes.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Trainer.h"
@@ -610,8 +611,62 @@ namespace ModArchipelaWoW
         }
     }
 
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void ArchipelaWoW::OnSelectArchipelagoStoneGossipCode(Player* player, uint32 sender, uint32 action, const char* code)
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnSelectArchipelagoStoneGossipCode(sender, action, code);
+        }
+    }
+#endif
+
     void ArchipelaWoW::OnNetworkStart(Acore::Asio::IoContext& ioContext)
     {
         wsService = std::make_unique<Network::WebSocketService>(ioContext.get_executor());
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    bool ArchipelaWoW::CanPacketSend(WorldSession* session, const WorldPacket& packet)
+    {
+        // Nearly every packet sent to a client comes through here: bail out before the lookup.
+        uint16 opcode = packet.GetOpcode();
+        if ((opcode != SMSG_GOSSIP_MESSAGE && opcode != SMSG_LIST_INVENTORY) || !session || !session->GetPlayer())
+        {
+            return true;
+        }
+
+        auto guid = session->GetPlayer()->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->CanPacketSend(packet);
+    }
+
+    bool ArchipelaWoW::CanPacketReceive(WorldSession* session, const WorldPacket& packet)
+    {
+        // Nearly every packet received from a client comes through here: bail out before the lookup.
+        uint16 opcode = packet.GetOpcode();
+        if ((opcode != CMSG_BUY_ITEM && opcode != CMSG_BUY_ITEM_IN_SLOT) || !session || !session->GetPlayer())
+        {
+            return true;
+        }
+
+        auto guid = session->GetPlayer()->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            return true;
+        }
+
+        return apCharacters[guid]->CanPacketReceive(packet);
+    }
+#endif
 }

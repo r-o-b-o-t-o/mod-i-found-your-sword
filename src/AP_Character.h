@@ -73,6 +73,13 @@ namespace ModArchipelaWoW
         // ItemScripts events
         void OnUseArchipelagoStone(Item* item);
         void OnSelectArchipelagoStoneGossip(Item* item, uint32 sender, uint32 action);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void OnSelectArchipelagoStoneGossipCode(uint32 sender, uint32 action, const char* code);
+
+        // ServerScripts events
+        bool CanPacketSend(const WorldPacket& packet);
+        bool CanPacketReceive(const WorldPacket& packet);
+#endif
 
     private:
         std::unique_ptr<Network::Client> ap;

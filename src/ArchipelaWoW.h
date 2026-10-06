@@ -2,6 +2,7 @@
 #define _MOD_ARCHIPELAWOW_ARCHIPELAWOW_H_
 
 #include "AP_Config.h"
+#include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "IoContext.h"
@@ -14,6 +15,8 @@
 #include "QuestDef.h"
 #include "Trainer.h"
 #include "Unit.h"
+#include "WorldPacket.h"
+#include "WorldSession.h"
 
 #include <memory>
 #include <string>
@@ -75,9 +78,16 @@ namespace ModArchipelaWoW
         // ItemScripts methods
         bool OnUseArchipelagoStone(Player* player, Item* item);
         void OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        void OnSelectArchipelagoStoneGossipCode(Player* player, uint32 sender, uint32 action, const char* code);
+#endif
 
         // ServerScripts methods
         void OnNetworkStart(Acore::Asio::IoContext& ioContext);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        bool CanPacketSend(WorldSession* session, const WorldPacket& packet);
+        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet);
+#endif
 
     private:
         Config config;

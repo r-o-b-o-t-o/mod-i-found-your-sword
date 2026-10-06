@@ -665,6 +665,23 @@ namespace ModArchipelaWoW
         apStone.OnGossipSelect(item, sender, action);
     }
 
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Character::OnSelectArchipelagoStoneGossipCode(uint32 sender, uint32 action, const char* code)
+    {
+        apStone.OnGossipSelectCode(sender, action, code);
+    }
+
+    bool AP_Character::CanPacketSend(const WorldPacket& packet)
+    {
+        return apStone.CanPacketSend(packet);
+    }
+
+    bool AP_Character::CanPacketReceive(const WorldPacket& packet)
+    {
+        return apStone.CanPacketReceive(packet);
+    }
+#endif
+
     void AP_Character::GrantSpell(uint32 spellId)
     {
         if (!player)

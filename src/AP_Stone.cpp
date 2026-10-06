@@ -2,20 +2,38 @@
 #include "AP_Stone.h"
 #include "Chat.h"
 #include "Common.h"
+#include "Config.h"
+#include "Creature.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "Define.h"
-#include "fmt/core.h"
+#include "fmt/format.h"
+#include "GameTime.h"
 #include "GossipDef.h"
 #include "Item.h"
+#include "ItemPackets.h"
 #include "items/AP_Zones.h"
+#include "ItemTemplate.h"
+#include "Log.h"
+#include "Map.h"
+#include "Object.h"
+#include "ObjectGuid.h"
+#include "ObjectMgr.h"
+#include "Opcodes.h"
 #include "Optional.h"
 #include "Player.h"
+#include "ScriptMgr.h"
 #include "SharedDefines.h"
+#include "SpellAuraDefines.h"
+#include "TemporarySummon.h"
 #include "Util.h"
+#include "WorldPacket.h"
 
 #include <algorithm>
+#include <chrono>
+#include <functional>
 #include <limits>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -28,6 +46,13 @@ constexpr uint32 GOSSIP_ITEM_MAILBOX = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE = 2;
 constexpr uint32 GOSSIP_ITEM_TELE_DUNGEON = 3;
 constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
+constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
+constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_insert_transmog_back_item.sql
+constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
+#endif
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -105,6 +130,23 @@ namespace ModArchipelaWoW
 
     void AP_Stone::OnGossipSelect(Item* item, uint32 sender, uint32 action)
     {
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        // mod-transmog's senders overlap the stone's own (0 is its head slot), so only transmogStoneGuid
+        // tells its menu apart.
+        if (transmogStoneGuid)
+        {
+            if (!RefuseTransmogInCombat() && TakeTransmogSummon())
+            {
+                ForwardToTransmogrifier([&](Creature* transmogrifier)
+                    {
+                        return sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action);
+                    });
+            }
+
+            return;
+        }
+#endif
+
         if (action == GOSSIP_ITEM_BACK_TO_MAIN)
         {
             SendMainMenu(item);
@@ -133,6 +175,126 @@ namespace ModArchipelaWoW
         }
     }
 
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
+    {
+        // Only mod-transmog's menus ask for input: an item search or a set name.
+        if (!transmogStoneGuid)
+        {
+            return;
+        }
+
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        {
+            return;
+        }
+
+        ForwardToTransmogrifier([&](Creature* transmogrifier)
+            {
+                return sScriptMgr->OnGossipSelectCode(player, transmogrifier, sender, action, code);
+            });
+    }
+
+    bool AP_Stone::CanPacketSend(const WorldPacket& packet)
+    {
+        if (!transmogrifierGuid)
+        {
+            // Any other merchant window replaces mod-transmog's. Not checked during a run: the copy sent
+            // below comes back through this hook.
+            if (packet.GetOpcode() == SMSG_LIST_INVENTORY)
+            {
+                transmogVendorShown = false;
+            }
+
+            return true;
+        }
+
+        if (packet.read<uint64>(0) != transmogrifierGuid.GetRawValue())
+        {
+            return true;
+        }
+
+        // mod-transmog opens its windows on the transmogrifier; they are moved off it before the client
+        // sees them. Its menus go to the stone: they stay open wherever the player goes, and the core
+        // hands their clicks to the stone with no range check. The merchant window of its vendor interface
+        // goes to the player, as the stone's mailbox does: the client does not keep it open on the
+        // transmogrifier, and CanPacketReceive hands its purchases back. The hook gets the packet
+        // read-only, so it goes out again as a copy.
+        ObjectGuid target = player->GetGUID();
+        WorldPacket redirected(packet);
+        if (packet.GetOpcode() == SMSG_GOSSIP_MESSAGE)
+        {
+            target = transmogStoneGuid;
+            player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(target);
+        }
+        else
+        {
+            AddTransmogBackItem(redirected);
+            transmogVendorShown = true;
+        }
+
+        redirected.put<uint64>(0, target.GetRawValue());
+        player->SendDirectMessage(&redirected);
+        return false;
+    }
+
+    bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
+    {
+        // Only purchases from mod-transmog's merchant window, while it is the last one sent and its menu is
+        // still the stone's.
+        if (!transmogVendorShown || !transmogStoneGuid || packet.read<uint64>(0) != player->GetGUID().GetRawValue())
+        {
+            return true;
+        }
+
+        uint32 item;
+        uint32 slot;
+        uint32 count;
+        auto readBuy = [&](auto&& buy)
+            {
+                buy.Read();
+                item = buy.Item;
+                slot = buy.Slot;
+                count = buy.Count;
+            };
+
+        if (packet.GetOpcode() == CMSG_BUY_ITEM)
+        {
+            readBuy(WorldPackets::Item::BuyItem{ WorldPacket(packet) });
+        }
+        else
+        {
+            readBuy(WorldPackets::Item::BuyItemInSlot{ WorldPacket(packet) });
+        }
+
+        // The client counts vendor slots from 1; the core's handler drops a 0.
+        if (!slot || !IsTransmogEnabled())
+        {
+            return true;
+        }
+
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        {
+            return false;
+        }
+
+        if (item == TRANSMOG_BACK_ITEM_ID)
+        {
+            OpenTransmogMenu();
+            return false;
+        }
+
+        // A purchase in the merchant window CanPacketSend moved to the player, made again from a
+        // transmogrifier for mod-transmog to take over. Where the item would go does not matter:
+        // mod-transmog takes over every purchase from a transmogrifier and hands out no item.
+        return !RunOnTransmogrifier([&](Creature* transmogrifier)
+            {
+                player->BuyItemFromVendorSlot(transmogrifier->GetGUID(), slot - 1, item, count, NULL_BAG, NULL_SLOT);
+                return true;
+            });
+    }
+#endif
+
     void AP_Stone::OnPlayerCreateItem(Item* item)
     {
         if (!item || item->GetEntry() != HEARTHSTONE_ITEM_ID)
@@ -150,10 +312,15 @@ namespace ModArchipelaWoW
             return;
         }
 
-        // Safe here: Spell::DoCreateItem fires this hook as its last act on the item and never touches
-        // it again.
-        player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
-        ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
+        // Not right away: destroying a new item deletes it, and the create-item hooks of the modules
+        // loaded after this one (mod-transmog's among them) still read it. The player's next update
+        // comes after all of them. The event belongs to the player, which outlives it; this AP_Stone
+        // may not, so it is left out of the capture.
+        player->m_Events.AddEventAtOffset([player = player]()
+            {
+                player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
+                ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
+            }, 0ms);
     }
 
     const char* AP_Stone::GetZoneTeleportIcon()
@@ -207,6 +374,9 @@ namespace ModArchipelaWoW
 
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
+#endif
         SendGossipMenu(item);
     }
 
@@ -216,6 +386,9 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_HEARTHSTONE) HandleHearthstoneAction();
         else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
+#endif
     }
 
     void AP_Stone::HandleMailboxAction()
@@ -266,6 +439,138 @@ namespace ModArchipelaWoW
         // which Player::AddSpellAndCategoryCooldowns reads as "take the values from the spell".
         player->CastSpell(player, HEARTHSTONE_SPELL_ID, false);
     }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+    void AP_Stone::HandleTransmogAction(Item* item)
+    {
+        // Before transmogStoneGuid is set: after a refusal the stone's own menu is still showing, and
+        // its clicks must keep going to the stone rather than to mod-transmog.
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        {
+            return;
+        }
+
+        transmogStoneGuid = item->GetGUID();
+        OpenTransmogMenu();
+    }
+
+    void AP_Stone::OpenTransmogMenu()
+    {
+        ForwardToTransmogrifier([&](Creature* transmogrifier)
+            {
+                return sScriptMgr->OnGossipHello(player, transmogrifier);
+            });
+    }
+
+    void AP_Stone::AddTransmogBackItem(WorldPacket& list)
+    {
+        // The client does not tell the server when a merchant window closes, so the way back to
+        // mod-transmog's menu is an entry in it, which CanPacketReceive answers. In a full list, it
+        // takes the place of the last item.
+        const ItemTemplate* back = sObjectMgr->GetItemTemplate(TRANSMOG_BACK_ITEM_ID);
+        if (!back)
+        {
+            // Item templates only load at startup, so once is enough.
+            static std::once_flag logged;
+            std::call_once(logged, []()
+                {
+                    LOG_ERROR("module.archipelawow", "Item {} is missing, so mod-transmog's vendor interface has no Back entry. "
+                        "Apply archipelawow_world_010_insert_transmog_back_item.sql.", TRANSMOG_BACK_ITEM_ID);
+                });
+            return;
+        }
+
+        // Each item is 8 uint32, written as mod-transmog and the core write them: slot counted from
+        // 1, item, display, stock (-1 for unlimited), price, durability, buy count, extended cost.
+        uint8 count = list.read<uint8>(8);
+        if (count == MAX_VENDOR_ITEMS)
+        {
+            list.wpos(list.wpos() - 8 * sizeof(uint32));
+            --count;
+        }
+
+        list << uint32(count + 1) << back->ItemId << back->DisplayInfoID << int32(-1) << uint32(0) << back->MaxDurability << uint32(1) << uint32(0);
+        list.put<uint8>(8, count + 1);
+    }
+
+    bool AP_Stone::IsTransmogEnabled()
+    {
+        // With this off, mod-transmog shows real gear in place of transmogs and hides the transmogrifiers
+        // spawned in the world. Read straight from the config: this module never links against
+        // mod-transmog's code, which may be built as a library of its own.
+        return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
+    }
+
+    bool AP_Stone::RefuseTransmogInCombat()
+    {
+        if (!player->IsInCombat())
+        {
+            return false;
+        }
+
+        // Like a throttled click, a refusal leaves the windows open, to click again out of combat.
+        ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while in combat.");
+        return true;
+    }
+
+    bool AP_Stone::TakeTransmogSummon()
+    {
+        // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
+        // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
+        // down once they run out. A client looping clicks or purchases could get there; the cap slows
+        // one down to weeks. Clicking by hand rarely reaches it, short of lag delivering a burst of
+        // clicks within the same second of world time, so a refusal leaves the windows as they are, to
+        // click again.
+        std::chrono::seconds now = GameTime::GetGameTime();
+        if (now != transmogSummonSecond)
+        {
+            transmogSummonSecond = now;
+            transmogSummons = 0;
+        }
+
+        if (++transmogSummons <= MAX_TRANSMOG_SUMMONS_PER_SECOND)
+        {
+            return true;
+        }
+
+        if (transmogSummons == MAX_TRANSMOG_SUMMONS_PER_SECOND + 1)
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000You are doing that too fast.");
+        }
+
+        return false;
+    }
+
+    void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
+    {
+        // As for RunOnTransmogrifier, callers take a summon with TakeTransmogSummon first.
+        if (!IsTransmogEnabled() || !RunOnTransmogrifier(forward))
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+        }
+    }
+
+    bool AP_Stone::RunOnTransmogrifier(const std::function<bool(Creature*)>& run)
+    {
+        // mod-transmog's menu is a creature script, so each click and purchase runs on a transmogrifier
+        // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
+        // CanPacketSend moves the windows it opens off it.
+        //
+        // Callers take a summon with TakeTransmogSummon first, before any state they would have to undo
+        // on a refusal.
+        TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
+        if (!transmogrifier)
+        {
+            return false;
+        }
+
+        transmogrifierGuid = transmogrifier->GetGUID();
+        bool done = run(transmogrifier);
+        transmogrifierGuid.Clear();
+        transmogrifier->DespawnOrUnsummon();
+        return done;
+    }
+#endif
 
     Optional<std::string> AP_Stone::GetHearthstoneLocation()
     {
@@ -358,6 +663,9 @@ namespace ModArchipelaWoW
     void AP_Stone::StartGossipMenu(uint32 titleTextId, uint32 sender)
     {
         player->PlayerTalkClass->ClearMenus();
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        transmogStoneGuid.Clear();
+#endif
         gossipIdx = 0;
         gossipSender = sender;
         gossipTitleTextId = titleTextId;

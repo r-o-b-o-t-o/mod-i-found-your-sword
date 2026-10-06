@@ -2,6 +2,8 @@
 #include "IoContext.h"
 #include "scripts/AP_ServerScripts.h"
 #include "ServerScript.h"
+#include "WorldPacket.h"
+#include "WorldSession.h"
 
 namespace ModArchipelaWoW::Scripts
 {
@@ -11,6 +13,10 @@ namespace ModArchipelaWoW::Scripts
         AP_ServerScript() :
             ServerScript("ArchipelaWoW_ServerScript", {
                 SERVERHOOK_ON_NETWORK_START,
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+                SERVERHOOK_CAN_PACKET_SEND,
+                SERVERHOOK_CAN_PACKET_RECEIVE,
+#endif
             })
         {
         }
@@ -19,6 +25,18 @@ namespace ModArchipelaWoW::Scripts
         {
             sArchipelaWoW->OnNetworkStart(ioContext);
         }
+
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        bool CanPacketSend(WorldSession* session, const WorldPacket& packet) override
+        {
+            return sArchipelaWoW->CanPacketSend(session, packet);
+        }
+
+        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet) override
+        {
+            return sArchipelaWoW->CanPacketReceive(session, packet);
+        }
+#endif
     };
 
     void AddServerScripts()
