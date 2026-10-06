@@ -133,10 +133,14 @@ namespace ModArchipelaWoW
         // tells its menu apart.
         if (transmogStoneGuid)
         {
-            ForwardToTransmogrifier([&](Creature* transmogrifier)
-                {
-                    return sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action);
-                });
+            if (!IsTransmogThrottled())
+            {
+                ForwardToTransmogrifier([&](Creature* transmogrifier)
+                    {
+                        return sScriptMgr->OnGossipSelect(player, transmogrifier, sender, action);
+                    });
+            }
+
             return;
         }
 #endif
@@ -173,7 +177,7 @@ namespace ModArchipelaWoW
     void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
     {
         // Only mod-transmog's menus ask for input: an item search or a set name.
-        if (!transmogStoneGuid)
+        if (!transmogStoneGuid || IsTransmogThrottled())
         {
             return;
         }
@@ -246,6 +250,11 @@ namespace ModArchipelaWoW
         if (!slot || !IsTransmogEnabled())
         {
             return true;
+        }
+
+        if (IsTransmogThrottled())
+        {
+            return false;
         }
 
         if (item == TRANSMOG_BACK_ITEM_ID)
@@ -413,6 +422,12 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
     void AP_Stone::HandleTransmogAction(Item* item)
     {
+        // Before transmogStoneGuid is set: on a refusal, the stone's own menu stays open.
+        if (IsTransmogThrottled())
+        {
+            return;
+        }
+
         transmogStoneGuid = item->GetGUID();
         OpenTransmogMenu();
     }
@@ -457,6 +472,34 @@ namespace ModArchipelaWoW
         return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
     }
 
+    bool AP_Stone::IsTransmogThrottled()
+    {
+        // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
+        // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
+        // down once they run out. A client looping clicks or purchases could get there; the cap slows
+        // one down to weeks. Clicking by hand rarely reaches it, short of lag delivering a burst of
+        // clicks within the same second of world time, so a refusal leaves the windows as they are, to
+        // click again.
+        std::chrono::seconds now = GameTime::GetGameTime();
+        if (now != transmogSummonSecond)
+        {
+            transmogSummonSecond = now;
+            transmogSummons = 0;
+        }
+
+        if (++transmogSummons <= MAX_TRANSMOG_SUMMONS_PER_SECOND)
+        {
+            return false;
+        }
+
+        if (transmogSummons == MAX_TRANSMOG_SUMMONS_PER_SECOND + 1)
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000You are doing that too fast.");
+        }
+
+        return true;
+    }
+
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
         if (!IsTransmogEnabled() || !RunOnTransmogrifier(forward))
@@ -470,22 +513,6 @@ namespace ModArchipelaWoW
         // mod-transmog's menu is a creature script, so each click and purchase runs on a transmogrifier
         // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
         // CanPacketSend moves the windows it opens off it.
-        //
-        // Each summon uses up one of the map's creature guids for good, and the server shuts down once
-        // they run out: a client looping clicks or purchases could get there. No one clicks that fast
-        // by hand.
-        std::chrono::seconds now = GameTime::GetGameTime();
-        if (now != transmogSummonSecond)
-        {
-            transmogSummonSecond = now;
-            transmogSummons = 0;
-        }
-
-        if (++transmogSummons > MAX_TRANSMOG_SUMMONS_PER_SECOND)
-        {
-            return false;
-        }
-
         TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
         if (!transmogrifier)
         {
