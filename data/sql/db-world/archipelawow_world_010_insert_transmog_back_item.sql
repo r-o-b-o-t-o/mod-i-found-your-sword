@@ -1,7 +1,7 @@
 -- "Back" entry the Archipelago Stone adds to mod-transmog's vendor interface. The client does not
 -- tell the server when a merchant window closes, so buying this entry is how the player returns to
--- the transmogrification menu. It is never handed out: the stone takes the purchase over before the
--- core handles it.
+-- the transmogrification menu. It is never handed out: the stone takes its purchase over, and when
+-- the core handles it instead, it finds no vendor to buy it from.
 --
 -- A new row rather than a repurposed one, like mod-transmog's own "Hide Equipped" and "Clear
 -- Transmog" entries. Nothing refers to it on a realm without mod-transmog.
