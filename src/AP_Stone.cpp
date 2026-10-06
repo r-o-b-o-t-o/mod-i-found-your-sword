@@ -11,10 +11,12 @@
 #include "GossipDef.h"
 #include "Item.h"
 #include "ItemPackets.h"
+#include "ItemTemplate.h"
 #include "items/AP_Zones.h"
 #include "Map.h"
 #include "Object.h"
 #include "ObjectGuid.h"
+#include "ObjectMgr.h"
 #include "Opcodes.h"
 #include "Optional.h"
 #include "Player.h"
@@ -45,6 +47,7 @@ constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
 constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
 constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
+constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_insert_transmog_back_item.sql
 #endif
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
@@ -193,13 +196,17 @@ namespace ModArchipelaWoW
         // transmogrifier, and CanPacketReceive hands its purchases back. The hook gets the packet
         // read-only, so it goes out again as a copy.
         ObjectGuid target = player->GetGUID();
+        WorldPacket redirected(packet);
         if (packet.GetOpcode() == SMSG_GOSSIP_MESSAGE)
         {
             target = transmogStoneGuid;
             player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(target);
         }
+        else
+        {
+            AddTransmogBackItem(redirected);
+        }
 
-        WorldPacket redirected(packet);
         redirected.put<uint64>(0, target.GetRawValue());
         player->SendDirectMessage(&redirected);
         return false;
@@ -237,6 +244,12 @@ namespace ModArchipelaWoW
         if (!slot || !IsTransmogEnabled())
         {
             return true;
+        }
+
+        if (item == TRANSMOG_BACK_ITEM_ID)
+        {
+            OpenTransmogMenu();
+            return false;
         }
 
         // A purchase in the merchant window CanPacketSend moved to the player, made again from a
@@ -399,10 +412,39 @@ namespace ModArchipelaWoW
     void AP_Stone::HandleTransmogAction(Item* item)
     {
         transmogStoneGuid = item->GetGUID();
+        OpenTransmogMenu();
+    }
+
+    void AP_Stone::OpenTransmogMenu()
+    {
         ForwardToTransmogrifier([&](Creature* transmogrifier)
             {
                 return sScriptMgr->OnGossipHello(player, transmogrifier);
             });
+    }
+
+    void AP_Stone::AddTransmogBackItem(WorldPacket& list)
+    {
+        // The client does not tell the server when a merchant window closes, so the way back to
+        // mod-transmog's menu is an entry in it, which CanPacketReceive answers. In a full list, it
+        // takes the place of the last item.
+        const ItemTemplate* back = sObjectMgr->GetItemTemplate(TRANSMOG_BACK_ITEM_ID);
+        if (!back)
+        {
+            return;
+        }
+
+        // Each item is 8 uint32, written as mod-transmog and the core write them: slot counted from
+        // 1, item, display, stock (-1 for unlimited), price, durability, buy count, extended cost.
+        uint8 count = list.read<uint8>(8);
+        if (count == MAX_VENDOR_ITEMS)
+        {
+            list.wpos(list.wpos() - 8 * sizeof(uint32));
+            --count;
+        }
+
+        list << uint32(count + 1) << back->ItemId << back->DisplayInfoID << int32(-1) << uint32(0) << back->MaxDurability << uint32(1) << uint32(0);
+        list.put<uint8>(8, count + 1);
     }
 
     bool AP_Stone::IsTransmogEnabled()
