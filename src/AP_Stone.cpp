@@ -14,6 +14,7 @@
 #include "items/AP_Zones.h"
 #include "Object.h"
 #include "ObjectAccessor.h"
+#include "ObjectGuid.h"
 #include "Opcodes.h"
 #include "Optional.h"
 #include "Player.h"
