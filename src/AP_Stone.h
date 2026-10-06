@@ -56,6 +56,7 @@ namespace ModArchipelaWoW
         void OpenTransmogMenu();
         static void AddTransmogBackItem(WorldPacket& list);
         static bool IsTransmogEnabled();
+        bool RefuseTransmogInCombat();
         bool TakeTransmogSummon();
         void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
         bool RunOnTransmogrifier(const std::function<bool(Creature*)>& run);

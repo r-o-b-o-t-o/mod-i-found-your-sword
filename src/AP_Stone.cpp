@@ -133,7 +133,7 @@ namespace ModArchipelaWoW
         // tells its menu apart.
         if (transmogStoneGuid)
         {
-            if (TakeTransmogSummon())
+            if (!RefuseTransmogInCombat() && TakeTransmogSummon())
             {
                 ForwardToTransmogrifier([&](Creature* transmogrifier)
                     {
@@ -182,7 +182,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        if (!TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
         {
             return;
         }
@@ -257,7 +257,7 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        if (!TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
         {
             return false;
         }
@@ -429,7 +429,7 @@ namespace ModArchipelaWoW
     {
         // Before transmogStoneGuid is set: after a refusal the stone's own menu is still showing, and
         // its clicks must keep going to the stone rather than to mod-transmog.
-        if (!TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
         {
             return;
         }
@@ -476,6 +476,18 @@ namespace ModArchipelaWoW
         // spawned in the world. Read straight from the config: this module never links against
         // mod-transmog's code, which may be built as a library of its own.
         return sConfigMgr->GetOption<bool>("Transmogrification.Enable", true, false);
+    }
+
+    bool AP_Stone::RefuseTransmogInCombat()
+    {
+        if (!player->IsInCombat())
+        {
+            return false;
+        }
+
+        // Like a throttled click, a refusal leaves the windows open, to click again out of combat.
+        ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while in combat.");
+        return true;
     }
 
     bool AP_Stone::TakeTransmogSummon()
