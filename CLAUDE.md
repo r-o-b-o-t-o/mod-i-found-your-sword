@@ -10,8 +10,8 @@ git repository: run git commands from here, the core's git does not see it.
   and IDs come from the data package it builds, and every key of its `fill_slot_data()` is parsed by
   `src/network/AP_Client.cpp` here. A change to any of those on one side needs a matching change on
   the other.
-- `archipelawow-data-extractor` — generates the APWorld's `data/quests.json` and `data/spells.json`
-  from an AzerothCore world database.
+- `archipelawow-data-extractor` — generates the APWorld's `data/quests.json`, `data/spells.json` and
+  `data/bosses.json` from an AzerothCore world database.
 
 ## Code
 

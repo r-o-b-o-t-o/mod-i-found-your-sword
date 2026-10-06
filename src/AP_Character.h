@@ -19,6 +19,7 @@
 #include "QuestDef.h"
 #include "Trainer.h"
 #include "Unit.h"
+#include "WorldPacket.h"
 
 #include <chrono>
 #include <cstdint>
@@ -69,6 +70,9 @@ namespace ModArchipelaWoW
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
         bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
+
+        // GlobalScripts events
+        void OnDungeonEncounterCredited(uint32 encounterId);
 
         // ItemScripts events
         void OnUseArchipelagoStone(Item* item);

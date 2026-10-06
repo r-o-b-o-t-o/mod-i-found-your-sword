@@ -1,7 +1,9 @@
 #include "AP_Character.h"
 #include "AP_PlayerPosition.h"
 #include "ArchipelaWoW.h"
+#include "ByteBuffer.h"
 #include "Chat.h"
+#include "Creature.h"
 #include "database/AP_Database.h"
 #include "database/AP_DatabaseConnection.h"
 #include "DatabaseEnv.h"
@@ -38,6 +40,7 @@
 #include "Trainer.h"
 #include "Unit.h"
 #include "UpdateData.h"
+#include "UpdateFields.h"
 #include "UpdateMask.h"
 #include "WorldPacket.h"
 
@@ -47,12 +50,14 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <list>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #define sConfig sArchipelaWoW->GetConfig()
@@ -443,6 +448,15 @@ namespace ModArchipelaWoW
     void AP_Character::OnPlayerLearnTaxiNode(uint32 nodeId)
     {
         auto checkId = locations.flightPaths.GetLocationId(nodeId);
+        if (checkId.has_value())
+        {
+            CheckLocation(checkId.value());
+        }
+    }
+
+    void AP_Character::OnDungeonEncounterCredited(uint32 encounterId)
+    {
+        auto checkId = locations.bosses.GetLocationId(encounterId);
         if (checkId.has_value())
         {
             CheckLocation(checkId.value());
@@ -1345,6 +1359,10 @@ namespace ModArchipelaWoW
             for (const auto& achievement : locationData.at("achievements"))
             {
                 locations.achievements.AddLocation(achievement.at(0), achievement.at(1));
+            }
+            for (const auto& boss : locationData.at("bosses"))
+            {
+                locations.bosses.AddLocation(boss.at(0), boss.at(1));
             }
             for (const auto& fp : locationData.at("flightpaths"))
             {

@@ -6,14 +6,18 @@
 #include "database/AP_Database.h"
 #include "database/AP_DatabaseConnection.h"
 #include "DatabaseEnv.h"
+#include "DatabaseEnvFwd.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Errors.h"
-#include "fmt/core.h"
+#include "fmt/format.h"
 #include "IoContext.h"
 #include "Item.h"
 #include "items/AP_GearPool.h"
+#include "Map.h"
+#include "MapReference.h"
 #include "network/AP_WebSocketService.h"
+#include "NPCPackets.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "Opcodes.h"
@@ -21,6 +25,8 @@
 #include "QuestDef.h"
 #include "Trainer.h"
 #include "Unit.h"
+#include "WorldPacket.h"
+#include "WorldSession.h"
 
 #include <memory>
 #include <string>
@@ -521,6 +527,40 @@ namespace ModArchipelaWoW
         }
 
         return apCharacters[guid]->OnPlayerChat(type, msg, channelName);
+    }
+
+    void ArchipelaWoW::OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters)
+    {
+        ReturnIfModDisabled;
+
+        if (!map || !encounters)
+        {
+            return;
+        }
+
+        for (const DungeonEncounter* encounter : *encounters)
+        {
+            if (encounter->creditType != type || encounter->creditEntry != creditEntry)
+            {
+                continue;
+            }
+
+            // Everyone in the instance, the way the core marks the encounter done for the whole instance.
+            for (const MapReference& ref : map->GetPlayers())
+            {
+                Player* player = ref.GetSource();
+                if (!player)
+                {
+                    continue;
+                }
+
+                auto guid = player->GetGUID().GetCounter();
+                if (apCharacters.contains(guid))
+                {
+                    apCharacters[guid]->OnDungeonEncounterCredited(encounter->dbcEntry->id);
+                }
+            }
+        }
     }
 
     bool ArchipelaWoW::HandleAPConnectCommand(Player* player, std::string slot)

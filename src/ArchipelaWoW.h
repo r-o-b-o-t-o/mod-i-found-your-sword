@@ -8,9 +8,11 @@
 #include "IoContext.h"
 #include "Item.h"
 #include "items/AP_GearPool.h"
+#include "Map.h"
 #include "network/AP_WebSocketService.h"
 #include "NPCPackets.h"
 #include "ObjectGuid.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Trainer.h"
@@ -69,6 +71,9 @@ namespace ModArchipelaWoW
         /// Relays what the character typed to its Archipelago slot. Returns false when the
         /// message was an Archipelago command and must not also reach the game world.
         bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
+
+        // GlobalScripts methods
+        void OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters);
 
         // CommandScripts methods
         bool HandleAPConnectCommand(Player* player, std::string slot);
