@@ -2,6 +2,7 @@
 #define _MOD_ARCHIPELAWOW_ARCHIPELAWOW_H_
 
 #include "AP_Config.h"
+#include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "IoContext.h"
