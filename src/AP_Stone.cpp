@@ -475,8 +475,6 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::TakeTransmogSummon()
     {
-        // Takes one of this second's summons, or refuses once they are spent, telling the player once.
-        //
         // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
         // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
         // down once they run out. A client looping clicks or purchases could get there; the cap slows
@@ -505,6 +503,7 @@ namespace ModArchipelaWoW
 
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
+        // As for RunOnTransmogrifier, callers take a summon with TakeTransmogSummon first.
         if (!IsTransmogEnabled() || !RunOnTransmogrifier(forward))
         {
             player->PlayerTalkClass->SendCloseGossip();
