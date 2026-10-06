@@ -205,11 +205,6 @@ namespace ModArchipelaWoW
         ObjectGuid target = player->GetGUID();
         if (packet.GetOpcode() == SMSG_GOSSIP_MESSAGE)
         {
-            if (!transmogStoneGuid)
-            {
-                return true;
-            }
-
             target = transmogStoneGuid;
             player->PlayerTalkClass->GetGossipMenu().SetSenderGUID(target);
         }
@@ -441,8 +436,6 @@ namespace ModArchipelaWoW
         // Its position does not matter: the client is never asked to interact with it.
         if (Creature* transmogrifier = ObjectAccessor::GetCreature(*player, transmogrifierGuid))
         {
-            // Its lifetime restarts with each use.
-            transmogrifier->ToTempSummon()->SetTimer(TRANSMOGRIFIER_LIFETIME);
             return transmogrifier;
         }
 
