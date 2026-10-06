@@ -177,7 +177,12 @@ namespace ModArchipelaWoW
     void AP_Stone::OnGossipSelectCode(uint32 sender, uint32 action, const char* code)
     {
         // Only mod-transmog's menus ask for input: an item search or a set name.
-        if (!transmogStoneGuid || !TakeTransmogSummon())
+        if (!transmogStoneGuid)
+        {
+            return;
+        }
+
+        if (!TakeTransmogSummon())
         {
             return;
         }
