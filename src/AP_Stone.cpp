@@ -422,7 +422,8 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
     void AP_Stone::HandleTransmogAction(Item* item)
     {
-        // Before transmogStoneGuid is set: on a refusal, the stone's own menu stays open.
+        // Before transmogStoneGuid is set: after a refusal the stone's own menu is still showing, and
+        // its clicks must keep going to the stone rather than to mod-transmog.
         if (!TakeTransmogSummon())
         {
             return;
@@ -474,6 +475,8 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::TakeTransmogSummon()
     {
+        // Takes one of this second's summons, or refuses once they are spent, telling the player once.
+        //
         // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
         // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
         // down once they run out. A client looping clicks or purchases could get there; the cap slows
@@ -513,6 +516,9 @@ namespace ModArchipelaWoW
         // mod-transmog's menu is a creature script, so each click and purchase runs on a transmogrifier
         // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
         // CanPacketSend moves the windows it opens off it.
+        //
+        // Callers take a summon with TakeTransmogSummon first, before any state they would have to undo
+        // on a refusal.
         TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
         if (!transmogrifier)
         {
