@@ -23,4 +23,9 @@ namespace ModArchipelaWoW::Locations
 
         return {};
     }
+
+    const std::unordered_map<uint32, int>& FlightPaths::GetLocations() const
+    {
+        return map;
+    }
 }

@@ -116,6 +116,7 @@ namespace ModArchipelaWoW
         uint32 apExp;
         uint32 xpForLevel;
         bool goalCompleted;
+        bool missedProgressCaughtUp;
         /// Set when the core is about to overwrite the client's experience bar, so Update sends
         /// the Archipelago one again once the core's own update has gone out.
         bool experienceBarStale;
@@ -143,6 +144,8 @@ namespace ModArchipelaWoW
 
         void SaveToDatabase();
         void SyncLocationChecks();
+        void CatchUpMissedProgress();
+        void CompleteGoal();
         void RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender);
         void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);
         void CheckIsInLockedZone();
@@ -150,6 +153,7 @@ namespace ModArchipelaWoW
         void InitExperience();
         void LoadXPForLevel();
         void CheckLocation(int32 locationId);
+        void CheckLocations(const std::list<int64>& locationIds);
         MailSender GetMailSender(int sender);
         void RelayChatToArchipelago(const std::string& text);
         void SendCommandToArchipelago(const std::string& command);

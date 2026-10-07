@@ -1,3 +1,4 @@
+#include "AchievementMgr.h"
 #include "AP_Character.h"
 #include "AP_PlayerPosition.h"
 #include "ArchipelaWoW.h"
@@ -109,6 +110,7 @@ namespace ModArchipelaWoW
         apExp(0),
         xpForLevel(0),
         goalCompleted(false),
+        missedProgressCaughtUp(false),
         experienceBarStale(false),
         grantingSpell(0),
         pendingChatEchoes()
@@ -330,12 +332,7 @@ namespace ModArchipelaWoW
 
         if (achievement->ID == goalAchievementId)
         {
-            goalCompleted = true;
-            SaveToDatabase();
-            if (ap)
-            {
-                ap->StatusUpdate(Network::Client::ClientStatus::Goal);
-            }
+            CompleteGoal();
         }
     }
 
@@ -914,6 +911,75 @@ namespace ModArchipelaWoW
         }
     }
 
+    void AP_Character::CatchUpMissedProgress()
+    {
+        // Has the core credit what it skipped, such as the areas explored in GM mode: the hooks check those
+        // as they're credited. They don't fire again for what was credited before, which the loops below cover.
+        player->CheckAllAchievementCriteria();
+
+        // What was done with no slot data to tell which are locations, and which achievement is the goal:
+        // before the slot was first connected, such as a new character's starting area, discovered on its
+        // first login, or during a login it never connected in.
+        std::list<int64> missed;
+        for (const auto& [achievementId, locationId] : locations.achievements.GetLocations())
+        {
+            if (!checkedLocations.contains(locationId) && player->HasAchieved(achievementId))
+            {
+                missed.push_back(locationId);
+            }
+        }
+
+        AchievementMgr* achievementMgr = player->GetAchievementMgr();
+        for (const auto& [criteriaId, locationId] : locations.explorations.GetLocations())
+        {
+            const AchievementCriteriaEntry* criteria = sAchievementCriteriaStore.LookupEntry(criteriaId);
+            if (!criteria || checkedLocations.contains(locationId))
+            {
+                continue;
+            }
+
+            // Completing the achievement resets its criteria's progress
+            CriteriaProgress* progress = achievementMgr->GetCriteriaProgress(criteria);
+            if (player->HasAchieved(criteria->referredAchievement) || (progress && progress->counter > 0))
+            {
+                missed.push_back(locationId);
+            }
+        }
+
+        for (const auto& [nodeId, locationId] : locations.flightPaths.GetLocations())
+        {
+            if (!checkedLocations.contains(locationId) && player->m_taxi.IsTaximaskNodeKnown(nodeId))
+            {
+                missed.push_back(locationId);
+            }
+        }
+
+        for (const auto& [questId, locationId] : locations.quests.GetLocations())
+        {
+            if (!checkedLocations.contains(locationId) && player->IsQuestRewarded(questId))
+            {
+                missed.push_back(locationId);
+            }
+        }
+
+        CheckLocations(missed);
+
+        if (!goalCompleted && player->HasAchieved(goalAchievementId))
+        {
+            CompleteGoal();
+        }
+    }
+
+    void AP_Character::CompleteGoal()
+    {
+        goalCompleted = true;
+        SaveToDatabase();
+        if (ap)
+        {
+            ap->StatusUpdate(Network::Client::ClientStatus::Goal);
+        }
+    }
+
     void AP_Character::RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender)
     {
         auto item = items.items.GetWoWItemId(itemId);
@@ -1231,6 +1297,26 @@ namespace ModArchipelaWoW
         Database::ArchipelaWoWDatabase.Execute(stmt);
     }
 
+    void AP_Character::CheckLocations(const std::list<int64>& locationIds)
+    {
+        if (locationIds.empty())
+        {
+            return;
+        }
+
+        ap->LocationChecks(locationIds);
+
+        Database::AP_DatabaseTransaction trans = Database::ArchipelaWoWDatabase.BeginTransaction();
+        for (int64 locationId : locationIds)
+        {
+            checkedLocations.insert(static_cast<int32>(locationId));
+            Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_LOCATION_CHECK);
+            stmt->SetArguments(player->GetGUID().GetCounter(), static_cast<int32>(locationId));
+            trans->Append(stmt);
+        }
+        Database::ArchipelaWoWDatabase.CommitTransaction(trans);
+    }
+
     void AP_Character::MailItemReward(uint32 wowItemId, int64_t apItemId, int sender)
     {
         ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(wowItemId);
@@ -1466,6 +1552,14 @@ namespace ModArchipelaWoW
         SaveToDatabase();
         SendExperienceBar();
         SyncLocationChecks();
+
+        // Once per login: from here on they're checked as they're done, and a reconnection resends those
+        if (!missedProgressCaughtUp)
+        {
+            CatchUpMissedProgress();
+            missedProgressCaughtUp = true;
+        }
+
         ap->GetDataPackage(ap->GetAllGames());
     }
 

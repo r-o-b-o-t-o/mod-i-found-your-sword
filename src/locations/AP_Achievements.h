@@ -17,6 +17,7 @@ namespace ModArchipelaWoW::Locations
         void AddLocation(uint32 achievementId, int locationId);
         Optional<int> GetLocationId(const AchievementEntry* achievement) const;
         Optional<int> GetLocationId(uint32 achievementId) const;
+        const std::unordered_map<uint32, int>& GetLocations() const;
 
     private:
         std::unordered_map<uint32, int> map;

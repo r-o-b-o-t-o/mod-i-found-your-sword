@@ -17,6 +17,7 @@ namespace ModArchipelaWoW::Locations
         void AddLocation(uint32 questId, int locationId);
         Optional<int> GetLocationId(const Quest* quest) const;
         Optional<int> GetLocationId(uint32 questId) const;
+        const std::unordered_map<uint32, int>& GetLocations() const;
 
     private:
         std::unordered_map<uint32, int> map;

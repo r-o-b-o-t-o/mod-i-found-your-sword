@@ -25,4 +25,9 @@ namespace ModArchipelaWoW::Locations
 
         return {};
     }
+
+    const std::unordered_map<uint32, int>& Explorations::GetLocations() const
+    {
+        return map;
+    }
 }
