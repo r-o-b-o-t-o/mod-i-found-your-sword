@@ -54,6 +54,7 @@ namespace ModArchipelaWoW
         void OnPlayerLogin(Player* player);
         void OnPlayerBeforeLogout(Player* player);
         void OnPlayerAchievementComplete(Player* player, const AchievementEntry* achievement);
+        void OnPlayerCriteriaProgress(Player* player, const AchievementCriteriaEntry* criteria);
         void OnPlayerCompleteQuest(Player* player, const Quest* quest);
         void OnPlayerDied(Player* player, const std::string& cause);
         void OnPlayerDeleteFromDB(ObjectGuid::LowType guid);

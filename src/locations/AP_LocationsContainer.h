@@ -3,6 +3,7 @@
 
 #include "locations/AP_Achievements.h"
 #include "locations/AP_Bosses.h"
+#include "locations/AP_Explorations.h"
 #include "locations/AP_FlightPaths.h"
 #include "locations/AP_Levels.h"
 #include "locations/AP_Quests.h"
@@ -16,6 +17,7 @@ namespace ModArchipelaWoW::Locations
         LocationsContainer() :
             achievements(),
             bosses(),
+            explorations(),
             flightPaths(),
             levels(),
             quests(),
@@ -25,6 +27,7 @@ namespace ModArchipelaWoW::Locations
 
         Achievements achievements;
         Bosses bosses;
+        Explorations explorations;
         FlightPaths flightPaths;
         Levels levels;
         Quests quests;

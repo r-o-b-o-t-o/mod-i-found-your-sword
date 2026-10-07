@@ -54,6 +54,7 @@ namespace ModArchipelaWoW
 
         // PlayerScripts events
         void OnPlayerAchievementComplete(const AchievementEntry* achievement);
+        void OnPlayerCriteriaProgress(const AchievementCriteriaEntry* criteria);
         void OnPlayerDied(const std::string& cause);
         void OnPlayerCompleteQuest(const Quest* quest);
         void OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource);

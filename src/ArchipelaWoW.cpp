@@ -271,6 +271,22 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerCriteriaProgress(Player* player, const AchievementCriteriaEntry* criteria)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerCriteriaProgress(criteria);
+        }
+    }
+
     void ArchipelaWoW::OnPlayerCompleteQuest(Player* player, const Quest* quest)
     {
         ReturnIfModDisabled;

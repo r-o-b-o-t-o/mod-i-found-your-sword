@@ -26,6 +26,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_LOGIN,
                 PLAYERHOOK_ON_BEFORE_LOGOUT,
                 PLAYERHOOK_ON_ACHI_COMPLETE,
+                PLAYERHOOK_ON_CRITERIA_PROGRESS,
                 PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
                 PLAYERHOOK_ON_PVP_KILL,
                 PLAYERHOOK_ON_PLAYER_COMPLETE_QUEST,
@@ -60,6 +61,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerAchievementComplete(Player* player, const AchievementEntry* achievement) override
         {
             sArchipelaWoW->OnPlayerAchievementComplete(player, achievement);
+        }
+
+        void OnPlayerCriteriaProgress(Player* player, const AchievementCriteriaEntry* criteria) override
+        {
+            sArchipelaWoW->OnPlayerCriteriaProgress(player, criteria);
         }
 
         void OnPlayerKilledByCreature(Creature* killer, Player* killed) override

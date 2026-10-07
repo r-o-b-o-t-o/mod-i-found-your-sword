@@ -339,6 +339,20 @@ namespace ModArchipelaWoW
         }
     }
 
+    void AP_Character::OnPlayerCriteriaProgress(const AchievementCriteriaEntry* criteria)
+    {
+        if (!criteria)
+        {
+            return;
+        }
+
+        auto checkId = locations.explorations.GetLocationId(criteria->ID);
+        if (checkId.has_value())
+        {
+            CheckLocation(checkId.value());
+        }
+    }
+
     void AP_Character::OnPlayerDied(const std::string& cause)
     {
         if (!ap || !deathLinkEnabled)
@@ -1363,6 +1377,10 @@ namespace ModArchipelaWoW
             for (const auto& boss : locationData.at("bosses"))
             {
                 locations.bosses.AddLocation(boss.at(0), boss.at(1));
+            }
+            for (const auto& exploration : locationData.at("explorations"))
+            {
+                locations.explorations.AddLocation(exploration.at(0), exploration.at(1));
             }
             for (const auto& fp : locationData.at("flightpaths"))
             {
