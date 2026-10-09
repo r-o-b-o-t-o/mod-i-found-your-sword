@@ -511,7 +511,7 @@ namespace ModArchipelaWoW
         }
     }
 
-    void ArchipelaWoW::OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 value, uint32 max, uint32 step, uint32 newValue)
+    void ArchipelaWoW::OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 newValue)
     {
         ReturnIfModDisabled;
 

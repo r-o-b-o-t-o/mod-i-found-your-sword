@@ -170,9 +170,9 @@ namespace ModArchipelaWoW::Scripts
             sArchipelaWoW->OnPlayerAfterTrainSpell(player, creature, spellId);
         }
 
-        void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 value, uint32 max, uint32 step, uint32 newValue) override
+        void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 /*value*/ , uint32 /*max*/, uint32 /*step*/, uint32 newValue) override
         {
-            sArchipelaWoW->OnPlayerUpdateSkill(player, skillId, value, max, step, newValue);
+            sArchipelaWoW->OnPlayerUpdateSkill(player, skillId, newValue);
         }
 
         bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*language*/, std::string& msg) override
