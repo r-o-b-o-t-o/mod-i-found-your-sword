@@ -67,6 +67,7 @@ namespace ModArchipelaWoW
         void OnPlayerGetTrainerSpellState(uint32 spellId, Trainer::SpellState& state);
         void OnPlayerBeforeReceiveSpellListFromTrainer(WorldPackets::NPC::TrainerList& trainerList);
         void OnPlayerAfterTrainSpell(Creature* trainer, uint32 spellId);
+        void OnPlayerUpdateSkill(uint32 skillId, uint32 newValue);
         void ReopenTrainerWindow(Creature* trainer);
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();

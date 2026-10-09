@@ -42,6 +42,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_GET_TRAINER_SPELL_STATE,
                 PLAYERHOOK_ON_BEFORE_RECEIVE_SPELL_LIST_FROM_TRAINER,
                 PLAYERHOOK_ON_AFTER_TRAIN_SPELL,
+                PLAYERHOOK_ON_UPDATE_SKILL,
                 PLAYERHOOK_CAN_PLAYER_USE_CHAT,
                 PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
             })
@@ -167,6 +168,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerAfterTrainSpell(Player* player, Creature* creature, uint32 spellId) override
         {
             sArchipelaWoW->OnPlayerAfterTrainSpell(player, creature, spellId);
+        }
+
+        void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 value, uint32 max, uint32 step, uint32 newValue) override
+        {
+            sArchipelaWoW->OnPlayerUpdateSkill(player, skillId, value, max, step, newValue);
         }
 
         bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*language*/, std::string& msg) override

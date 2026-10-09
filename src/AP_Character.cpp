@@ -539,6 +539,22 @@ namespace ModArchipelaWoW
         ReopenTrainerWindow(trainer);
     }
 
+    void AP_Character::OnPlayerUpdateSkill(uint32 skillId, uint32 newValue)
+    {
+        // Every value reached, not just this one: a skill can be set past some of its checks without rising
+        // through them, as Fist Weapons is when learned, starting at the Unarmed value.
+        std::list<int64> reached;
+        for (int locationId : locations.skills.GetLocationIds(skillId, newValue))
+        {
+            if (!checkedLocations.contains(locationId))
+            {
+                reached.push_back(locationId);
+            }
+        }
+
+        CheckLocations(reached);
+    }
+
     void AP_Character::ReopenTrainerWindow(Creature* trainer)
     {
         if (!trainer || !player)
@@ -959,6 +975,17 @@ namespace ModArchipelaWoW
             if (!checkedLocations.contains(locationId) && player->IsQuestRewarded(questId))
             {
                 missed.push_back(locationId);
+            }
+        }
+
+        for (const auto& [skillId, values] : locations.skills.GetLocations())
+        {
+            for (int locationId : locations.skills.GetLocationIds(skillId, player->GetPureSkillValue(skillId)))
+            {
+                if (!checkedLocations.contains(locationId))
+                {
+                    missed.push_back(locationId);
+                }
             }
         }
 
@@ -1475,6 +1502,10 @@ namespace ModArchipelaWoW
             for (const auto& spell : locationData.at("spells"))
             {
                 locations.spells.AddLocation(spell.at(0), spell.at(1));
+            }
+            for (const auto& skill : locationData.at("skills"))
+            {
+                locations.skills.AddLocation(skill.at(0), skill.at(1), skill.at(2));
             }
 
             const auto& itemData = data.at("items");

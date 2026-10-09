@@ -511,6 +511,22 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 value, uint32 max, uint32 step, uint32 newValue)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerUpdateSkill(skillId, newValue);
+        }
+    }
+
     void ArchipelaWoW::OnPlayerCreateItem(Player* player, Item* item, uint32 /*count*/)
     {
         ReturnIfModDisabled;

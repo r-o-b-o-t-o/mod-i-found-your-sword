@@ -68,6 +68,7 @@ namespace ModArchipelaWoW
         void OnPlayerGetTrainerSpellState(const Player* player, uint32 spellId, Trainer::SpellState& state);
         void OnPlayerBeforeReceiveSpellListFromTrainer(Player* player, WorldPackets::NPC::TrainerList& trainerList);
         void OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint32 spellId);
+        void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 value, uint32 max, uint32 step, uint32 newValue);
         void OnPlayerCreateItem(Player* player, Item* item, uint32 count);
         /// Relays what the character typed to its Archipelago slot. Returns false when the
         /// message was an Archipelago command and must not also reach the game world.
