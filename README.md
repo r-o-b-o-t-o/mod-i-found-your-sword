@@ -127,7 +127,7 @@ client and the player's `Spell.dbc` never needs to know about it.
 
 | ID | Name | Purpose | Added by |
 |----|------|---------|----------|
-| `100500` | Archipelago Movement Speed | Carries the on-foot, ground-mount and flying-mount speed auras behind the *Progressive Movement Speed* item | `archipelawow_world_004_insert_movement_speed_spell.sql` |
+| `100500` | Archipelago Movement Speed | Carries the on-foot, ground-mount and flying-mount speed auras behind the *Progressive Movement Speed* item | `archipelawow_world_004_speed_spell.sql` |
 
 ### Items
 
@@ -138,8 +138,8 @@ any loot table, or a reachable quest.
 
 | ID | Repurposed as | Original entry | Added by |
 |----|---------------|----------------|----------|
-| `32618` | Archipelago Stone | `[DEPRECATED]Crystalforged Darkrune` | `archipelawow_world_001_insert_archipelago_stone_item.sql` |
-| `19063` | The Immortal Crust | `NPC Equip 19063` | `archipelawow_world_005_insert_eternal_food_and_drink_items.sql` |
+| `32618` | Archipelago Stone | `[DEPRECATED]Crystalforged Darkrune` | `archipelawow_world_001_stone_item.sql` |
+| `19063` | The Immortal Crust | `NPC Equip 19063` | `archipelawow_world_005_food_and_drink.sql` |
 | `40843` | Suspiciously Regrowing Berries | `NPC Equip 40843` | `archipelawow_world_005_…` |
 | `34770` | Fillet of Neverfin | `NPC Equip 34770` | `archipelawow_world_005_…` |
 | `35710` | Helboar Shank of Infinite Regret | `NPC Equip 35710` | `archipelawow_world_005_…` |

@@ -42,7 +42,9 @@ trailing whitespace, tabs, `LOG_*` with `GetCounter`, and triple newlines.
   or data change goes in a new file in `data/sql/updates/db_archipelawow/`, applied by worldserver on
   startup.
 - `data/sql/db-world/` — changes to the core world database, applied by the core updater. Add a new
-  `archipelawow_world_NNN_<description>.sql`; never edit an existing file.
+  `archipelawow_world_NNN_<description>.sql`; never edit an existing file. Keep the description to a
+  couple of words: the launcher's server opens these through a deep path and isn't long-path aware.
+  Renaming a file is safe, the updater recognises an applied update by its content.
 - `data/sql/migration/` — one-off scripts users run by hand.
 
 ## Commits

@@ -50,7 +50,7 @@ constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
 constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
 constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
-constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_insert_transmog_back_item.sql
+constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_transmog_back_item.sql
 constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 #endif
 
@@ -475,7 +475,7 @@ namespace ModArchipelaWoW
             std::call_once(logged, []()
                 {
                     LOG_ERROR("module.archipelawow", "Item {} is missing, so mod-transmog's vendor interface has no Back entry. "
-                        "Apply archipelawow_world_010_insert_transmog_back_item.sql.", TRANSMOG_BACK_ITEM_ID);
+                        "Apply archipelawow_world_010_transmog_back_item.sql.", TRANSMOG_BACK_ITEM_ID);
                 });
             return;
         }
