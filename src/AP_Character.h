@@ -45,6 +45,7 @@ namespace ModArchipelaWoW
         Player* GetPlayer();
         std::string GetItemName(int64 itemId) const;
         bool IsZoneUnlocked(uint32 zoneId) const;
+        const std::unordered_set<uint32>& GetReceivedGlyphs() const;
         void Teleport(const Items::ZoneItem& zone);
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
@@ -104,6 +105,8 @@ namespace ModArchipelaWoW
         Locations::LocationsContainer locations;
         std::unordered_set<uint32> unlockedZones;
         std::unordered_set<uint32> grantedSpells;
+        /// The glyph items this slot has received, which the stone can inscribe again at any time.
+        std::unordered_set<uint32> receivedGlyphs;
         std::unordered_set<int32> checkedLocations;
         std::unordered_map<Items::ProgressiveType, uint32> progressiveCounts;
         PlayerPosition lastUnlockedPosition;

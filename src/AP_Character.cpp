@@ -97,6 +97,7 @@ namespace ModArchipelaWoW
         locations(),
         unlockedZones(),
         grantedSpells(),
+        receivedGlyphs(),
         checkedLocations(),
         progressiveCounts(),
         lastUnlockedPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation()),
@@ -194,6 +195,11 @@ namespace ModArchipelaWoW
     bool AP_Character::IsZoneUnlocked(uint32 zoneId) const
     {
         return unlockedZones.contains(zoneId);
+    }
+
+    const std::unordered_set<uint32>& AP_Character::GetReceivedGlyphs() const
+    {
+        return receivedGlyphs;
     }
 
     void AP_Character::Teleport(const Items::ZoneItem& zone)
@@ -1012,6 +1018,14 @@ namespace ModArchipelaWoW
         auto item = items.items.GetWoWItemId(itemId);
         if (item.has_value())
         {
+            // Recorded on every pass, as the item list is replayed on each connection: the stone
+            // offers a glyph long after its item was used up.
+            const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(item.value());
+            if (itemTemplate && itemTemplate->Class == ITEM_CLASS_GLYPH)
+            {
+                receivedGlyphs.insert(item.value());
+            }
+
             if (!alreadyRewarded)
             {
                 MailItemReward(item.value(), itemId, sender);

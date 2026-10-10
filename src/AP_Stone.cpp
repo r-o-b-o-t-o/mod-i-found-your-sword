@@ -24,17 +24,22 @@
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
+#include "Spell.h"
 #include "SpellAuraDefines.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "TemporarySummon.h"
 #include "Util.h"
 #include "WorldPacket.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <functional>
 #include <limits>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 constexpr uint32 AP_STONE_ITEM_ID = 32618;
@@ -53,6 +58,8 @@ constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweav
 constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_transmog_back_item.sql
 constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 #endif
+
+constexpr uint32 GOSSIP_ITEM_GLYPHS = 6;
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -74,6 +81,22 @@ constexpr uint32 GOSSIP_MENU_TELE_DUNGEON_CLASSIC = 7;
 constexpr uint32 GOSSIP_MENU_TELE_DUNGEON_OUTLAND = 8;
 constexpr uint32 GOSSIP_MENU_TELE_DUNGEON_NORTHREND = 9;
 
+constexpr uint32 GOSSIP_MENU_GLYPHS = 10;
+constexpr uint32 GOSSIP_ITEM_GLYPHS_MAJOR = 1;
+constexpr uint32 GOSSIP_ITEM_GLYPHS_MINOR = 2;
+
+constexpr uint32 GOSSIP_MENU_GLYPHS_MAJOR = 11;
+constexpr uint32 GOSSIP_MENU_GLYPHS_MINOR = 12;
+constexpr uint32 GOSSIP_MENU_GLYPH_SLOTS = 13;
+
+// archipelawow_world_011_glyph_texts.sql
+constexpr uint32 GOSSIP_TEXT_GLYPHS = 100500;
+constexpr uint32 GOSSIP_TEXT_GLYPH_SLOTS = 100501;
+
+// TypeFlags in GlyphProperties.dbc and GlyphSlot.dbc
+constexpr uint32 GLYPH_TYPE_MAJOR = 0;
+constexpr uint32 GLYPH_TYPE_MINOR = 1;
+
 constexpr uint32 GOSSIP_ITEM_BACK = std::numeric_limits<uint32>::max() - 1;
 constexpr uint32 GOSSIP_ITEM_BACK_TO_MAIN = std::numeric_limits<uint32>::max() - 2;
 
@@ -84,7 +107,8 @@ namespace ModArchipelaWoW
         player(apCharacter->GetPlayer()),
         gossipIdx(0),
         gossipSender(0),
-        gossipTitleTextId(0)
+        gossipTitleTextId(0),
+        selectedGlyphItemId(0)
     {
     }
 
@@ -172,6 +196,18 @@ namespace ModArchipelaWoW
         else if (sender == GOSSIP_MENU_TELE_DUNGEON_CLASSIC || sender == GOSSIP_MENU_TELE_DUNGEON_OUTLAND || sender == GOSSIP_MENU_TELE_DUNGEON_NORTHREND)
         {
             HandleDungeonTeleportAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_GLYPHS)
+        {
+            HandleGlyphsAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_GLYPHS_MAJOR || sender == GOSSIP_MENU_GLYPHS_MINOR)
+        {
+            HandleGlyphListAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_GLYPH_SLOTS)
+        {
+            HandleGlyphSlotAction(item, action);
         }
     }
 
@@ -374,6 +410,7 @@ namespace ModArchipelaWoW
 
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
+        if (HasAnyGlyphAvailable()) AddGossipItem(GetGlyphIcon(GLYPH_TYPE_MAJOR), "Glyphs", GOSSIP_ITEM_GLYPHS);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
 #endif
@@ -386,6 +423,7 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_HEARTHSTONE) HandleHearthstoneAction();
         else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
+        else if (action == GOSSIP_ITEM_GLYPHS) SendGlyphsMenu(item);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
 #endif
@@ -663,6 +701,285 @@ namespace ModArchipelaWoW
         {
             apCharacter->Teleport(zone.value());
         }
+    }
+
+    bool AP_Stone::HasAnyGlyphAvailable()
+    {
+        // No glyph slot unlocks before level 15.
+        return player->GetUInt32Value(PLAYER_GLYPHS_ENABLED) != 0
+            && std::ranges::any_of(apCharacter->GetReceivedGlyphs(), [&](uint32 itemId)
+                {
+                    return GetAvailableGlyphSpell(itemId).has_value();
+                });
+    }
+
+    bool AP_Stone::HasAnyGlyphAvailable(uint32 type)
+    {
+        return std::ranges::any_of(apCharacter->GetReceivedGlyphs(), [&](uint32 itemId)
+            {
+                Optional<GlyphSpell> glyphSpell = GetAvailableGlyphSpell(itemId);
+                return glyphSpell && glyphSpell->glyph->TypeFlags == type;
+            });
+    }
+
+    void AP_Stone::SendGlyphsMenu(Item* item)
+    {
+        StartGossipMenu(GOSSIP_TEXT_GLYPHS, GOSSIP_MENU_GLYPHS);
+        if (HasAnyGlyphAvailable(GLYPH_TYPE_MAJOR)) AddGossipItem(GetGlyphIcon(GLYPH_TYPE_MAJOR), "Major Glyphs", GOSSIP_ITEM_GLYPHS_MAJOR);
+        if (HasAnyGlyphAvailable(GLYPH_TYPE_MINOR)) AddGossipItem(GetGlyphIcon(GLYPH_TYPE_MINOR), "Minor Glyphs", GOSSIP_ITEM_GLYPHS_MINOR);
+        AddGossipItemBack();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleGlyphsAction(Item* item, uint32 action)
+    {
+        if (action == GOSSIP_ITEM_GLYPHS_MAJOR) SendGlyphListMenu(item, GLYPH_TYPE_MAJOR);
+        else if (action == GOSSIP_ITEM_GLYPHS_MINOR) SendGlyphListMenu(item, GLYPH_TYPE_MINOR);
+        else if (action == GOSSIP_ITEM_BACK) SendMainMenu(item);
+    }
+
+    void AP_Stone::SendGlyphListMenu(Item* item, uint32 type)
+    {
+        StartGossipMenu(GOSSIP_TEXT_GLYPHS, type == GLYPH_TYPE_MINOR ? GOSSIP_MENU_GLYPHS_MINOR : GOSSIP_MENU_GLYPHS_MAJOR);
+        for (const auto& glyph : GetAvailableGlyphs(type))
+        {
+            // The client shows no more than GOSSIP_MAX_MENU_ITEMS entries (and the core asserts on the
+            // second one past it); the last one is for Back.
+            if (gossipIdx == GOSSIP_MAX_MENU_ITEMS - 1)
+            {
+                break;
+            }
+
+            AddGossipItem(glyph.icon, glyph.name, glyph.itemId);
+        }
+        AddGossipItemBack();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleGlyphListAction(Item* item, uint32 action)
+    {
+        if (action == GOSSIP_ITEM_BACK)
+        {
+            SendGlyphsMenu(item);
+        }
+        else if (apCharacter->GetReceivedGlyphs().contains(action))
+        {
+            selectedGlyphItemId = action;
+            SendGlyphSlotsMenu(item);
+        }
+    }
+
+    void AP_Stone::SendGlyphSlotsMenu(Item* item)
+    {
+        Optional<GlyphSpell> glyphSpell = GetGlyphSpell(selectedGlyphItemId);
+        if (!glyphSpell)
+        {
+            SendGlyphsMenu(item);
+            return;
+        }
+
+        std::string icon = GetItemIcon(sObjectMgr->GetItemTemplate(selectedGlyphItemId));
+
+        // The slots of the glyph's type, in slot order. Those the character's level has not unlocked yet
+        // are left out.
+        StartGossipMenu(GOSSIP_TEXT_GLYPH_SLOTS, GOSSIP_MENU_GLYPH_SLOTS);
+        uint32 enabledSlots = player->GetUInt32Value(PLAYER_GLYPHS_ENABLED);
+        for (uint8 slot = 0; slot < MAX_GLYPH_SLOT_INDEX; ++slot)
+        {
+            const GlyphSlotEntry* slotEntry = sGlyphSlotStore.LookupEntry(player->GetGlyphSlot(slot));
+            if (!slotEntry || slotEntry->TypeFlags != glyphSpell->glyph->TypeFlags || !(enabledSlots & (1 << slot)))
+            {
+                continue;
+            }
+
+            const GlyphPropertiesEntry* current = sGlyphPropertiesStore.LookupEntry(player->GetGlyph(slot));
+            std::string text = current ? fmt::format("Replace {}", GetInscribedGlyphName(current)) : std::string("Empty slot");
+            AddGossipItem(icon, text, slot);
+        }
+        AddGossipItemBack();
+        AddGossipItemBackToMainMenu();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleGlyphSlotAction(Item* item, uint32 action)
+    {
+        Optional<GlyphSpell> glyphSpell = GetGlyphSpell(selectedGlyphItemId);
+        if (!glyphSpell)
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+            return;
+        }
+
+        if (action == GOSSIP_ITEM_BACK)
+        {
+            SendGlyphListMenu(item, glyphSpell->glyph->TypeFlags);
+            return;
+        }
+
+        player->PlayerTalkClass->SendCloseGossip();
+
+        if (player->IsInCombat())
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while in combat.");
+            return;
+        }
+
+        // No glyph spell can be cast mounted.
+        DismountForItemCast();
+
+        // Cast as Player::CastItemUseSpell casts a glyph item the client used on a slot, short of the
+        // item: a plain cast leaves the slot index at 0. Untriggered, so the core still runs its own
+        // checks on the glyph and the slot.
+        Spell* spell = new Spell(player, glyphSpell->spell, TRIGGERED_NONE);
+        spell->m_glyphIndex = action;
+        SpellCastTargets targets;
+        targets.SetUnitTarget(player);
+        spell->prepare(&targets);
+    }
+
+    Optional<AP_Stone::GlyphSpell> AP_Stone::GetGlyphSpell(uint32 itemId)
+    {
+        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemId);
+        if (!itemTemplate)
+        {
+            return {};
+        }
+
+        for (const auto& itemSpell : itemTemplate->Spells)
+        {
+            const SpellInfo* spellInfo = sSpellMgr->GetSpellInfo(itemSpell.SpellId);
+            if (!spellInfo)
+            {
+                continue;
+            }
+
+            for (const auto& effect : spellInfo->Effects)
+            {
+                if (effect.Effect != SPELL_EFFECT_APPLY_GLYPH)
+                {
+                    continue;
+                }
+
+                if (const GlyphPropertiesEntry* glyph = sGlyphPropertiesStore.LookupEntry(effect.MiscValue))
+                {
+                    return GlyphSpell{ spellInfo, glyph };
+                }
+            }
+        }
+
+        return {};
+    }
+
+    Optional<AP_Stone::GlyphSpell> AP_Stone::GetAvailableGlyphSpell(uint32 itemId)
+    {
+        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemId);
+        Optional<GlyphSpell> glyphSpell = GetGlyphSpell(itemId);
+        if (!itemTemplate || !glyphSpell)
+        {
+            return {};
+        }
+
+        // Left out until the character reaches the item's level, as the item itself would refuse,
+        // and while inscribed: the core refuses a glyph whose aura the character already has.
+        if (player->CanUseItem(itemTemplate) != EQUIP_ERR_OK || player->HasAura(glyphSpell->glyph->SpellId))
+        {
+            return {};
+        }
+
+        return glyphSpell;
+    }
+
+    std::vector<AP_Stone::AvailableGlyph> AP_Stone::GetAvailableGlyphs(uint32 type)
+    {
+        std::vector<AvailableGlyph> glyphs;
+        for (uint32 itemId : apCharacter->GetReceivedGlyphs())
+        {
+            Optional<GlyphSpell> glyphSpell = GetAvailableGlyphSpell(itemId);
+            if (glyphSpell && glyphSpell->glyph->TypeFlags == type)
+            {
+                glyphs.push_back({ itemId, GetGlyphItemName(itemId), GetItemIcon(sObjectMgr->GetItemTemplate(itemId)) });
+            }
+        }
+
+        std::ranges::sort(glyphs, [](const AvailableGlyph& a, const AvailableGlyph& b)
+            {
+                return a.name < b.name;
+            });
+
+        return glyphs;
+    }
+
+    std::string AP_Stone::GetGlyphItemName(uint32 itemId)
+    {
+        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemId);
+        if (!itemTemplate)
+        {
+            return "";
+        }
+
+        std::string name = itemTemplate->Name1;
+        if (const ItemLocale* itemLocale = sObjectMgr->GetItemLocale(itemId))
+        {
+            ObjectMgr::GetLocaleString(itemLocale->Name, player->GetSession()->GetSessionDbLocaleIndex(), name);
+        }
+
+        return StripGlyphPrefix(name);
+    }
+
+    std::string AP_Stone::GetInscribedGlyphName(const GlyphPropertiesEntry* glyph)
+    {
+        for (uint32 itemId : apCharacter->GetReceivedGlyphs())
+        {
+            Optional<GlyphSpell> glyphSpell = GetGlyphSpell(itemId);
+            if (glyphSpell && glyphSpell->glyph->Id == glyph->Id)
+            {
+                return GetGlyphItemName(itemId);
+            }
+        }
+
+        // A glyph the slot never received has no item to name it. Its aura's name is the item's but
+        // for a handful, such as "Glyph of Growling" for the Glyph of Growl.
+        const SpellInfo* spellInfo = sSpellMgr->GetSpellInfo(glyph->SpellId);
+        const char* name = spellInfo ? spellInfo->SpellName[player->GetSession()->GetSessionDbcLocale()] : nullptr;
+        return StripGlyphPrefix(name ? name : "");
+    }
+
+    std::string AP_Stone::StripGlyphPrefix(std::string name)
+    {
+        // Every entry is a glyph, and the prefix makes "Replace Glyph of Righteous Defense" overflow the
+        // gossip frame. Only the English one is known.
+        constexpr std::string_view prefix = "Glyph of ";
+        if (name.starts_with(prefix) && name.size() > prefix.size())
+        {
+            name.erase(0, prefix.size());
+            name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
+        }
+
+        return name;
+    }
+
+    std::string AP_Stone::GetGlyphIcon(uint32 type)
+    {
+        const char* kind = type == GLYPH_TYPE_MINOR ? "Minor" : "Major";
+        switch (player->getClass())
+        {
+            case CLASS_WARRIOR: return fmt::format("Icons/INV_Glyph_{}Warrior", kind);
+            case CLASS_PALADIN: return fmt::format("Icons/INV_Glyph_{}Paladin", kind);
+            case CLASS_HUNTER: return fmt::format("Icons/INV_Glyph_{}Hunter", kind);
+            case CLASS_ROGUE: return fmt::format("Icons/INV_Glyph_{}Rogue", kind);
+            case CLASS_PRIEST: return fmt::format("Icons/INV_Glyph_{}Priest", kind);
+            case CLASS_DEATH_KNIGHT: return fmt::format("Icons/INV_Glyph_{}DeathKnight", kind);
+            case CLASS_SHAMAN: return fmt::format("Icons/INV_Glyph_{}Shaman", kind);
+            case CLASS_MAGE: return fmt::format("Icons/INV_Glyph_{}Mage", kind);
+            case CLASS_WARLOCK: return fmt::format("Icons/INV_Glyph_{}Warlock", kind);
+            default: return fmt::format("Icons/INV_Glyph_{}Druid", kind);
+        }
+    }
+
+    std::string AP_Stone::GetItemIcon(const ItemTemplate* itemTemplate)
+    {
+        const ItemDisplayInfoEntry* display = itemTemplate ? sItemDisplayInfoStore.LookupEntry(itemTemplate->DisplayInfoID) : nullptr;
+        return display ? fmt::format("Icons/{}", display->inventoryIcon) : "Icons/INV_Misc_QuestionMark";
     }
 
     void AP_Stone::StartGossipMenu(uint32 titleTextId, uint32 sender)
