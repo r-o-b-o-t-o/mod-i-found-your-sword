@@ -316,7 +316,7 @@ namespace ModArchipelaWoW::Network
             {"uuid", uuid},
             {"name", name},
             {"password", password},
-            {"version", {{"major", 0}, {"minor", 5}, {"build", 0}, {"class", "Version"}}},
+            {"version", {{"major", 0}, {"minor", 6}, {"build", 7}, {"class", "Version"}}},
             {"items_handling", itemsHandling},
             {"tags", tags}
         }) });
