@@ -11,8 +11,8 @@ git repository: run git commands from here, the core's git does not see it.
   `src/network/AP_Client.cpp` here. A change to any of those on one side needs a matching change on
   the other.
 - `archipelawow-data-extractor` — generates the APWorld's `data/quests.json`, `data/spells.json`,
-  `data/bosses.json` and `data/explorations.json` from an AzerothCore world database and the client
-  DBCs.
+  `data/skills.json`, `data/bosses.json` and `data/explorations.json` from an AzerothCore world
+  database and the client DBCs.
 
 ## Code
 
