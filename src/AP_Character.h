@@ -146,6 +146,7 @@ namespace ModArchipelaWoW
         AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted);
 
         void GivePetXP(uint32 xp, uint8 xpSource) const;
+        void GiveArchipelagoExperience(uint32 xp, Unit* victim);
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);

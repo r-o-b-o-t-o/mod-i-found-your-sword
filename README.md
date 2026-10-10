@@ -146,6 +146,7 @@ None of them appear in `creature_equip_template`, `npc_vendor`, any loot table, 
 |----|---------------|----------------|----------|
 | `32618` | Archipelago Stone | `[DEPRECATED]Crystalforged Darkrune` | `archipelawow_world_001_stone_item.sql` |
 | `4427` | Scroll of Divination | `Deprecated Scroll of Spirit Armor V` | `archipelawow_world_014_divination_scroll.sql` |
+| `1335` | Tome of Insight | `Deprecated Book of Nullify Disease` | `archipelawow_world_015_insight_tome.sql` |
 | `19063` | The Immortal Crust | `NPC Equip 19063` | `archipelawow_world_005_food_and_drink.sql` |
 | `40843` | Suspiciously Regrowing Berries | `NPC Equip 40843` | `archipelawow_world_005_…` |
 | `34770` | Fillet of Neverfin | `NPC Equip 34770` | `archipelawow_world_005_…` |

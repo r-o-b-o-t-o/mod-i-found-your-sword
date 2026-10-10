@@ -84,6 +84,10 @@ constexpr size_t MAX_PENDING_CHAT_ECHOES = 16;
 // archipelawow_world_014_divination_scroll.sql
 constexpr uint32 SCROLL_OF_DIVINATION_ITEM_ID = 4427;
 constexpr size_t SCROLL_OF_DIVINATION_HINTS = 3;
+// archipelawow_world_015_insight_tome.sql
+constexpr uint32 TOME_OF_INSIGHT_ITEM_ID = 1335;
+// The share of the experience to the next Archipelago level a Tome of Insight gives
+constexpr uint32 TOME_OF_INSIGHT_LEVEL_DIVISOR = 4;
 // LocationScouts' create_as_hint: hint the locations, and announce only the hints that are new
 constexpr int CREATE_AS_HINT_ANNOUNCE_NEW = 2;
 
@@ -446,29 +450,7 @@ namespace ModArchipelaWoW
             xp = static_cast<uint32>(std::min<uint64>(boosted, std::numeric_limits<uint32>::max()));
         }
 
-        // The native combat-log line and floating text, which the core skips once xp is zeroed.
-        if (xp > 0)
-        {
-            player->SendLogXPGain(xp, victim, 0);
-        }
-
-        apExp += xp;
-
-        while (xpForLevel > 0 && apExp >= xpForLevel)
-        {
-            ++apLevel;
-            apExp -= xpForLevel;
-
-            auto checkId = locations.levels.GetLocationId(apLevel);
-            if (checkId.has_value())
-            {
-                CheckLocation(checkId.value());
-            }
-
-            LoadXPForLevel();
-        }
-
-        SendExperienceBar();
+        GiveArchipelagoExperience(xp, victim);
         xp = 0;
     }
 
@@ -733,6 +715,10 @@ namespace ModArchipelaWoW
             hintedLocations.insert(locations.begin(), locations.end());
             ap->LocationScouts({ locations.begin(), locations.end() }, CREATE_AS_HINT_ANNOUNCE_NEW);
         }
+        else if (spell->m_CastItem->GetEntry() == TOME_OF_INSIGHT_ITEM_ID && apLevel < maxLevel)
+        {
+            GiveArchipelagoExperience(std::max<uint32>(xpForLevel / TOME_OF_INSIGHT_LEVEL_DIVISOR, 1), nullptr);
+        }
     }
 
     void AP_Character::OnUseArchipelagoStone(Item* item)
@@ -770,6 +756,21 @@ namespace ModArchipelaWoW
             if (GetUnhintedLocations().empty())
             {
                 chat.SendSysMessage("|cFFFF0000Every location left in your world is already hinted.");
+                return false;
+            }
+        }
+        else if (itemId == TOME_OF_INSIGHT_ITEM_ID)
+        {
+            // maxLevel arrives with the slot data.
+            if (maxLevel == 0)
+            {
+                chat.SendSysMessage("|cFFFF0000The tome stays blank until the slot is connected.");
+                return false;
+            }
+
+            if (apLevel >= maxLevel || xpForLevel == 0)
+            {
+                chat.SendSysMessage("|cFFFF0000You have reached the Archipelago level cap, the tome has nothing left to teach you.");
                 return false;
             }
         }
@@ -1238,6 +1239,34 @@ namespace ModArchipelaWoW
         // non-hunter and dead pets and applies the rate config. Its cap is the character's real
         // level, not apLevel: intended, so the pet follows the levels the multiworld hands over.
         pet->GivePetXP(player->GetGroup() ? xp / 2 : xp);
+    }
+
+    void AP_Character::GiveArchipelagoExperience(uint32 xp, Unit* victim)
+    {
+        // The native combat-log line and floating text, which the core skips once OnPlayerGiveXP zeroes
+        // the character's own experience.
+        if (xp > 0)
+        {
+            player->SendLogXPGain(xp, victim, 0);
+        }
+
+        apExp += xp;
+
+        while (xpForLevel > 0 && apExp >= xpForLevel)
+        {
+            ++apLevel;
+            apExp -= xpForLevel;
+
+            auto checkId = locations.levels.GetLocationId(apLevel);
+            if (checkId.has_value())
+            {
+                CheckLocation(checkId.value());
+            }
+
+            LoadXPForLevel();
+        }
+
+        SendExperienceBar();
     }
 
     uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
