@@ -21,7 +21,8 @@ namespace ModArchipelaWoW::Items
             progressive(),
             spells(),
             levels(0),
-            goldPouch(0)
+            goldPouch(0),
+            friendTeleport(0)
         {
         }
 
@@ -32,6 +33,8 @@ namespace ModArchipelaWoW::Items
         Spells spells;
         int64_t levels;
         int64_t goldPouch;
+        /// Unlocks the stone's Teleport to Friend menu
+        int64_t friendTeleport;
     };
 }
 

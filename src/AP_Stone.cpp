@@ -1,6 +1,7 @@
 #include "AP_Character.h"
 #include "AP_Log.h"
 #include "AP_Stone.h"
+#include "ArchipelaWoW.h"
 #include "Chat.h"
 #include "Common.h"
 #include "Config.h"
@@ -60,6 +61,7 @@ constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 #endif
 
 constexpr uint32 GOSSIP_ITEM_GLYPHS = 6;
+constexpr uint32 GOSSIP_ITEM_FRIEND_TELEPORT = 7;
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -89,6 +91,8 @@ constexpr uint32 GOSSIP_MENU_GLYPHS_MAJOR = 11;
 constexpr uint32 GOSSIP_MENU_GLYPHS_MINOR = 12;
 constexpr uint32 GOSSIP_MENU_GLYPH_SLOTS = 13;
 
+constexpr uint32 GOSSIP_MENU_FRIEND_TELEPORT = 14;
+
 // archipelawow_world_011_glyph_texts.sql
 constexpr uint32 GOSSIP_TEXT_GLYPHS = 100500;
 constexpr uint32 GOSSIP_TEXT_GLYPH_SLOTS = 100501;
@@ -99,6 +103,12 @@ constexpr uint32 GOSSIP_TEXT_TELE_ZONE = 100503;
 constexpr uint32 GOSSIP_TEXT_TELE_ZONE_LIST = 100504;
 constexpr uint32 GOSSIP_TEXT_TELE_DUNGEON = 100505;
 constexpr uint32 GOSSIP_TEXT_TELE_DUNGEON_LIST = 100506;
+
+// archipelawow_world_013_friend_teleport.sql
+constexpr uint32 GOSSIP_TEXT_FRIEND_TELEPORT = 100507;
+// Serverside-only, it only carries the cooldown: the core saves a spell cooldown with the character.
+constexpr uint32 FRIEND_TELEPORT_SPELL_ID = 100501;
+constexpr uint32 FRIEND_TELEPORT_COOLDOWN = 30 * MINUTE * IN_MILLISECONDS;
 
 // TypeFlags in GlyphProperties.dbc and GlyphSlot.dbc
 constexpr uint32 GLYPH_TYPE_MAJOR = 0;
@@ -215,6 +225,10 @@ namespace ModArchipelaWoW
         else if (sender == GOSSIP_MENU_GLYPH_SLOTS)
         {
             HandleGlyphSlotAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_FRIEND_TELEPORT)
+        {
+            HandleFriendTeleportAction(item, action);
         }
     }
 
@@ -417,6 +431,16 @@ namespace ModArchipelaWoW
 
         if (HasAnyZoneUnlocked()) AddGossipItem(GetZoneTeleportIcon(), "Teleport to Zone", GOSSIP_ITEM_TELE_ZONE);
         if (HasAnyDungeonUnlocked()) AddGossipItem(GetDungeonTeleportIcon(), "Teleport to Dungeon", GOSSIP_ITEM_TELE_DUNGEON);
+
+        if (apCharacter->IsFriendTeleportUnlocked())
+        {
+            uint32 friendCooldown = player->GetSpellCooldownDelay(FRIEND_TELEPORT_SPELL_ID);
+            std::string friendTeleport = friendCooldown > 0
+                ? fmt::format("Teleport to Friend - {}", secsToTimeString(CooldownSeconds(friendCooldown), true))
+                : std::string("Teleport to Friend");
+            AddGossipItem("Icons/Achievement_Reputation_01", friendTeleport, GOSSIP_ITEM_FRIEND_TELEPORT);
+        }
+
         if (HasAnyGlyphAvailable()) AddGossipItem(GetGlyphIcon(GLYPH_TYPE_MAJOR), "Glyphs", GOSSIP_ITEM_GLYPHS);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
@@ -431,6 +455,7 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_TELE_ZONE) SendZoneTeleportMenu(item);
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
         else if (action == GOSSIP_ITEM_GLYPHS) SendGlyphsMenu(item);
+        else if (action == GOSSIP_ITEM_FRIEND_TELEPORT) SendFriendTeleportMenu(item);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
 #endif
@@ -708,6 +733,163 @@ namespace ModArchipelaWoW
         {
             apCharacter->Teleport(zone.value());
         }
+    }
+
+    void AP_Stone::SendFriendTeleportMenu(Item* item)
+    {
+        if (RefuseFriendTeleportOnCooldown())
+        {
+            return;
+        }
+
+        std::vector<Player*> friends = GetTeleportableFriends();
+        if (friends.empty())
+        {
+            player->PlayerTalkClass->SendCloseGossip();
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000None of your friends are online and connected to the multiworld.");
+            return;
+        }
+
+        StartGossipMenu(GOSSIP_TEXT_FRIEND_TELEPORT, GOSSIP_MENU_FRIEND_TELEPORT);
+        for (Player* target : friends)
+        {
+            // The last entry is for Back, as in SendGlyphListMenu.
+            if (gossipIdx == GOSSIP_MAX_MENU_ITEMS - 1)
+            {
+                break;
+            }
+
+            AddGossipItem(GetCharacterIcon(target), target->GetName(), target->GetGUID().GetCounter());
+        }
+        AddGossipItemBack();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleFriendTeleportAction(Item* item, uint32 action)
+    {
+        if (action == GOSSIP_ITEM_BACK)
+        {
+            SendMainMenu(item);
+            return;
+        }
+
+        // Checked again rather than trusted from when the menu was sent: it can stay open for a while.
+        if (RefuseFriendTeleportOnCooldown())
+        {
+            return;
+        }
+
+        player->PlayerTalkClass->SendCloseGossip();
+        ChatHandler chat(player->GetSession());
+
+        std::vector<Player*> friends = GetTeleportableFriends();
+        auto target = std::ranges::find_if(friends, [&](Player* candidate)
+            {
+                return candidate->GetGUID().GetCounter() == action;
+            });
+
+        if (target == friends.end())
+        {
+            chat.SendSysMessage("|cFFFF0000Your friend is no longer online and connected to the multiworld.");
+            return;
+        }
+
+        Player* destination = *target;
+        if (player->IsInCombat())
+        {
+            chat.SendSysMessage("|cFFFF0000Cannot do this while in combat.");
+            return;
+        }
+
+        // In a dungeon, only the friend's group is sure to share their instance. A battleground or an arena
+        // is never joined this way.
+        Map* map = destination->GetMap();
+        if (map->IsBattlegroundOrArena())
+        {
+            chat.SendSysMessage(fmt::format("|cFFFF0000{} is in a battleground.", destination->GetName()));
+            return;
+        }
+
+        if (map->IsDungeon() && (!player->GetGroup() || player->GetGroup() != destination->GetGroup()))
+        {
+            chat.SendSysMessage(fmt::format("|cFFFF0000{} is in a dungeon, join their group to teleport to them.", destination->GetName()));
+            return;
+        }
+
+        // On a taxi or a boat the position means nothing, and in the air on a flying mount the character
+        // would arrive with nothing to stand on.
+        if (destination->IsInFlight() || destination->GetTransport() || destination->IsFlying())
+        {
+            chat.SendSysMessage(fmt::format("|cFFFF0000{} is travelling, try again once they have arrived.", destination->GetName()));
+            return;
+        }
+
+        // The character would only be sent back on arrival.
+        if (apCharacter->IsZoneLocked(destination->GetZoneId()))
+        {
+            chat.SendSysMessage(fmt::format("|cFFFF0000{} is in a zone you have not unlocked.", destination->GetName()));
+            return;
+        }
+
+        if (apCharacter->TeleportToPlayer(destination))
+        {
+            player->AddSpellCooldown(FRIEND_TELEPORT_SPELL_ID, 0, FRIEND_TELEPORT_COOLDOWN);
+        }
+    }
+
+    bool AP_Stone::RefuseFriendTeleportOnCooldown()
+    {
+        uint32 cooldown = player->GetSpellCooldownDelay(FRIEND_TELEPORT_SPELL_ID);
+        if (cooldown == 0)
+        {
+            return false;
+        }
+
+        player->PlayerTalkClass->SendCloseGossip();
+        ChatHandler(player->GetSession()).SendSysMessage(
+            fmt::format("|cFFFF0000You cannot teleport to a friend for another {}.", secsToTimeString(CooldownSeconds(cooldown), true)));
+        return true;
+    }
+
+    std::vector<Player*> AP_Stone::GetTeleportableFriends()
+    {
+        std::vector<Player*> friends;
+        for (const auto& [guid, character] : sArchipelaWoW->GetCharacters())
+        {
+            Player* candidate = character->GetPlayer();
+            if (character != apCharacter && character->IsSlotConnected() && candidate && candidate->IsInWorld())
+            {
+                friends.push_back(candidate);
+            }
+        }
+
+        std::ranges::sort(friends, [](Player* a, Player* b)
+            {
+                return a->GetName() < b->GetName();
+            });
+
+        return friends;
+    }
+
+    std::string AP_Stone::GetCharacterIcon(Player* target)
+    {
+        const char* race;
+        switch (target->getRace(true))
+        {
+            case RACE_HUMAN: race = "Human"; break;
+            case RACE_ORC: race = "Orc"; break;
+            case RACE_DWARF: race = "Dwarf"; break;
+            case RACE_NIGHTELF: race = "Nightelf"; break;
+            case RACE_UNDEAD_PLAYER: race = "Undead"; break;
+            case RACE_TAUREN: race = "Tauren"; break;
+            case RACE_GNOME: race = "Gnome"; break;
+            case RACE_TROLL: race = "Troll"; break;
+            case RACE_BLOODELF: race = "Bloodelf"; break;
+            case RACE_DRAENEI: race = "Draenei"; break;
+            default: return "Icons/INV_Misc_QuestionMark";
+        }
+
+        return fmt::format("Icons/Achievement_Character_{}_{}", race, target->getGender() == GENDER_FEMALE ? "Female" : "Male");
     }
 
     bool AP_Stone::HasAnyGlyphAvailable()

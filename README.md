@@ -122,12 +122,13 @@ spell turns up with the wrong name, icon or behaviour.
 
 ### Spells
 
-One serverside-only spell is added to `spell_dbc`. It is passive, so the aura is never sent to the
-client and the player's `Spell.dbc` never needs to know about it.
+Two serverside-only spells are added to `spell_dbc`. They are passive, so they are never sent to the
+client and the player's `Spell.dbc` never needs to know about them.
 
 | ID | Name | Purpose | Added by |
 |----|------|---------|----------|
 | `100500` | Archipelago Movement Speed | Carries the on-foot, ground-mount and flying-mount speed auras behind the *Progressive Movement Speed* item | `archipelawow_world_004_speed_spell.sql` |
+| `100501` | Archipelago Teleport to Friend | Never cast: carries the cooldown of the Archipelago Stone's *Teleport to Friend* menu, so that it is saved with the character | `archipelawow_world_013_friend_teleport.sql` |
 
 ### Items
 

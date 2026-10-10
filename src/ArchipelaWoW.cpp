@@ -99,6 +99,11 @@ namespace ModArchipelaWoW
         return gearPool;
     }
 
+    const std::unordered_map<ObjectGuid::LowType, AP_Character*>& ArchipelaWoW::GetCharacters() const
+    {
+        return apCharacters;
+    }
+
     const Config& ArchipelaWoW::GetConfig()
     {
         return config;

@@ -111,6 +111,7 @@ namespace ModArchipelaWoW
         apExp(0),
         xpForLevel(0),
         goalCompleted(false),
+        friendTeleportUnlocked(false),
         missedProgressCaughtUp(false),
         experienceBarStale(false),
         grantingSpell(0),
@@ -197,6 +198,16 @@ namespace ModArchipelaWoW
         return unlockedZones.contains(zoneId);
     }
 
+    bool AP_Character::IsZoneLocked(uint32 zoneId) const
+    {
+        return items.zones.IsRestricted(zoneId) && !IsZoneUnlocked(zoneId);
+    }
+
+    bool AP_Character::IsFriendTeleportUnlocked() const
+    {
+        return friendTeleportUnlocked;
+    }
+
     const std::unordered_set<uint32>& AP_Character::GetReceivedGlyphs() const
     {
         return receivedGlyphs;
@@ -209,6 +220,17 @@ namespace ModArchipelaWoW
             player->TeleportTo(zone.map, zone.x, zone.y, zone.z, zone.o);
             player->CastSpell(player, TELEPORT_SPELL_ID, true);
         }
+    }
+
+    bool AP_Character::TeleportToPlayer(Player* target)
+    {
+        if (!player->TeleportTo(target->GetMapId(), target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetOrientation()))
+        {
+            return false;
+        }
+
+        player->CastSpell(player, TELEPORT_SPELL_ID, true);
+        return true;
     }
 
     uint32 AP_Character::GetGoldPouchAmount() const
@@ -1132,6 +1154,12 @@ namespace ModArchipelaWoW
             return;
         }
 
+        if (itemId == items.friendTeleport)
+        {
+            friendTeleportUnlocked = true;
+            return;
+        }
+
         if (itemId == items.goldPouch)
         {
             if (!alreadyRewarded)
@@ -1272,7 +1300,7 @@ namespace ModArchipelaWoW
         }
 
         uint32 zone = player->GetZoneId();
-        bool locked = items.zones.IsRestricted(zone) && !IsZoneUnlocked(zone);
+        bool locked = IsZoneLocked(zone);
         nextLockedZoneCheck = now + std::chrono::seconds(1);
 
         if (!locked)
@@ -1308,8 +1336,7 @@ namespace ModArchipelaWoW
         }
 
         uint32 zone = player->GetZoneId();
-        bool locked = items.zones.IsRestricted(zone) && !IsZoneUnlocked(zone);
-        if (!locked)
+        if (!IsZoneLocked(zone))
         {
             lastUnlockedPosition = PlayerPosition(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation());
         }
@@ -1573,6 +1600,7 @@ namespace ModArchipelaWoW
             }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");
+            items.friendTeleport = itemData.at("stone").at("teleport_to_friend");
 
             goalAchievementId = data.at("goal");
             maxLevel = data.at("maxlevel");

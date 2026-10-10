@@ -45,8 +45,12 @@ namespace ModArchipelaWoW
         Player* GetPlayer();
         std::string GetItemName(int64 itemId) const;
         bool IsZoneUnlocked(uint32 zoneId) const;
+        /// Whether the seed keeps the character out of the zone until its item arrives.
+        bool IsZoneLocked(uint32 zoneId) const;
+        bool IsFriendTeleportUnlocked() const;
         const std::unordered_set<uint32>& GetReceivedGlyphs() const;
         void Teleport(const Items::ZoneItem& zone);
+        bool TeleportToPlayer(Player* target);
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
         void SendExperienceBar() const;
@@ -120,6 +124,7 @@ namespace ModArchipelaWoW
         uint32 apExp;
         uint32 xpForLevel;
         bool goalCompleted;
+        bool friendTeleportUnlocked;
         bool missedProgressCaughtUp;
         /// Set when the core is about to overwrite the client's experience bar, so Update sends
         /// the Archipelago one again once the core's own update has gone out.

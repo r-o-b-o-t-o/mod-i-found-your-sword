@@ -90,6 +90,11 @@ namespace ModArchipelaWoW
         void HandleDungeonTeleportSubmenuAction(Item* item, uint32 action);
         void HandleDungeonTeleportAction(Item* item, uint32 action);
         void HandleGenericTeleportAction(uint32 action);
+        void SendFriendTeleportMenu(Item* item);
+        void HandleFriendTeleportAction(Item* item, uint32 action);
+        bool RefuseFriendTeleportOnCooldown();
+        std::vector<Player*> GetTeleportableFriends();
+        static std::string GetCharacterIcon(Player* target);
         bool HasAnyGlyphAvailable();
         bool HasAnyGlyphAvailable(uint32 type);
         void SendGlyphsMenu(Item* item);

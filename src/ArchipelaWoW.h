@@ -37,6 +37,7 @@ namespace ModArchipelaWoW
         uint32 GetCreatureTemplateForPlayer(std::string name);
         Network::WebSocketService& GetWebSocketService();
         const Items::GearPool& GetGearPool() const;
+        const std::unordered_map<ObjectGuid::LowType, AP_Character*>& GetCharacters() const;
 
         // Config methods
         const Config& GetConfig();
