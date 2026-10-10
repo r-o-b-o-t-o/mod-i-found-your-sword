@@ -93,6 +93,13 @@ constexpr uint32 GOSSIP_MENU_GLYPH_SLOTS = 13;
 constexpr uint32 GOSSIP_TEXT_GLYPHS = 100500;
 constexpr uint32 GOSSIP_TEXT_GLYPH_SLOTS = 100501;
 
+// archipelawow_world_012_stone_texts.sql
+constexpr uint32 GOSSIP_TEXT_MAIN = 100502;
+constexpr uint32 GOSSIP_TEXT_TELE_ZONE = 100503;
+constexpr uint32 GOSSIP_TEXT_TELE_ZONE_LIST = 100504;
+constexpr uint32 GOSSIP_TEXT_TELE_DUNGEON = 100505;
+constexpr uint32 GOSSIP_TEXT_TELE_DUNGEON_LIST = 100506;
+
 // TypeFlags in GlyphProperties.dbc and GlyphSlot.dbc
 constexpr uint32 GLYPH_TYPE_MAJOR = 0;
 constexpr uint32 GLYPH_TYPE_MINOR = 1;
@@ -385,7 +392,7 @@ namespace ModArchipelaWoW
 
     void AP_Stone::SendMainMenu(Item* item)
     {
-        StartGossipMenu(1, GOSSIP_MENU_MAIN);
+        StartGossipMenu(GOSSIP_TEXT_MAIN, GOSSIP_MENU_MAIN);
         AddGossipItem("Icons/INV_Letter_03", "Open Mailbox", GOSSIP_ITEM_MAILBOX);
 
         // The real item shows its cooldown on the tooltip, which a gossip entry has not got, so the
@@ -638,7 +645,7 @@ namespace ModArchipelaWoW
 
     void AP_Stone::SendZoneTeleportMenu(Item* item)
     {
-        StartGossipMenu(1, GOSSIP_MENU_TELE_ZONE);
+        StartGossipMenu(GOSSIP_TEXT_TELE_ZONE, GOSSIP_MENU_TELE_ZONE);
         if (HasAnyKalimdorZoneUnlocked()) AddGossipItem("Icons/Achievement_Zone_Kalimdor_01", "Kalimdor", GOSSIP_ITEM_TELE_ZONE_KALIMDOR);
         if (HasAnyEasternKingdomsZoneUnlocked()) AddGossipItem("Icons/Achievement_Zone_EasternKingdoms_01", "Eastern Kingdoms", GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS);
         if (HasAnyOutlandZoneUnlocked()) AddGossipItem("Icons/Achievement_Zone_Outland_01", "Outland", GOSSIP_ITEM_TELE_ZONE_OUTLAND);
@@ -649,10 +656,10 @@ namespace ModArchipelaWoW
 
     void AP_Stone::HandleZoneTeleportSubmenuAction(Item* item, uint32 action)
     {
-        if (action == GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_EASTERN_KINGDOMS);
-        else if (action == GOSSIP_ITEM_TELE_ZONE_KALIMDOR) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_KALIMDOR);
-        else if (action == GOSSIP_ITEM_TELE_ZONE_OUTLAND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_OUTLAND);
-        else if (action == GOSSIP_ITEM_TELE_ZONE_NORTHREND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_NORTHREND);
+        if (action == GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_EASTERN_KINGDOMS, GOSSIP_TEXT_TELE_ZONE_LIST);
+        else if (action == GOSSIP_ITEM_TELE_ZONE_KALIMDOR) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_KALIMDOR, GOSSIP_TEXT_TELE_ZONE_LIST);
+        else if (action == GOSSIP_ITEM_TELE_ZONE_OUTLAND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_OUTLAND, GOSSIP_TEXT_TELE_ZONE_LIST);
+        else if (action == GOSSIP_ITEM_TELE_ZONE_NORTHREND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_ZONE_NORTHREND, GOSSIP_TEXT_TELE_ZONE_LIST);
         else if (action == GOSSIP_ITEM_BACK) SendMainMenu(item);
     }
 
@@ -664,7 +671,7 @@ namespace ModArchipelaWoW
 
     void AP_Stone::SendDungeonTeleportMenu(Item* item)
     {
-        StartGossipMenu(1, GOSSIP_MENU_TELE_DUNGEON);
+        StartGossipMenu(GOSSIP_TEXT_TELE_DUNGEON, GOSSIP_MENU_TELE_DUNGEON);
         if (HasAnyClassicDungeonUnlocked()) AddGossipItem("Icons/Spell_Holy_ReviveChampion", "Classic", GOSSIP_ITEM_TELE_DUNGEON_CLASSIC);
         if (HasAnyOutlandDungeonUnlocked()) AddGossipItem("Icons/Spell_Holy_SummonChampion", "The Burning Crusade", GOSSIP_ITEM_TELE_DUNGEON_OUTLAND);
         if (HasAnyNorthrendDungeonUnlocked()) AddGossipItem("Icons/Spell_Holy_ChampionsBond", "Wrath of the Lich King", GOSSIP_ITEM_TELE_DUNGEON_NORTHREND);
@@ -674,9 +681,9 @@ namespace ModArchipelaWoW
 
     void AP_Stone::HandleDungeonTeleportSubmenuAction(Item* item, uint32 action)
     {
-        if (action == GOSSIP_ITEM_TELE_DUNGEON_CLASSIC) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_CLASSIC);
-        else if (action == GOSSIP_ITEM_TELE_DUNGEON_OUTLAND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_OUTLAND);
-        else if (action == GOSSIP_ITEM_TELE_DUNGEON_NORTHREND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_NORTHREND);
+        if (action == GOSSIP_ITEM_TELE_DUNGEON_CLASSIC) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_CLASSIC, GOSSIP_TEXT_TELE_DUNGEON_LIST);
+        else if (action == GOSSIP_ITEM_TELE_DUNGEON_OUTLAND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_OUTLAND, GOSSIP_TEXT_TELE_DUNGEON_LIST);
+        else if (action == GOSSIP_ITEM_TELE_DUNGEON_NORTHREND) SendTeleportsGossipMenu(item, GOSSIP_MENU_TELE_DUNGEON_NORTHREND, GOSSIP_TEXT_TELE_DUNGEON_LIST);
         else if (action == GOSSIP_ITEM_BACK) SendMainMenu(item);
     }
 
@@ -1018,7 +1025,7 @@ namespace ModArchipelaWoW
         return fmt::format("|TInterface/{}:32:32:12:-1|t    {}", icon, text);
     }
 
-    void AP_Stone::SendTeleportsGossipMenu(Item* item, uint32 sender)
+    void AP_Stone::SendTeleportsGossipMenu(Item* item, uint32 sender, uint32 titleTextId)
     {
         struct TeleportGossipItem
         {
@@ -1047,7 +1054,7 @@ namespace ModArchipelaWoW
                 return a.text < b.text;
             });
 
-        StartGossipMenu(1, sender);
+        StartGossipMenu(titleTextId, sender);
         for (auto& item : items)
         {
             if (item.zone.gossipMenu == gossipSender && apCharacter->IsZoneUnlocked(item.zone.id))

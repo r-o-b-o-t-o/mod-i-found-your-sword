@@ -112,7 +112,7 @@ namespace ModArchipelaWoW
         void AddGossipItemBack();
         void AddGossipItemBackToMainMenu();
         std::string GossipItemText(const std::string& icon, const std::string& text);
-        void SendTeleportsGossipMenu(Item* item, uint32 sender);
+        void SendTeleportsGossipMenu(Item* item, uint32 sender, uint32 titleTextId);
         bool HasAnyEasternKingdomsZoneUnlocked();
         bool HasAnyKalimdorZoneUnlocked();
         bool HasAnyOutlandZoneUnlocked();
