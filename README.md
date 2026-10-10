@@ -131,10 +131,15 @@ client and the player's `Spell.dbc` never needs to know about it.
 
 ### Items
 
-No new `item_template` entries are created. Every item below reuses an existing row that no player
-can obtain: either a `[DEPRECATED]` entry, or one of Blizzard's `NPC Equip <id>` placeholders, which
-exist only to carry a display id. None of them appear in `creature_equip_template`, `npc_vendor`,
-any loot table, or a reachable quest.
+One new `item_template` entry is created. It is never handed out to a player:
+
+| ID | Name | Purpose | Added by |
+|----|------|---------|----------|
+| `100500` | Back | The entry the Archipelago Stone adds to mod-transmog's vendor interface to return to the transmogrification menu | `archipelawow_world_010_transmog_back_item.sql` |
+
+The items below reuse existing rows that no player can obtain: either `[DEPRECATED]`
+entries, or Blizzard's `NPC Equip <id>` placeholders, which exist only to carry a display id.
+None of them appear in `creature_equip_template`, `npc_vendor`, any loot table, or a reachable quest.
 
 | ID | Repurposed as | Original entry | Added by |
 |----|---------------|----------------|----------|
