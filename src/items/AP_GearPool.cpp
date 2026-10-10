@@ -1,3 +1,4 @@
+#include "AP_Log.h"
 #include "Containers.h"
 #include "DatabaseEnv.h"
 #include "DBCStore.h"
@@ -6,7 +7,6 @@
 #include "items/AP_Gear.h"
 #include "items/AP_GearPool.h"
 #include "ItemTemplate.h"
-#include "Log.h"
 #include "ObjectMgr.h"
 #include "Optional.h"
 #include "Player.h"
@@ -140,7 +140,7 @@ namespace ModArchipelaWoW::Items
             ++count;
         }
 
-        LOG_INFO("module.archipelawow", "Loaded {} gear reward candidates", count);
+        AP_LOG_INFO("Loaded {} gear reward candidates", count);
     }
 
     Optional<uint32> GearPool::Roll(GearCategory category, uint32 quality, Player const* player,
@@ -468,7 +468,7 @@ namespace ModArchipelaWoW::Items
         std::string path = sWorld->GetDataPath() + "dbc/SkillRaceClassInfo.dbc";
         if (!store.Load(path.c_str()))
         {
-            LOG_ERROR("module.archipelawow", "Could not read {} -- gear rewards will ignore the level "
+            AP_LOG_ERROR("Could not read {} -- gear rewards will ignore the level "
                 "a class trains a proficiency at, and may hand out mail or plate too early", path);
             return;
         }
@@ -514,7 +514,7 @@ namespace ModArchipelaWoW::Items
         );
         if (!result)
         {
-            LOG_WARN("module.archipelawow", "Could not read the item sources used to filter gear rewards, "
+            AP_LOG_WARN("Could not read the item sources used to filter gear rewards, "
                 "test and deprecated items may be handed out");
             return obtainable;
         }

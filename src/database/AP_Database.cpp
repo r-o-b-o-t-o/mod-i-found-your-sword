@@ -1,10 +1,10 @@
 #include "AP_Config.h"
+#include "AP_Log.h"
 #include "BuiltInConfig.h"
 #include "database/AP_Database.h"
 #include "database/AP_DatabaseConnection.h"
 #include "DBUpdater.h"
 #include "Define.h"
-#include "Log.h"
 #include "ModuleDatabasePool.h"
 #include "MySQLConnection.h"
 #include "PreparedStatement.h"
@@ -37,7 +37,7 @@ namespace ModArchipelaWoW::Database
 
         if (error)
         {
-            LOG_ERROR("module.archipelawow", "Could not open the ArchipelaWoW database, check ArchipelaWoW.DatabaseInfo and the errors above.");
+            AP_LOG_ERROR("Could not open the ArchipelaWoW database, check ArchipelaWoW.DatabaseInfo and the errors above.");
             return false;
         }
 
@@ -52,14 +52,14 @@ namespace ModArchipelaWoW::Database
 
             if (!ModuleDBUpdater::Populate(*this, updaterInfo) || !ModuleDBUpdater::Update(*this, updaterInfo))
             {
-                LOG_ERROR("module.archipelawow", "Could not populate or update the ArchipelaWoW database, see the errors above.");
+                AP_LOG_ERROR("Could not populate or update the ArchipelaWoW database, see the errors above.");
                 return false;
             }
         }
 
         if (!PrepareStatements())
         {
-            LOG_ERROR("module.archipelawow", "Could not prepare the ArchipelaWoW database statements, see the errors above.");
+            AP_LOG_ERROR("Could not prepare the ArchipelaWoW database statements, see the errors above.");
             return false;
         }
 

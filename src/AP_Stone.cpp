@@ -1,4 +1,5 @@
 #include "AP_Character.h"
+#include "AP_Log.h"
 #include "AP_Stone.h"
 #include "Chat.h"
 #include "Common.h"
@@ -14,7 +15,6 @@
 #include "ItemPackets.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
-#include "Log.h"
 #include "Map.h"
 #include "Object.h"
 #include "ObjectGuid.h"
@@ -524,7 +524,7 @@ namespace ModArchipelaWoW
             static std::once_flag logged;
             std::call_once(logged, []()
                 {
-                    LOG_ERROR("module.archipelawow", "Item {} is missing, so mod-transmog's vendor interface has no Back entry. "
+                    AP_LOG_ERROR("Item {} is missing, so mod-transmog's vendor interface has no Back entry. "
                         "Apply archipelawow_world_010_transmog_back_item.sql.", TRANSMOG_BACK_ITEM_ID);
                 });
             return;

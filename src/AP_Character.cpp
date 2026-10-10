@@ -1,5 +1,6 @@
 #include "AchievementMgr.h"
 #include "AP_Character.h"
+#include "AP_Log.h"
 #include "AP_PlayerPosition.h"
 #include "ArchipelaWoW.h"
 #include "ByteBuffer.h"
@@ -26,7 +27,6 @@
 #include "items/AP_Spells.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
-#include "Log.h"
 #include "Mail.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
@@ -818,7 +818,7 @@ namespace ModArchipelaWoW
         std::string host = sConfig.GetArchipelagoServerHost();
         std::string port = std::to_string(sConfig.GetArchipelagoServerPort());
 
-        LOG_INFO("module.archipelawow", "Connecting to Archipelago server at {}:{} with UUID {}", host, port, uuid);
+        AP_LOG_INFO("Connecting to Archipelago server at {}:{} with UUID {}", host, port, uuid);
         ChatHandler(player->GetSession()).SendSysMessage("Connecting to Archipelago server...");
 
         ap = std::make_unique<Network::Client>(sArchipelaWoW->GetWebSocketService(), uuid, AP_GAME_NAME, host, port);
@@ -851,7 +851,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        LOG_INFO("module.archipelawow", "Connecting to Archipelago slot {}...", slot);
+        AP_LOG_INFO("Connecting to Archipelago slot {}...", slot);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("Connecting to Archipelago slot |cFFFF00FF{}|r...", slot));
 
         std::string password = sConfig.GetArchipelagoPassword();
@@ -1047,8 +1047,7 @@ namespace ModArchipelaWoW
                 );
                 if (!rolled)
                 {
-                    LOG_ERROR("module.archipelawow",
-                        "No gear candidate for Archipelago item {} (category {}, quality {}) for a level {} class {}!",
+                    AP_LOG_ERROR("No gear candidate for Archipelago item {} (category {}, quality {}) for a level {} class {}!",
                         itemId, static_cast<uint32>(gear.value().category), gear.value().quality,
                         player->GetLevel(), static_cast<uint32>(player->getClass()));
                     return;
@@ -1203,8 +1202,7 @@ namespace ModArchipelaWoW
 
         if (!sSpellMgr->GetSpellInfo(MOVEMENT_SPEED_SPELL_ID))
         {
-            LOG_ERROR("module.archipelawow",
-                "Spell {} is missing, so the Progressive Movement Speed bonus cannot be granted. "
+            AP_LOG_ERROR("Spell {} is missing, so the Progressive Movement Speed bonus cannot be granted. "
                 "The module's world database updates have not been applied.", MOVEMENT_SPEED_SPELL_ID);
             return;
         }
@@ -1363,7 +1361,7 @@ namespace ModArchipelaWoW
         ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(wowItemId);
         if (!itemTemplate)
         {
-            LOG_ERROR("module.archipelawow", "Invalid item ID {} received from Archipelago item {}!",
+            AP_LOG_ERROR("Invalid item ID {} received from Archipelago item {}!",
                 wowItemId, apItemId);
             return;
         }
@@ -1372,7 +1370,7 @@ namespace ModArchipelaWoW
         Item* reward = Item::CreateItem(itemTemplate->ItemId, 1, player);
         if (!reward)
         {
-            LOG_ERROR("module.archipelawow", "Failed to create item {} ({}) for reward!",
+            AP_LOG_ERROR("Failed to create item {} ({}) for reward!",
                 itemTemplate->ItemId, itemTemplate->Name1);
             return;
         }
@@ -1440,7 +1438,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        LOG_DEBUG("module.archipelawow", "Slot data: {}", data.dump());
+        AP_LOG_DEBUG("Slot data: {}", data.dump());
 
         // Parse everything before acting on it; a missing or mistyped field
         // (e.g. apworld/module version mismatch) throws and disconnects the
@@ -1581,7 +1579,7 @@ namespace ModArchipelaWoW
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR("module.archipelawow", "Invalid slot data received: {}", ex.what());
+            AP_LOG_ERROR("Invalid slot data received: {}", ex.what());
             ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Invalid slot data received from the Archipelago server (apworld/module version mismatch?). Disconnecting.");
             run = false;
             return;
@@ -1610,12 +1608,12 @@ namespace ModArchipelaWoW
 
     void AP_Character::APSocketErrorHandler(const std::string& error)
     {
-        LOG_ERROR("module.archipelawow", "Archipelago socket error: {}", error);
+        AP_LOG_ERROR("Archipelago socket error: {}", error);
     }
 
     void AP_Character::APSocketDisconnectedHandler()
     {
-        LOG_WARN("module.archipelawow", "Disconnected from Archipelago server");
+        AP_LOG_WARN("Disconnected from Archipelago server");
         ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Disconnected from Archipelago server");
 
         pendingChatEchoes.clear();
@@ -1683,7 +1681,7 @@ namespace ModArchipelaWoW
         }
 
         size_t games = data.contains("games") ? data["games"].size() : 0;
-        LOG_INFO("module.archipelawow", "Data package updated ({} games)", games);
+        AP_LOG_INFO("Data package updated ({} games)", games);
 
         if (ap->GetState() < Network::Client::State::SlotConnected)
         {
@@ -1693,7 +1691,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::APReceivedItemsHandler(const std::list<Network::Client::NetworkItem>& items)
     {
-        LOG_DEBUG("module.archipelawow", "Received {} items", items.size());
+        AP_LOG_DEBUG("Received {} items", items.size());
 
         int newItemIndex = itemIndex;
         int newCountedItemIndex = countedItemIndex;
@@ -1716,7 +1714,7 @@ namespace ModArchipelaWoW
                 newCountedItemIndex = item.index;
             }
 
-            LOG_DEBUG("module.archipelawow", "Received item: index {}, sender {}, item ID {}, flags {}, already rewarded {}",
+            AP_LOG_DEBUG("Received item: index {}, sender {}, item ID {}, flags {}, already rewarded {}",
                 item.index, sender, item.item, item.flags, alreadyRewarded);
             RewardItem(item.item, alreadyRewarded, alreadyCounted, sender);
         }
@@ -1788,7 +1786,7 @@ namespace ModArchipelaWoW
             first = false;
         }
 
-        LOG_ERROR("module.archipelawow", "Connection to slot {} refused: {}", slot, joined);
+        AP_LOG_ERROR("Connection to slot {} refused: {}", slot, joined);
         ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Connection to slot |cFFFF00FF{}|cFFFF0000 refused: {}|r", slot, joined));
 
         run = false;
@@ -1796,7 +1794,7 @@ namespace ModArchipelaWoW
 
     void AP_Character::APMessageErrorHandler(const std::string& error)
     {
-        LOG_ERROR("module.archipelawow", "APClient message processing error: {}", error);
+        AP_LOG_ERROR("APClient message processing error: {}", error);
     }
 
     std::string AP_Character::ConvertANSIColoredString(const std::string& str)

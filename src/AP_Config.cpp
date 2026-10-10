@@ -1,8 +1,8 @@
 #include "AP_Config.h"
+#include "AP_Log.h"
 #include "Config.h"
 #include "ConfigValueCache.h"
 #include "Define.h"
-#include "Log.h"
 #include "Tokenize.h"
 #include "Util.h"
 
@@ -98,7 +98,7 @@ namespace ModArchipelaWoW
             && (chatCommandPrefix[0] == '!' || chatCommandPrefix[0] == '.')
             && (chatCommandPrefix.size() < 2 || chatCommandPrefix[1] != chatCommandPrefix[0]))
         {
-            LOG_ERROR("module.archipelawow", "ArchipelaWoW.Chat.CommandPrefix \"{}\" is swallowed by the core command parser "
+            AP_LOG_ERROR("ArchipelaWoW.Chat.CommandPrefix \"{}\" is swallowed by the core command parser "
                 "before the module sees it. Double the first character (\"{}{}\") or start it with another one.",
                 chatCommandPrefix, chatCommandPrefix[0], chatCommandPrefix);
         }
