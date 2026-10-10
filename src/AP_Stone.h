@@ -62,6 +62,7 @@ namespace ModArchipelaWoW
         void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
         bool RunOnTransmogrifier(const std::function<bool(Creature*)>& run);
 #endif
+        void DismountForItemCast();
         static uint64 CooldownSeconds(uint32 milliseconds);
         Optional<std::string> GetHearthstoneLocation();
         void SendZoneTeleportMenu(Item* item);

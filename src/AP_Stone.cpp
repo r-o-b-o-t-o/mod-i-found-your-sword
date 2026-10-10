@@ -404,6 +404,18 @@ namespace ModArchipelaWoW
         player->GetSession()->SendShowMailBox(player->GetGUID());
     }
 
+    void AP_Stone::DismountForItemCast()
+    {
+        // The client steps off a ground mount before using the real item, but the stone opens its menu
+        // mounted, so the dismount falls to the server. A taxi or a flying mount in the air stays: the
+        // cast then fails as the real item would.
+        if (player->IsMounted() && !player->IsInFlight() && !player->IsFlying())
+        {
+            player->Dismount();
+            player->RemoveAurasByType(SPELL_AURA_MOUNTED);
+        }
+    }
+
     uint64 AP_Stone::CooldownSeconds(uint32 milliseconds)
     {
         // Rounded up, so a cooldown with anything left on it never reads as "0s".
@@ -424,14 +436,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        // The client steps off a ground mount before using the real item, but the stone opens its menu
-        // mounted, so the dismount falls to the server. A taxi or a flying mount in the air stays: the
-        // cast then fails as the real item would.
-        if (player->IsMounted() && !player->IsInFlight() && !player->IsFlying())
-        {
-            player->Dismount();
-            player->RemoveAurasByType(SPELL_AURA_MOUNTED);
-        }
+        DismountForItemCast();
 
         // Cast untriggered so the core runs the full CheckCast: the cooldown, the ten second cast and
         // its interrupts all apply exactly as they do to the real item. Nothing is lost by casting
