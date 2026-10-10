@@ -282,6 +282,7 @@ namespace ModArchipelaWoW::Network
         lastConnectAttempt = std::chrono::steady_clock::time_point{};
 
         checkQueue.clear();
+        missingLocations.clear();
         clientStatus = ClientStatus::Unknown;
         slotName.clear();
         team = -1;
@@ -344,6 +345,11 @@ namespace ModArchipelaWoW::Network
 
     bool Client::LocationChecks(const std::list<int64_t>& locations)
     {
+        for (int64_t location : locations)
+        {
+            missingLocations.erase(location);
+        }
+
         if (state == State::SlotConnected)
         {
             json packet = json::array({ json({
@@ -358,6 +364,23 @@ namespace ModArchipelaWoW::Network
             checkQueue.insert(locations.begin(), locations.end());
         }
 
+        return true;
+    }
+
+    bool Client::LocationScouts(const std::list<int64_t>& locations, int createAsHint)
+    {
+        if (state != State::SlotConnected)
+        {
+            return false;
+        }
+
+        json packet = json::array({ json({
+            {"cmd", "LocationScouts"},
+            {"locations", locations},
+            {"create_as_hint", createAsHint}
+        }) });
+
+        Send(packet);
         return true;
     }
 
@@ -472,6 +495,38 @@ namespace ModArchipelaWoW::Network
         return stripped;
     }
 
+    bool Client::Get(const std::list<std::string>& keys)
+    {
+        if (state != State::SlotConnected)
+        {
+            return false;
+        }
+
+        json packet = json::array({ json({
+            {"cmd", "Get"},
+            {"keys", keys}
+        }) });
+
+        Send(packet);
+        return true;
+    }
+
+    bool Client::SetNotify(const std::list<std::string>& keys)
+    {
+        if (state != State::SlotConnected)
+        {
+            return false;
+        }
+
+        json packet = json::array({ json({
+            {"cmd", "SetNotify"},
+            {"keys", keys}
+        }) });
+
+        Send(packet);
+        return true;
+    }
+
     // ---------------------------------------------------------------------------
     // Queries
     // ---------------------------------------------------------------------------
@@ -481,9 +536,19 @@ namespace ModArchipelaWoW::Network
         return state;
     }
 
+    int Client::GetTeamNumber() const
+    {
+        return team;
+    }
+
     int Client::GetPlayerNumber() const
     {
         return slotnr;
+    }
+
+    const std::set<int64_t>& Client::GetMissingLocations() const
+    {
+        return missingLocations;
     }
 
     std::string Client::GetPlayerAlias(int slot) const
@@ -708,6 +773,7 @@ namespace ModArchipelaWoW::Network
     void Client::SetPrintJsonHandler(std::function<void(const PrintJson&)> handler) { onPrintJson = std::move(handler); }
     void Client::SetBouncedHandler(std::function<void(const json&)> handler) { onBounced = std::move(handler); }
     void Client::SetMessageErrorHandler(std::function<void(const std::string&)> handler) { onMessageError = std::move(handler); }
+    void Client::SetDataStorageHandler(std::function<void(const std::string&, const json&)> handler) { onDataStorage = std::move(handler); }
 
     // ---------------------------------------------------------------------------
     // Private - socket management
@@ -839,10 +905,12 @@ namespace ModArchipelaWoW::Network
             int newSlot = command.at("slot").get<int>();
             const json& playerList = command.at("players");
             const json& slotData = command.at("slot_data");
+            std::set<int64_t> newMissingLocations = command.at("missing_locations").get<std::set<int64_t>>();
 
             state = State::SlotConnected;
             team = newTeam;
             slotnr = newSlot;
+            missingLocations = std::move(newMissingLocations);
 
             players.clear();
             for (const auto& p : playerList)
@@ -942,8 +1010,31 @@ namespace ModArchipelaWoW::Network
         {
             if (onBounced) onBounced(command);
         }
+        else if (cmd == "Retrieved")
+        {
+            if (onDataStorage)
+            {
+                for (const auto& [key, value] : command.at("keys").items())
+                {
+                    onDataStorage(key, value);
+                }
+            }
+        }
+        else if (cmd == "SetReply")
+        {
+            if (onDataStorage) onDataStorage(command.at("key").get<std::string>(), command.at("value"));
+        }
         else if (cmd == "RoomUpdate")
         {
+            // Includes the checks made elsewhere, such as by a !collect.
+            if (command.contains("checked_locations") && command["checked_locations"].is_array())
+            {
+                for (const auto& location : command["checked_locations"])
+                {
+                    missingLocations.erase(location.get<int64_t>());
+                }
+            }
+
             if (command.contains("players") && command["players"].is_array())
             {
                 players.clear();

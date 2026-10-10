@@ -5,6 +5,7 @@
 #include "ArchipelaWoW.h"
 #include "ByteBuffer.h"
 #include "Chat.h"
+#include "Containers.h"
 #include "Creature.h"
 #include "database/AP_Database.h"
 #include "database/AP_DatabaseConnection.h"
@@ -37,6 +38,7 @@
 #include "Player.h"
 #include "QuestDef.h"
 #include "SharedDefines.h"
+#include "Spell.h"
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "Unit.h"
@@ -79,6 +81,11 @@ constexpr char AP_COMMAND_MARKER = '!';
 // How many relayed lines can be waiting for their echo at once. Only ever more than a couple
 // when the room is echoing slowly, and a dropped entry costs nothing but a duplicated line.
 constexpr size_t MAX_PENDING_CHAT_ECHOES = 16;
+// archipelawow_world_014_divination_scroll.sql
+constexpr uint32 SCROLL_OF_DIVINATION_ITEM_ID = 4427;
+constexpr size_t SCROLL_OF_DIVINATION_HINTS = 3;
+// LocationScouts' create_as_hint: hint the locations, and announce only the hints that are new
+constexpr int CREATE_AS_HINT_ANNOUNCE_NEW = 2;
 
 namespace ModArchipelaWoW
 {
@@ -714,6 +721,20 @@ namespace ModArchipelaWoW
         return true;
     }
 
+    void AP_Character::OnPlayerSpellCast(const Spell* spell)
+    {
+        // The use was cleared by CanUseConsumable a moment ago, and casting is what uses the item up.
+        if (spell->m_CastItem->GetEntry() == SCROLL_OF_DIVINATION_ITEM_ID && IsSlotConnected())
+        {
+            std::vector<int64> locations = GetUnhintedLocations();
+            Acore::Containers::RandomResize(locations, SCROLL_OF_DIVINATION_HINTS);
+
+            // Ahead of the server's update, which a second scroll read straight after could beat.
+            hintedLocations.insert(locations.begin(), locations.end());
+            ap->LocationScouts({ locations.begin(), locations.end() }, CREATE_AS_HINT_ANNOUNCE_NEW);
+        }
+    }
+
     void AP_Character::OnUseArchipelagoStone(Item* item)
     {
         if (!item)
@@ -732,6 +753,28 @@ namespace ModArchipelaWoW
         }
 
         apStone.OnGossipSelect(item, sender, action);
+    }
+
+    bool AP_Character::CanUseConsumable(uint32 itemId)
+    {
+        ChatHandler chat(player->GetSession());
+
+        if (itemId == SCROLL_OF_DIVINATION_ITEM_ID)
+        {
+            if (!IsSlotConnected())
+            {
+                chat.SendSysMessage("|cFFFF0000The scroll stays blank until the slot is connected.");
+                return false;
+            }
+
+            if (GetUnhintedLocations().empty())
+            {
+                chat.SendSysMessage("|cFFFF0000Every location left in your world is already hinted.");
+                return false;
+            }
+        }
+
+        return true;
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
@@ -864,6 +907,7 @@ namespace ModArchipelaWoW
         ap->SetPrintJsonHandler([this](const auto& msg) { APPrintJsonHandler(msg); });
         ap->SetSlotRefusedHandler([this](const auto& e) { APSlotRefusedHandler(e); });
         ap->SetMessageErrorHandler([this](const auto& e) { APMessageErrorHandler(e); });
+        ap->SetDataStorageHandler([this](const auto& k, const auto& v) { APDataStorageHandler(k, v); });
     }
 
     void AP_Character::ConnectAPSlot()
@@ -1458,6 +1502,25 @@ namespace ModArchipelaWoW
         ap->Say(AP_COMMAND_MARKER + command);
     }
 
+    std::vector<int64> AP_Character::GetUnhintedLocations() const
+    {
+        std::vector<int64> locations;
+        for (int64 location : ap->GetMissingLocations())
+        {
+            if (!hintedLocations.contains(location))
+            {
+                locations.push_back(location);
+            }
+        }
+
+        return locations;
+    }
+
+    std::string AP_Character::GetHintsKey() const
+    {
+        return fmt::format("_read_hints_{}_{}", ap->GetTeamNumber(), ap->GetPlayerNumber());
+    }
+
     void AP_Character::APSlotConnectedHandler(const nlohmann::json& data)
     {
         if (!ap)
@@ -1623,6 +1686,9 @@ namespace ModArchipelaWoW
         SaveToDatabase();
         SendExperienceBar();
         SyncLocationChecks();
+
+        ap->Get({ GetHintsKey() });
+        ap->SetNotify({ GetHintsKey() });
 
         // Once per login: from here on they're checked as they're done, and a reconnection resends those
         if (!missedProgressCaughtUp)
@@ -1823,6 +1889,24 @@ namespace ModArchipelaWoW
     void AP_Character::APMessageErrorHandler(const std::string& error)
     {
         AP_LOG_ERROR("APClient message processing error: {}", error);
+    }
+
+    void AP_Character::APDataStorageHandler(const std::string& key, const nlohmann::json& value)
+    {
+        if (key != GetHintsKey() || !value.is_array())
+        {
+            return;
+        }
+
+        // The slot's hints also list where its own items are, in other worlds.
+        hintedLocations.clear();
+        for (const auto& hint : value)
+        {
+            if (hint.at("finding_player").get<int>() == ap->GetPlayerNumber())
+            {
+                hintedLocations.insert(hint.at("location").get<int64>());
+            }
+        }
     }
 
     std::string AP_Character::ConvertANSIColoredString(const std::string& str)

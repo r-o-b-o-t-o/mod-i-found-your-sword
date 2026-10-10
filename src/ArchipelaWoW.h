@@ -74,6 +74,7 @@ namespace ModArchipelaWoW
         /// Relays what the character typed to its Archipelago slot. Returns false when the
         /// message was an Archipelago command and must not also reach the game world.
         bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
+        void OnPlayerSpellCast(Player* player, const Spell* spell);
 
         // GlobalScripts methods
         void OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters);
@@ -86,6 +87,7 @@ namespace ModArchipelaWoW
         // ItemScripts methods
         bool OnUseArchipelagoStone(Player* player, Item* item);
         void OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action);
+        bool CanUseArchipelagoConsumable(Player* player, Item* item);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void OnSelectArchipelagoStoneGossipCode(Player* player, uint32 sender, uint32 action, const char* code);
 #endif

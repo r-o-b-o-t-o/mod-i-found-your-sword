@@ -137,6 +137,10 @@ namespace ModArchipelaWoW::Network
         /// Send checked locations to the server.
         bool LocationChecks(const std::list<int64_t>& locations);
 
+        /// Ask the server what the locations hold. With createAsHint 2, it also hints the ones not
+        /// hinted yet and announces them to the room.
+        bool LocationScouts(const std::list<int64_t>& locations, int createAsHint);
+
         /// Send a status update (e.g. Goal reached).
         bool StatusUpdate(ClientStatus status);
 
@@ -159,8 +163,17 @@ namespace ModArchipelaWoW::Network
         /// what the room will echo back can ask for the same text Say would send.
         static std::string StripUnprintable(const std::string& text);
 
+        /// Read data storage keys, answered through the data storage handler.
+        bool Get(const std::list<std::string>& keys);
+
+        /// Have the data storage handler told whenever one of the keys changes.
+        bool SetNotify(const std::list<std::string>& keys);
+
         State GetState() const;
+        int GetTeamNumber() const;
         int GetPlayerNumber() const;
+        /// The slot's locations the server has not seen checked, by anyone.
+        const std::set<int64_t>& GetMissingLocations() const;
         std::string GetPlayerAlias(int slot) const;
         std::string GetPlayerGame(int player) const;
         std::string GetItemName(int64_t code, const std::string& game) const;
@@ -181,6 +194,8 @@ namespace ModArchipelaWoW::Network
         void SetPrintJsonHandler(std::function<void(const PrintJson&)> handler);
         void SetBouncedHandler(std::function<void(const json&)> handler);
         void SetMessageErrorHandler(std::function<void(const std::string&)> handler);
+        /// Called with each key a Get retrieved, and each key SetNotify watches as it changes.
+        void SetDataStorageHandler(std::function<void(const std::string&, const json&)> handler);
 
     private:
         struct EventQueue;
@@ -217,6 +232,7 @@ namespace ModArchipelaWoW::Network
         bool reconnectNow = true;
 
         std::set<int64_t> checkQueue;
+        std::set<int64_t> missingLocations;
 
         std::list<NetworkPlayer> players;
         std::map<int, NetworkSlot> slotInfo;
@@ -239,6 +255,7 @@ namespace ModArchipelaWoW::Network
         std::function<void(const PrintJson&)> onPrintJson;
         std::function<void(const json&)> onBounced;
         std::function<void(const std::string&)> onMessageError;
+        std::function<void(const std::string&, const json&)> onDataStorage;
     };
 }
 

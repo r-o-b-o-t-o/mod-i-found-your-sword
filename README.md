@@ -138,13 +138,14 @@ One new `item_template` entry is created. It is never handed out to a player:
 |----|------|---------|----------|
 | `100500` | Back | The entry the Archipelago Stone adds to mod-transmog's vendor interface to return to the transmogrification menu | `archipelawow_world_010_transmog_back_item.sql` |
 
-The items below reuse existing rows that no player can obtain: either `[DEPRECATED]`
+The items below reuse existing rows that no player can obtain: either deprecated
 entries, or Blizzard's `NPC Equip <id>` placeholders, which exist only to carry a display id.
 None of them appear in `creature_equip_template`, `npc_vendor`, any loot table, or a reachable quest.
 
 | ID | Repurposed as | Original entry | Added by |
 |----|---------------|----------------|----------|
 | `32618` | Archipelago Stone | `[DEPRECATED]Crystalforged Darkrune` | `archipelawow_world_001_stone_item.sql` |
+| `4427` | Scroll of Divination | `Deprecated Scroll of Spirit Armor V` | `archipelawow_world_014_divination_scroll.sql` |
 | `19063` | The Immortal Crust | `NPC Equip 19063` | `archipelawow_world_005_food_and_drink.sql` |
 | `40843` | Suspiciously Regrowing Berries | `NPC Equip 40843` | `archipelawow_world_005_…` |
 | `34770` | Fillet of Neverfin | `NPC Equip 34770` | `archipelawow_world_005_…` |

@@ -23,6 +23,7 @@
 #include "Opcodes.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Spell.h"
 #include "Trainer.h"
 #include "Unit.h"
 #include "WorldPacket.h"
@@ -672,6 +673,33 @@ namespace ModArchipelaWoW
         }
 
         return false;
+    }
+
+    void ArchipelaWoW::OnPlayerSpellCast(Player* player, const Spell* spell)
+    {
+        // Every spell a character casts comes through here: bail out before the lookup.
+        if (!player || !spell || !spell->m_CastItem)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerSpellCast(spell);
+        }
+    }
+
+    bool ArchipelaWoW::CanUseArchipelagoConsumable(Player* player, Item* item)
+    {
+        auto guid = player->GetGUID().GetCounter();
+        if (!apCharacters.contains(guid))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000This character is not bound to an Archipelago slot.");
+            return false;
+        }
+
+        return apCharacters[guid]->CanUseConsumable(item->GetEntry());
     }
 
     void ArchipelaWoW::OnSelectArchipelagoStoneGossip(Player* player, Item* item, uint32 sender, uint32 action)

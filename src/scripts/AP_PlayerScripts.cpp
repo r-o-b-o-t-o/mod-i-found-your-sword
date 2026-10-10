@@ -45,6 +45,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_UPDATE_SKILL,
                 PLAYERHOOK_CAN_PLAYER_USE_CHAT,
                 PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
+                PLAYERHOOK_ON_SPELL_CAST,
             })
         {
         }
@@ -183,6 +184,11 @@ namespace ModArchipelaWoW::Scripts
         bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*language*/, std::string& msg, Channel* channel) override
         {
             return sArchipelaWoW->OnPlayerCanUseChat(player, type, msg, channel ? channel->GetName() : "");
+        }
+
+        void OnPlayerSpellCast(Player* player, Spell* spell, bool /*skipCheck*/) override
+        {
+            sArchipelaWoW->OnPlayerSpellCast(player, spell);
         }
     };
 

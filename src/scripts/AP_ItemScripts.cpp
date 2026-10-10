@@ -48,8 +48,37 @@ namespace ModArchipelaWoW::Scripts
 #endif
     };
 
+    class ArchipelagoConsumableScript : public ItemScript
+    {
+    public:
+        ArchipelagoConsumableScript() :
+            ItemScript("item_archipelawow_consumable")
+        {
+        }
+
+        bool OnUse(Player* player, Item* item, SpellCastTargets const& /*targets*/) override
+        {
+            if (!player || !item)
+            {
+                return false;
+            }
+
+            // The item's spell, which uses it up, is left to be cast: the module applies the effect as
+            // it is.
+            if (sArchipelaWoW->CanUseArchipelagoConsumable(player, item))
+            {
+                return false;
+            }
+
+            // Releases the item the client greyed out on use, as the core's own item scripts do.
+            player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, item, nullptr);
+            return true;
+        }
+    };
+
     void AddItemScripts()
     {
         new ArchipelagoStoneScript();
+        new ArchipelagoConsumableScript();
     }
 }

@@ -28,6 +28,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace ModArchipelaWoW
 {
@@ -77,6 +78,7 @@ namespace ModArchipelaWoW
         void OnPlayerCreateItem(Item* item);
         void OnPlayerBeforeLogout();
         bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
+        void OnPlayerSpellCast(const Spell* spell);
 
         // GlobalScripts events
         void OnDungeonEncounterCredited(uint32 encounterId);
@@ -84,6 +86,9 @@ namespace ModArchipelaWoW
         // ItemScripts events
         void OnUseArchipelagoStone(Item* item);
         void OnSelectArchipelagoStoneGossip(Item* item, uint32 sender, uint32 action);
+        /// Whether one of the module's consumables can be used now, telling the character why not
+        /// when it cannot.
+        bool CanUseConsumable(uint32 itemId);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void OnSelectArchipelagoStoneGossipCode(uint32 sender, uint32 action, const char* code);
 
@@ -112,6 +117,8 @@ namespace ModArchipelaWoW
         /// The glyph items this slot has received, which the stone can inscribe again at any time.
         std::unordered_set<uint32> receivedGlyphs;
         std::unordered_set<int32> checkedLocations;
+        /// This world's locations a hint already gives away, which a Scroll of Divination skips.
+        std::unordered_set<int64> hintedLocations;
         std::unordered_map<Items::ProgressiveType, uint32> progressiveCounts;
         PlayerPosition lastUnlockedPosition;
         std::chrono::seconds nextLockedZoneCheck;
@@ -166,6 +173,8 @@ namespace ModArchipelaWoW
         MailSender GetMailSender(int sender);
         void RelayChatToArchipelago(const std::string& text);
         void SendCommandToArchipelago(const std::string& command);
+        std::vector<int64> GetUnhintedLocations() const;
+        std::string GetHintsKey() const;
 
         // AP Handlers
         void APSlotConnectedHandler(const nlohmann::json& data);
@@ -178,6 +187,7 @@ namespace ModArchipelaWoW
         void APPrintJsonHandler(const Network::Client::PrintJson& msg);
         void APSlotRefusedHandler(const std::list<std::string>& errors);
         void APMessageErrorHandler(const std::string& error);
+        void APDataStorageHandler(const std::string& key, const nlohmann::json& value);
 
         static std::string ConvertANSIColoredString(const std::string& str);
         static std::string GenerateUUID();
