@@ -10,13 +10,13 @@
 namespace ModArchipelaWoW::Items
 {
     /// The buckets an Archipelago gear item rolls from. Shields and off-hand holdables count as
-    /// weapons, and relics -- librams, idols, totems, sigils -- as jewellery, which is how a player
+    /// weapons, and relics -- librams, idols, totems, sigils -- as jewelry, which is how a player
     /// thinks of them even though the game files file every one of them under armor.
     enum class GearCategory : uint8
     {
         Weapon      = 1,
         Armor       = 2,
-        Jewellery   = 3,
+        Jewelry     = 3,
 
         Count
     };

@@ -12,7 +12,7 @@ namespace ModArchipelaWoW::Items
         {
             case static_cast<uint32>(GearCategory::Weapon):
             case static_cast<uint32>(GearCategory::Armor):
-            case static_cast<uint32>(GearCategory::Jewellery):
+            case static_cast<uint32>(GearCategory::Jewelry):
                 return static_cast<GearCategory>(value);
             default:
                 return {};

@@ -180,7 +180,7 @@ namespace ModArchipelaWoW::Items
         // lesser evil -- a piece that has to be grown into still gets worn eventually, one that is
         // already ten levels stale never does -- and widening is the only way to serve a low level
         // character at all: no rare gear in the game asks for less than level 13, and no rare
-        // jewellery for less than 17. The loop always ends: once the window covers the whole range
+        // jewelry for less than 17. The loop always ends: once the window covers the whole range
         // it stops whether or not it found the minimum.
         std::vector<ItemTemplate const*> matches;
         while (true)
@@ -271,7 +271,7 @@ namespace ModArchipelaWoW::Items
             case ITEM_SUBCLASS_ARMOR_IDOL:
             case ITEM_SUBCLASS_ARMOR_TOTEM:
             case ITEM_SUBCLASS_ARMOR_SIGIL:
-                return GearCategory::Jewellery;
+                return GearCategory::Jewelry;
             case ITEM_SUBCLASS_ARMOR_MISC:
                 break;
             default:
@@ -286,7 +286,7 @@ namespace ModArchipelaWoW::Items
             case INVTYPE_NECK:
             case INVTYPE_FINGER:
             case INVTYPE_TRINKET:
-                return GearCategory::Jewellery;
+                return GearCategory::Jewelry;
             case INVTYPE_CLOAK:
                 return GearCategory::Armor;
             case INVTYPE_HOLDABLE:
