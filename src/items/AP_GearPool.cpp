@@ -209,6 +209,20 @@ namespace ModArchipelaWoW::Items
             high += LEVEL_WINDOW_WIDEN_STEP;
         }
 
+        // Nothing at all under the run's cap -- no rare jewelry asks for less than level 17, so a
+        // level 10 goal has none to give -- so the piece comes from the nearest level above it that
+        // holds one, rather than the item being lost.
+        for (int32 level = ceiling + 1; matches.empty() && level <= maxLevel; ++level)
+        {
+            for (ItemTemplate const* item : levels[level])
+            {
+                if (IsUsableBy(item, player) && MatchesArmorMask(item, armorMask))
+                {
+                    matches.push_back(item);
+                }
+            }
+        }
+
         if (matches.empty())
         {
             return {};

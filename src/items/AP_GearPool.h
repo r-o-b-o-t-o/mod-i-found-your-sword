@@ -29,9 +29,9 @@ namespace ModArchipelaWoW::Items
 
         /// Picks a gear piece the character can wear, requiring a level within `levelWindow` of the
         /// character's own where possible and never above `goalMaxLevel`, the level the run itself
-        /// stops at. Unless `allArmorTypes` is set, armor is narrowed to the heaviest types the class
-        /// is up to. Returns nothing only when the pool holds nothing at all this class could ever
-        /// use, which the six shipped categories never hit.
+        /// stops at, unless nothing under it fits. Unless `allArmorTypes` is set, armor is narrowed to
+        /// the heaviest types the class is up to. Returns nothing only when the pool holds nothing at
+        /// all this class could ever use, which the six shipped categories never hit.
         Optional<uint32> Roll(GearCategory category, uint32 quality, Player const* player,
             uint8 levelWindow, bool allArmorTypes, uint8 goalMaxLevel) const;
 
