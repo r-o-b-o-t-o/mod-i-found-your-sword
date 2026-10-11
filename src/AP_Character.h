@@ -147,6 +147,8 @@ namespace ModArchipelaWoW
 
         void GivePetXP(uint32 xp, uint8 xpSource) const;
         void GiveArchipelagoExperience(uint32 xp, Unit* victim);
+        Player* GetSoulstoneTarget() const;
+        void ApplySoulstone(Player* target);
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);

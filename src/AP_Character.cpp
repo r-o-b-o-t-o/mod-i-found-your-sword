@@ -39,6 +39,7 @@
 #include "QuestDef.h"
 #include "SharedDefines.h"
 #include "Spell.h"
+#include "SpellAuras.h"
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "Unit.h"
@@ -88,6 +89,30 @@ constexpr size_t SCROLL_OF_DIVINATION_HINTS = 3;
 constexpr uint32 TOME_OF_INSIGHT_ITEM_ID = 1335;
 // The share of the experience to the next Archipelago level a Tome of Insight gives
 constexpr uint32 TOME_OF_INSIGHT_LEVEL_DIVISOR = 4;
+// archipelawow_world_016_soulstone.sql
+constexpr uint32 SOULSTONE_ITEM_ID = 2767;
+constexpr int32 SOULSTONE_DURATION = HOUR * IN_MILLISECONDS;
+// Soulstone Resurrection's own range
+constexpr float SOULSTONE_RANGE = 30.0f;
+
+struct SoulstoneRank
+{
+    uint8 level;
+    uint32 auraSpellId;
+};
+
+// The Soulstone Resurrection auras, by the level a warlock first creates each one's soulstone at. The
+// core offers the self-resurrection for these ids alone (Player::GetResurrectionSpellId), and the
+// higher ranks bring the character back with more health and mana.
+constexpr SoulstoneRank SOULSTONE_RANKS[] = {
+    { 18, 20707 },
+    { 30, 20762 },
+    { 40, 20763 },
+    { 50, 20764 },
+    { 60, 20765 },
+    { 70, 27239 },
+    { 76, 47883 },
+};
 // LocationScouts' create_as_hint: hint the locations, and announce only the hints that are new
 constexpr int CREATE_AS_HINT_ANNOUNCE_NEW = 2;
 
@@ -719,6 +744,10 @@ namespace ModArchipelaWoW
         {
             GiveArchipelagoExperience(std::max<uint32>(xpForLevel / TOME_OF_INSIGHT_LEVEL_DIVISOR, 1), nullptr);
         }
+        else if (spell->m_CastItem->GetEntry() == SOULSTONE_ITEM_ID)
+        {
+            ApplySoulstone(GetSoulstoneTarget());
+        }
     }
 
     void AP_Character::OnUseArchipelagoStone(Item* item)
@@ -772,6 +801,31 @@ namespace ModArchipelaWoW
             {
                 chat.SendSysMessage("|cFFFF0000You have reached the Archipelago level cap, the tome has nothing left to teach you.");
                 return false;
+            }
+        }
+        else if (itemId == SOULSTONE_ITEM_ID)
+        {
+            // The checks Soulstone Resurrection makes on its target, which the item's spell does not.
+            Player* target = GetSoulstoneTarget();
+            if (target != player)
+            {
+                if (!player->IsInSameRaidWith(target))
+                {
+                    chat.SendSysMessage("|cFFFF0000Your target is not in your group.");
+                    return false;
+                }
+
+                if (!target->IsAlive())
+                {
+                    chat.SendSysMessage("|cFFFF0000Your target is dead.");
+                    return false;
+                }
+
+                if (!player->IsWithinDistInMap(target, SOULSTONE_RANGE) || !player->IsWithinLOSInMap(target))
+                {
+                    chat.SendSysMessage("|cFFFF0000Your target is out of range.");
+                    return false;
+                }
             }
         }
 
@@ -1267,6 +1321,40 @@ namespace ModArchipelaWoW
         }
 
         SendExperienceBar();
+    }
+
+    Player* AP_Character::GetSoulstoneTarget() const
+    {
+        // The item's spell only targets the character, so the target is its selection instead: a friendly
+        // player, or the character itself without one, as a warlock's soulstone falls back to the caster.
+        Player* target = player->GetSelectedPlayer();
+        return target && target->IsFriendlyTo(player) ? target : player;
+    }
+
+    void AP_Character::ApplySoulstone(Player* target)
+    {
+        // The first rank below level 18, where no rank is created yet.
+        uint32 auraSpellId = SOULSTONE_RANKS[0].auraSpellId;
+        for (const SoulstoneRank& rank : SOULSTONE_RANKS)
+        {
+            if (player->GetLevel() >= rank.level)
+            {
+                auraSpellId = rank.auraSpellId;
+            }
+
+            // Only one soul can be stored at a time.
+            target->RemoveAurasDueToSpell(rank.auraSpellId);
+        }
+
+        player->CastSpell(target, auraSpellId, true);
+
+        // An hour rather than the spell's 15 minutes. The client shows the duration the server sends
+        // with the aura, and the target's saved auras keep it across a relog.
+        if (Aura* aura = target->GetAura(auraSpellId, player->GetGUID()))
+        {
+            aura->SetMaxDuration(SOULSTONE_DURATION);
+            aura->SetDuration(SOULSTONE_DURATION);
+        }
     }
 
     uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
