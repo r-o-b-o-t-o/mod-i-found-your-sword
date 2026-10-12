@@ -64,6 +64,7 @@ namespace ModArchipelaWoW
         void OnPlayerLevelChanged(Player* player);
         void OnPlayerSendInitialPacketsBeforeAddToMap(Player* player);
         void OnPlayerLearnTaxiNode(const Player* player, uint32 nodeId);
+        void OnPlayerTextEmote(Player* player, uint32 textEmote, ObjectGuid target);
         void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count);
         bool OnPlayerCanLearnSpell(Player* player, uint32 spellId);
         void OnPlayerGetTrainerSpellState(const Player* player, uint32 spellId, Trainer::SpellState& state);

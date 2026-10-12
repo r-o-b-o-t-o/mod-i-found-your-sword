@@ -5,6 +5,7 @@
 #include "locations/AP_Bosses.h"
 #include "locations/AP_Explorations.h"
 #include "locations/AP_FlightPaths.h"
+#include "locations/AP_Leaders.h"
 #include "locations/AP_Levels.h"
 #include "locations/AP_Quests.h"
 #include "locations/AP_Skills.h"
@@ -20,6 +21,7 @@ namespace ModArchipelaWoW::Locations
             bosses(),
             explorations(),
             flightPaths(),
+            leaders(),
             levels(),
             quests(),
             skills(),
@@ -31,6 +33,7 @@ namespace ModArchipelaWoW::Locations
         Bosses bosses;
         Explorations explorations;
         FlightPaths flightPaths;
+        Leaders leaders;
         Levels levels;
         Quests quests;
         Skills skills;

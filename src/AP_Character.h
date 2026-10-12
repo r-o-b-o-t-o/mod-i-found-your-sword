@@ -15,6 +15,7 @@
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "NPCPackets.h"
+#include "ObjectGuid.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Trainer.h"
@@ -68,6 +69,7 @@ namespace ModArchipelaWoW
         void OnPlayerLevelChanged();
         void OnPlayerSendInitialPacketsBeforeAddToMap();
         void OnPlayerLearnTaxiNode(uint32 nodeId);
+        void OnPlayerTextEmote(uint32 textEmote, ObjectGuid target);
         void OnPlayerAfterTakeItemFromMail(uint32 wowItemId);
         bool OnPlayerCanLearnSpell(uint32 spellId);
         void OnPlayerGetTrainerSpellState(uint32 spellId, Trainer::SpellState& state);

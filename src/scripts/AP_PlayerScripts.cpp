@@ -36,6 +36,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_ON_LEVEL_CHANGED,
                 PLAYERHOOK_ON_SEND_INITIAL_PACKETS_BEFORE_ADD_TO_MAP,
                 PLAYERHOOK_ON_LEARN_TAXI_NODE,
+                PLAYERHOOK_ON_TEXT_EMOTE,
                 PLAYERHOOK_ON_AFTER_TAKE_ITEM_FROM_MAIL,
                 PLAYERHOOK_ON_CREATE_ITEM,
                 PLAYERHOOK_CAN_LEARN_SPELL,
@@ -139,6 +140,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerLearnTaxiNode(const Player* player, uint32 node) override
         {
             sArchipelaWoW->OnPlayerLearnTaxiNode(player, node);
+        }
+
+        void OnPlayerTextEmote(Player* player, uint32 textEmote, uint32 /*emoteNum*/, ObjectGuid guid) override
+        {
+            sArchipelaWoW->OnPlayerTextEmote(player, textEmote, guid);
         }
 
         void OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 count) override

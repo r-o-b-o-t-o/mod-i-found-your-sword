@@ -507,6 +507,20 @@ namespace ModArchipelaWoW
         }
     }
 
+    void AP_Character::OnPlayerTextEmote(uint32 textEmote, ObjectGuid target)
+    {
+        if ((textEmote != TEXT_EMOTE_HELLO && textEmote != TEXT_EMOTE_SALUTE) || !target.IsCreature())
+        {
+            return;
+        }
+
+        auto checkId = locations.leaders.GetLocationId(target.GetEntry());
+        if (checkId.has_value() && !checkedLocations.contains(checkId.value()))
+        {
+            CheckLocation(checkId.value());
+        }
+    }
+
     void AP_Character::OnDungeonEncounterCredited(uint32 encounterId)
     {
         auto checkId = locations.bosses.GetLocationId(encounterId);
@@ -1717,6 +1731,14 @@ namespace ModArchipelaWoW
             for (const auto& fp : locationData.at("flightpaths"))
             {
                 locations.flightPaths.AddLocation(fp.at(0), fp.at(1));
+            }
+            // Missing from seeds generated before the apworld had faction leader checks
+            if (locationData.contains("leaders"))
+            {
+                for (const auto& leader : locationData.at("leaders"))
+                {
+                    locations.leaders.AddLocation(leader.at(0), leader.at(1));
+                }
             }
             for (const auto& spell : locationData.at("spells"))
             {

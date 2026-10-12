@@ -433,6 +433,22 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerTextEmote(Player* player, uint32 textEmote, ObjectGuid target)
+    {
+        ReturnIfModDisabled;
+
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerTextEmote(textEmote, target);
+        }
+    }
+
     void ArchipelaWoW::OnPlayerAfterTakeItemFromMail(Player* player, Item* item, uint32 /*count*/)
     {
         ReturnIfModDisabled;
