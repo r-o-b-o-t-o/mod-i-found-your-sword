@@ -2000,6 +2000,8 @@ namespace ModArchipelaWoW
 
         ap->Get({ GetHintsKey() });
         ap->SetNotify({ GetHintsKey() });
+        // For the launcher's tracker portrait: 0 male, 1 female
+        ap->Set(ap->GetPlayerNumber(), "gender", player->getGender());
 
         // Once per login: from here on they're checked as they're done, and a reconnection resends those
         if (!missedProgressCaughtUp)

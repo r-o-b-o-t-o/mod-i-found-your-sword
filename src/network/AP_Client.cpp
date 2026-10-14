@@ -527,6 +527,30 @@ namespace ModArchipelaWoW::Network
         return true;
     }
 
+    bool Client::Set(const std::string& key, const json& value)
+    {
+        if (state != State::SlotConnected)
+        {
+            return false;
+        }
+
+        json packet = json::array({ json({
+            {"cmd", "Set"},
+            {"key", key},
+            {"default", nullptr},
+            {"want_reply", false},
+            {"operations", json::array({ json({ {"operation", "replace"}, {"value", value} }) })}
+        }) });
+
+        Send(packet);
+        return true;
+    }
+
+    bool Client::Set(int slot, const std::string& key, const json& value)
+    {
+        return Set("Slot:" + std::to_string(slot) + ":" + key, value);
+    }
+
     // ---------------------------------------------------------------------------
     // Queries
     // ---------------------------------------------------------------------------

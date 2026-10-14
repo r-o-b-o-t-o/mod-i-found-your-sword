@@ -169,6 +169,12 @@ namespace ModArchipelaWoW::Network
         /// Have the data storage handler told whenever one of the keys changes.
         bool SetNotify(const std::list<std::string>& keys);
 
+        /// Replace the value of a data storage key.
+        bool Set(const std::string& key, const json& value);
+
+        /// Replace the value of a key in a slot's scope, named as MultiClient.Net's Scope.Slot names it.
+        bool Set(int slot, const std::string& key, const json& value);
+
         State GetState() const;
         int GetTeamNumber() const;
         int GetPlayerNumber() const;
