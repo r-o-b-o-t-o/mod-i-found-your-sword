@@ -350,6 +350,10 @@ namespace ModArchipelaWoW
         stmt->SetData(0, guid);
         trans->Append(stmt);
 
+        stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_DEL_PREFERENCES);
+        stmt->SetData(0, guid);
+        trans->Append(stmt);
+
         Database::ArchipelaWoWDatabase.CommitTransaction(trans);
     }
 

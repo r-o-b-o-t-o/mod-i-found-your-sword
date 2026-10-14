@@ -141,7 +141,11 @@ namespace ModArchipelaWoW
         nextSave(GameTime::GetGameTime() + std::chrono::seconds(15)),
         goalAchievementId(0),
         gearRewardLevelWindow(DEFAULT_GEAR_REWARD_LEVEL_WINDOW),
-        gearAllArmorTypes(false),
+        casterHeirlooms(false),
+        allArmorTypes(false),
+        heirloomWeapons(),
+        heirloomWeaponsSent(0),
+        heirloomWeaponSenders(),
         maxLevel(0),
         apLevel(1),
         apExp(0),
@@ -158,6 +162,7 @@ namespace ModArchipelaWoW
 
         uuid = GenerateUUID();
         InitExperience();
+        LoadPreferences();
     }
 
     AP_Character::AP_Character(Player* player, std::string uuid, std::string slot, int itemIndex, uint8 apLevel, uint32 apExp, bool goalCompleted) :
@@ -247,6 +252,75 @@ namespace ModArchipelaWoW
     const std::unordered_set<uint32>& AP_Character::GetReceivedGlyphs() const
     {
         return receivedGlyphs;
+    }
+
+    bool AP_Character::IsHybrid() const
+    {
+        uint8 playerClass = player->getClass();
+        return playerClass == CLASS_PALADIN || playerClass == CLASS_SHAMAN || playerClass == CLASS_DRUID;
+    }
+
+    bool AP_Character::PrefersCasterHeirlooms() const
+    {
+        return IsHybrid() && casterHeirlooms;
+    }
+
+    void AP_Character::ToggleCasterHeirlooms()
+    {
+        casterHeirlooms = !casterHeirlooms;
+        SavePreferences();
+    }
+
+    bool AP_Character::PrefersAllArmorTypes() const
+    {
+        return IsHybrid() && allArmorTypes;
+    }
+
+    void AP_Character::ToggleAllArmorTypes()
+    {
+        allArmorTypes = !allArmorTypes;
+        SavePreferences();
+    }
+
+    uint32 AP_Character::GetHeirloomWeapon(uint8 slot) const
+    {
+        const Items::Heirlooms& heirlooms = items.heirlooms;
+        if (slot >= heirlooms.weaponSlots)
+        {
+            return 0;
+        }
+
+        // Nothing to choose: mages and warlocks only have the staff.
+        if (heirlooms.weaponChoices.size() == 1)
+        {
+            return heirlooms.weaponChoices.front();
+        }
+
+        return heirloomWeapons[slot];
+    }
+
+    void AP_Character::SetHeirloomWeapon(uint8 slot, uint32 itemId)
+    {
+        const std::vector<uint32>& choices = items.heirlooms.weaponChoices;
+        if (slot >= items.heirlooms.weaponSlots || IsHeirloomWeaponSent(slot) || std::ranges::find(choices, itemId) == choices.end())
+        {
+            return;
+        }
+
+        heirloomWeapons[slot] = itemId;
+        SavePreferences();
+        SendPendingHeirloomWeapons();
+    }
+
+    bool AP_Character::IsHeirloomWeaponSent(uint8 slot) const
+    {
+        return slot < heirloomWeaponsSent;
+    }
+
+    uint32 AP_Character::GetPendingHeirloomWeapons() const
+    {
+        uint32 arrived = std::min<uint32>(static_cast<uint32>(heirloomWeaponSenders.size()), items.heirlooms.weaponSlots);
+        return arrived > heirloomWeaponsSent ? arrived - heirloomWeaponsSent : 0;
     }
 
     void AP_Character::Teleport(const Items::ZoneItem& zone)
@@ -1038,6 +1112,57 @@ namespace ModArchipelaWoW
         nextSave = GameTime::GetGameTime() + std::chrono::seconds(15);
     }
 
+    void AP_Character::LoadPreferences()
+    {
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_PREFERENCES);
+        stmt->SetData(0, player->GetGUID().GetCounter());
+        PreparedQueryResult result = Database::ArchipelaWoWDatabase.Query(stmt);
+        if (!result)
+        {
+            return;
+        }
+
+        casterHeirlooms = (*result)[0].Get<bool>();
+        allArmorTypes = (*result)[1].Get<bool>();
+        for (uint8 slot = 0; slot < Items::MAX_HEIRLOOM_WEAPON_SLOTS; ++slot)
+        {
+            heirloomWeapons[slot] = (*result)[2 + slot].Get<uint32>();
+        }
+        heirloomWeaponsSent = (*result)[5].Get<uint8>();
+    }
+
+    void AP_Character::SavePreferences()
+    {
+        Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_PREFERENCES);
+        stmt->SetArguments(player->GetGUID().GetCounter(), casterHeirlooms, allArmorTypes,
+            heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent);
+        Database::ArchipelaWoWDatabase.Execute(stmt);
+    }
+
+    void AP_Character::SendPendingHeirloomWeapons()
+    {
+        // In slot order, stopping at the first empty slot: a weapon whose slot is still empty waits
+        // in the stone for the player to pick it, and the ones after it wait behind it.
+        uint8 sentBefore = heirloomWeaponsSent;
+        while (GetPendingHeirloomWeapons() > 0)
+        {
+            uint32 weapon = GetHeirloomWeapon(heirloomWeaponsSent);
+            if (!weapon)
+            {
+                break;
+            }
+
+            // From whoever sent the copy for this slot, even when the player fills it much later
+            MailItemReward(weapon, items.heirlooms.weapon, heirloomWeaponSenders[heirloomWeaponsSent]);
+            ++heirloomWeaponsSent;
+        }
+
+        if (heirloomWeaponsSent != sentBefore)
+        {
+            SavePreferences();
+        }
+    }
+
     void AP_Character::SyncLocationChecks()
     {
         if (!player || !ap)
@@ -1168,6 +1293,36 @@ namespace ModArchipelaWoW
             return;
         }
 
+        if (const Items::HeirloomPiece* piece = items.heirlooms.GetPiece(itemId))
+        {
+            if (!alreadyRewarded)
+            {
+                MailItemReward(PrefersCasterHeirlooms() ? piece->caster : piece->melee, itemId, sender);
+            }
+            return;
+        }
+
+        if (itemId == items.heirlooms.weapon)
+        {
+            // Counted again on every connection, like a progressive item: the count is not saved, and
+            // it is what says which slot each copy fills. The waiting weapons go out on every pass,
+            // so a slot the player filled while the item list was still replaying is sent here, and
+            // one already sent never is again.
+            if (!alreadyCounted)
+            {
+                heirloomWeaponSenders.push_back(sender);
+            }
+
+            SendPendingHeirloomWeapons();
+
+            if (!alreadyRewarded && GetPendingHeirloomWeapons() > 0)
+            {
+                ChatHandler(player->GetSession()).SendSysMessage(
+                    "|cFFFFF380You received an Heirloom Weapon! Choose it in the Archipelago Stone's Preferences.");
+            }
+            return;
+        }
+
         auto gear = items.gear.GetGearItem(itemId);
         if (gear.has_value())
         {
@@ -1178,7 +1333,7 @@ namespace ModArchipelaWoW
                 // wear, and the multiworld knows neither when it generates.
                 Optional<uint32> rolled = sArchipelaWoW->GetGearPool().Roll(
                     gear.value().category, gear.value().quality, player,
-                    gearRewardLevelWindow, gearAllArmorTypes, maxLevel
+                    gearRewardLevelWindow, PrefersAllArmorTypes(), maxLevel
                 );
                 if (!rolled)
                 {
@@ -1705,7 +1860,6 @@ namespace ModArchipelaWoW
             // window widths, so the value travels with the slot instead of sitting in the config.
             uint32 levelWindow = options.at("gear_reward_level_window").get<uint32>();
             gearRewardLevelWindow = static_cast<uint8>(std::min<uint32>(levelWindow, STRONG_MAX_LEVEL));
-            gearAllArmorTypes = options.at("gear_include_all_armor_types") == 1;
 
             const auto& locationData = data.at("locations");
             for (const auto& level : locationData.at("levels"))
@@ -1799,6 +1953,24 @@ namespace ModArchipelaWoW
             for (const auto& item : itemData.at("spells"))
             {
                 items.spells.AddItem(item.at(0), item.at(1), item.at(2), item.at(3).get<std::vector<uint32>>());
+            }
+            // Missing from seeds generated before the apworld sent heirlooms by kind
+            if (itemData.contains("heirlooms"))
+            {
+                const auto& heirloomData = itemData.at("heirlooms");
+                auto readPiece = [&](const char* key)
+                    {
+                        const auto& piece = heirloomData.at(key);
+                        return Items::HeirloomPiece{ piece.at(0).get<int64_t>(), piece.at(1).get<uint32>(), piece.at(2).get<uint32>() };
+                    };
+                items.heirlooms.shoulders = readPiece("shoulders");
+                items.heirlooms.chest = readPiece("chest");
+                items.heirlooms.trinket = readPiece("trinket");
+
+                const auto& weaponData = heirloomData.at("weapon");
+                items.heirlooms.weapon = weaponData.at(0);
+                items.heirlooms.weaponSlots = static_cast<uint8>(std::min<uint32>(weaponData.at(1).get<uint32>(), Items::MAX_HEIRLOOM_WEAPON_SLOTS));
+                items.heirlooms.weaponChoices = weaponData.at(2).get<std::vector<uint32>>();
             }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");

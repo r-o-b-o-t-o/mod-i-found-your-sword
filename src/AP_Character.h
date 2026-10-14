@@ -22,6 +22,7 @@
 #include "Unit.h"
 #include "WorldPacket.h"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <list>
@@ -51,6 +52,22 @@ namespace ModArchipelaWoW
         bool IsZoneLocked(uint32 zoneId) const;
         bool IsFriendTeleportUnlocked() const;
         const std::unordered_set<uint32>& GetReceivedGlyphs() const;
+
+        // Preferences menu of the Archipelago Stone
+        /// Paladins, shamans and druids, which can play either as casters or in melee.
+        bool IsHybrid() const;
+        bool PrefersCasterHeirlooms() const;
+        void ToggleCasterHeirlooms();
+        bool PrefersAllArmorTypes() const;
+        void ToggleAllArmorTypes();
+        /// The weapon in an heirloom weapon slot, 0 for none yet.
+        uint32 GetHeirloomWeapon(uint8 slot) const;
+        /// Fills an heirloom weapon slot, and sends its weapon right away if it has already arrived.
+        void SetHeirloomWeapon(uint8 slot, uint32 itemId);
+        /// Whether the slot's weapon was sent, after which it can no longer be changed.
+        bool IsHeirloomWeaponSent(uint8 slot) const;
+        /// Heirloom Weapons that arrived before the player filled their slot.
+        uint32 GetPendingHeirloomWeapons() const;
         void Teleport(const Items::ZoneItem& zone);
         bool TeleportToPlayer(Player* target);
         uint32 GetGoldPouchAmount() const;
@@ -127,7 +144,15 @@ namespace ModArchipelaWoW
         std::chrono::seconds nextSave;
         uint32 goalAchievementId;
         uint8 gearRewardLevelWindow;
-        bool gearAllArmorTypes;
+        bool casterHeirlooms;
+        bool allArmorTypes;
+        std::array<uint32, Items::MAX_HEIRLOOM_WEAPON_SLOTS> heirloomWeapons;
+        /// Persisted, unlike the senders below: the slots are sent in order, so this is also the
+        /// number of slots that can no longer be changed.
+        uint8 heirloomWeaponsSent;
+        /// Who sent each Heirloom Weapon received so far, in order, so its size is the received count.
+        /// Rebuilt from the item list the server replays on every connection, like progressiveCounts.
+        std::vector<int> heirloomWeaponSenders;
         uint8 maxLevel;
         uint8 apLevel;
         uint32 apExp;
@@ -164,6 +189,9 @@ namespace ModArchipelaWoW
         void ConnectAPSlot();
 
         void SaveToDatabase();
+        void LoadPreferences();
+        void SavePreferences();
+        void SendPendingHeirloomWeapons();
         void SyncLocationChecks();
         void CatchUpMissedProgress();
         void CompleteGoal();

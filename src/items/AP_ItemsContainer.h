@@ -2,6 +2,7 @@
 #define _MOD_ARCHIPELAWOW_ITEMS_ITEMS_CONTAINER_H_
 
 #include "items/AP_Gear.h"
+#include "items/AP_Heirlooms.h"
 #include "items/AP_Items.h"
 #include "items/AP_Progressive.h"
 #include "items/AP_Spells.h"
@@ -17,6 +18,7 @@ namespace ModArchipelaWoW::Items
         ItemsContainer() :
             items(),
             gear(),
+            heirlooms(),
             zones(),
             progressive(),
             spells(),
@@ -28,6 +30,7 @@ namespace ModArchipelaWoW::Items
 
         Items items;
         Gear gear;
+        Heirlooms heirlooms;
         Zones zones;
         Progressive progressive;
         Spells spells;

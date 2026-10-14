@@ -62,6 +62,7 @@ constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 
 constexpr uint32 GOSSIP_ITEM_GLYPHS = 6;
 constexpr uint32 GOSSIP_ITEM_FRIEND_TELEPORT = 7;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES = 8;
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -93,6 +94,14 @@ constexpr uint32 GOSSIP_MENU_GLYPH_SLOTS = 13;
 
 constexpr uint32 GOSSIP_MENU_FRIEND_TELEPORT = 14;
 
+constexpr uint32 GOSSIP_MENU_PREFERENCES = 15;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_ROLE = 1;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_WEAPONS = 2;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES = 3;
+
+constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPON_SLOTS = 16;
+constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPONS = 17;
+
 // archipelawow_world_011_glyph_texts.sql
 constexpr uint32 GOSSIP_TEXT_GLYPHS = 100500;
 constexpr uint32 GOSSIP_TEXT_GLYPH_SLOTS = 100501;
@@ -106,6 +115,11 @@ constexpr uint32 GOSSIP_TEXT_TELE_DUNGEON_LIST = 100506;
 
 // archipelawow_world_013_friend_teleport.sql
 constexpr uint32 GOSSIP_TEXT_FRIEND_TELEPORT = 100507;
+
+// archipelawow_world_017_preference_texts.sql
+constexpr uint32 GOSSIP_TEXT_PREFERENCES = 100508;
+constexpr uint32 GOSSIP_TEXT_HEIRLOOM_WEAPON_SLOTS = 100509;
+constexpr uint32 GOSSIP_TEXT_HEIRLOOM_WEAPONS = 100510;
 // Serverside-only, it only carries the cooldown: the core saves a spell cooldown with the character.
 constexpr uint32 FRIEND_TELEPORT_SPELL_ID = 100501;
 constexpr uint32 FRIEND_TELEPORT_COOLDOWN = 30 * MINUTE * IN_MILLISECONDS;
@@ -117,6 +131,26 @@ constexpr uint32 GLYPH_TYPE_MINOR = 1;
 constexpr uint32 GOSSIP_ITEM_BACK = std::numeric_limits<uint32>::max() - 1;
 constexpr uint32 GOSSIP_ITEM_BACK_TO_MAIN = std::numeric_limits<uint32>::max() - 2;
 
+// Icon of the heaviest armor type the class can wear at max level
+static const char* GetHeaviestArmorIcon(uint8 playerClass)
+{
+    switch (playerClass)
+    {
+        case CLASS_WARRIOR:
+        case CLASS_PALADIN:
+        case CLASS_DEATH_KNIGHT:
+            return "Icons/INV_Chest_Plate03";
+        case CLASS_HUNTER:
+        case CLASS_SHAMAN:
+            return "Icons/INV_Chest_Chain_06";
+        case CLASS_DRUID:
+        case CLASS_ROGUE:
+            return "Icons/INV_Chest_Leather_07";
+        default:
+            return "Icons/INV_Chest_Cloth_30";
+    }
+}
+
 namespace ModArchipelaWoW
 {
     AP_Stone::AP_Stone(AP_Character* apCharacter) :
@@ -125,7 +159,8 @@ namespace ModArchipelaWoW
         gossipIdx(0),
         gossipSender(0),
         gossipTitleTextId(0),
-        selectedGlyphItemId(0)
+        selectedGlyphItemId(0),
+        selectedHeirloomWeaponSlot(0)
     {
     }
 
@@ -229,6 +264,18 @@ namespace ModArchipelaWoW
         else if (sender == GOSSIP_MENU_FRIEND_TELEPORT)
         {
             HandleFriendTeleportAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_PREFERENCES)
+        {
+            HandlePreferencesAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_HEIRLOOM_WEAPON_SLOTS)
+        {
+            HandleHeirloomWeaponSlotAction(item, action);
+        }
+        else if (sender == GOSSIP_MENU_HEIRLOOM_WEAPONS)
+        {
+            HandleHeirloomWeaponListAction(item, action);
         }
     }
 
@@ -445,6 +492,13 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
 #endif
+        if (HasAnyPreference())
+        {
+            std::string preferences = apCharacter->GetPendingHeirloomWeapons() > 0
+                ? std::string("Preferences - |cFFC80000an heirloom weapon is waiting")
+                : std::string("Preferences");
+            AddGossipItem("Icons/INV_Misc_Gear_01", preferences, GOSSIP_ITEM_PREFERENCES);
+        }
         SendGossipMenu(item);
     }
 
@@ -456,6 +510,7 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_TELE_DUNGEON) SendDungeonTeleportMenu(item);
         else if (action == GOSSIP_ITEM_GLYPHS) SendGlyphsMenu(item);
         else if (action == GOSSIP_ITEM_FRIEND_TELEPORT) SendFriendTeleportMenu(item);
+        else if (action == GOSSIP_ITEM_PREFERENCES) SendPreferencesMenu(item);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
 #endif
@@ -1100,19 +1155,7 @@ namespace ModArchipelaWoW
 
     std::string AP_Stone::GetGlyphItemName(uint32 itemId)
     {
-        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemId);
-        if (!itemTemplate)
-        {
-            return "";
-        }
-
-        std::string name = itemTemplate->Name1;
-        if (const ItemLocale* itemLocale = sObjectMgr->GetItemLocale(itemId))
-        {
-            ObjectMgr::GetLocaleString(itemLocale->Name, player->GetSession()->GetSessionDbLocaleIndex(), name);
-        }
-
-        return StripGlyphPrefix(name);
+        return StripGlyphPrefix(GetItemName(itemId));
     }
 
     std::string AP_Stone::GetInscribedGlyphName(const GlyphPropertiesEntry* glyph)
@@ -1163,6 +1206,175 @@ namespace ModArchipelaWoW
             case CLASS_WARLOCK: return fmt::format("Icons/INV_Glyph_{}Warlock", kind);
             default: return fmt::format("Icons/INV_Glyph_{}Druid", kind);
         }
+    }
+
+    bool AP_Stone::HasAnyPreference()
+    {
+        return apCharacter->IsHybrid() || HasHeirloomWeaponChoice();
+    }
+
+    bool AP_Stone::HasHeirloomWeaponChoice()
+    {
+        // With a single weapon to choose from, the slot fills itself.
+        const Items::Heirlooms& heirlooms = apCharacter->GetItemsContainer().heirlooms;
+        return heirlooms.weaponSlots > 0 && heirlooms.weaponChoices.size() > 1;
+    }
+
+    void AP_Stone::SendPreferencesMenu(Item* item)
+    {
+        StartGossipMenu(GOSSIP_TEXT_PREFERENCES, GOSSIP_MENU_PREFERENCES);
+
+        if (apCharacter->IsHybrid())
+        {
+            bool caster = apCharacter->PrefersCasterHeirlooms();
+            AddGossipItem(caster ? "Icons/Spell_Arcane_FocusedPower" : "Icons/Spell_Nature_Strength",
+                fmt::format("Heirloom armor: {}", caster ? "Caster" : "Melee"), GOSSIP_ITEM_PREFERENCES_HEIRLOOM_ROLE);
+        }
+
+        if (HasHeirloomWeaponChoice())
+        {
+            uint32 icon = apCharacter->GetHeirloomWeapon(0);
+            if (!icon)
+            {
+                icon = apCharacter->GetItemsContainer().heirlooms.weaponChoices.front();
+            }
+
+            std::string weapons = apCharacter->GetPendingHeirloomWeapons() > 0
+                ? std::string("Heirloom weapons - |cFFC80000one is waiting")
+                : std::string("Heirloom weapons");
+            AddGossipItem(GetItemIcon(icon), weapons, GOSSIP_ITEM_PREFERENCES_HEIRLOOM_WEAPONS);
+        }
+
+        if (apCharacter->IsHybrid())
+        {
+            bool allTypes = apCharacter->PrefersAllArmorTypes();
+            AddGossipItem(allTypes ? GetHeaviestArmorIcon(CLASS_MAGE) : GetHeaviestArmorIcon(player->getClass()),
+                fmt::format("Random armor: {}", allTypes ? "All types" : "Heaviest type only"), GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES);
+        }
+
+        AddGossipItemBack();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandlePreferencesAction(Item* item, uint32 action)
+    {
+        if (action == GOSSIP_ITEM_PREFERENCES_HEIRLOOM_ROLE)
+        {
+            apCharacter->ToggleCasterHeirlooms();
+            SendPreferencesMenu(item);
+        }
+        else if (action == GOSSIP_ITEM_PREFERENCES_HEIRLOOM_WEAPONS)
+        {
+            SendHeirloomWeaponSlotsMenu(item);
+        }
+        else if (action == GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES)
+        {
+            apCharacter->ToggleAllArmorTypes();
+            SendPreferencesMenu(item);
+        }
+        else if (action == GOSSIP_ITEM_BACK)
+        {
+            SendMainMenu(item);
+        }
+    }
+
+    void AP_Stone::SendHeirloomWeaponSlotsMenu(Item* item)
+    {
+        StartGossipMenu(GOSSIP_TEXT_HEIRLOOM_WEAPON_SLOTS, GOSSIP_MENU_HEIRLOOM_WEAPON_SLOTS);
+
+        // Sent in slot order, so the weapons that are waiting belong to the first slots not sent yet.
+        uint8 slots = apCharacter->GetItemsContainer().heirlooms.weaponSlots;
+        uint32 waiting = apCharacter->GetPendingHeirloomWeapons();
+        for (uint8 slot = 0; slot < slots; ++slot)
+        {
+            uint32 weapon = apCharacter->GetHeirloomWeapon(slot);
+            if (apCharacter->IsHeirloomWeaponSent(slot))
+            {
+                AddGossipItem(GetItemIcon(weapon), fmt::format("|cFF646464{}", GetItemName(weapon)), slot);
+                continue;
+            }
+
+            bool arrived = waiting > 0;
+            if (arrived)
+            {
+                --waiting;
+            }
+
+            if (weapon)
+            {
+                AddGossipItem(GetItemIcon(weapon), GetItemName(weapon), slot);
+            }
+            else
+            {
+                AddGossipItem("Icons/INV_Misc_QuestionMark", arrived ? "Empty slot - |cFFC80000its weapon is waiting" : "Empty slot", slot);
+            }
+        }
+
+        AddGossipItemBack();
+        AddGossipItemBackToMainMenu();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleHeirloomWeaponSlotAction(Item* item, uint32 action)
+    {
+        if (action == GOSSIP_ITEM_BACK)
+        {
+            SendPreferencesMenu(item);
+        }
+        else if (action < apCharacter->GetItemsContainer().heirlooms.weaponSlots && !apCharacter->IsHeirloomWeaponSent(action))
+        {
+            selectedHeirloomWeaponSlot = static_cast<uint8>(action);
+            SendHeirloomWeaponListMenu(item);
+        }
+        else
+        {
+            // A weapon already sent stays as it is.
+            SendHeirloomWeaponSlotsMenu(item);
+        }
+    }
+
+    void AP_Stone::SendHeirloomWeaponListMenu(Item* item)
+    {
+        StartGossipMenu(GOSSIP_TEXT_HEIRLOOM_WEAPONS, GOSSIP_MENU_HEIRLOOM_WEAPONS);
+        for (uint32 weapon : apCharacter->GetItemsContainer().heirlooms.weaponChoices)
+        {
+            AddGossipItem(GetItemIcon(weapon), GetItemName(weapon), weapon);
+        }
+        AddGossipItemBack();
+        AddGossipItemBackToMainMenu();
+        SendGossipMenu(item);
+    }
+
+    void AP_Stone::HandleHeirloomWeaponListAction(Item* item, uint32 action)
+    {
+        if (action != GOSSIP_ITEM_BACK)
+        {
+            apCharacter->SetHeirloomWeapon(selectedHeirloomWeaponSlot, action);
+        }
+
+        SendHeirloomWeaponSlotsMenu(item);
+    }
+
+    std::string AP_Stone::GetItemName(uint32 itemId)
+    {
+        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemId);
+        if (!itemTemplate)
+        {
+            return "";
+        }
+
+        std::string name = itemTemplate->Name1;
+        if (const ItemLocale* itemLocale = sObjectMgr->GetItemLocale(itemId))
+        {
+            ObjectMgr::GetLocaleString(itemLocale->Name, player->GetSession()->GetSessionDbLocaleIndex(), name);
+        }
+
+        return name;
+    }
+
+    std::string AP_Stone::GetItemIcon(uint32 itemId)
+    {
+        return GetItemIcon(sObjectMgr->GetItemTemplate(itemId));
     }
 
     std::string AP_Stone::GetItemIcon(const ItemTemplate* itemTemplate)

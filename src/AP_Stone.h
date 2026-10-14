@@ -56,6 +56,7 @@ namespace ModArchipelaWoW
         uint32 gossipSender;
         uint32 gossipTitleTextId;
         uint32 selectedGlyphItemId; // The glyph item picked in the glyphs menu, for the slots menu
+        uint8 selectedHeirloomWeaponSlot; // The slot picked in the heirloom weapon slots menu, for the weapon list
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid; // Set while a click or purchase runs on it
         ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
@@ -110,6 +111,16 @@ namespace ModArchipelaWoW
         std::string GetInscribedGlyphName(const GlyphPropertiesEntry* glyph);
         static std::string StripGlyphPrefix(std::string name);
         std::string GetGlyphIcon(uint32 type);
+        bool HasAnyPreference();
+        bool HasHeirloomWeaponChoice();
+        void SendPreferencesMenu(Item* item);
+        void HandlePreferencesAction(Item* item, uint32 action);
+        void SendHeirloomWeaponSlotsMenu(Item* item);
+        void HandleHeirloomWeaponSlotAction(Item* item, uint32 action);
+        void SendHeirloomWeaponListMenu(Item* item);
+        void HandleHeirloomWeaponListAction(Item* item, uint32 action);
+        std::string GetItemName(uint32 itemId);
+        static std::string GetItemIcon(uint32 itemId);
         static std::string GetItemIcon(const ItemTemplate* itemTemplate);
         void StartGossipMenu(uint32 titleTextId, uint32 sender);
         void SendGossipMenu(Item* item);
