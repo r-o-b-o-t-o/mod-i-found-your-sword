@@ -419,7 +419,7 @@ namespace ModArchipelaWoW
 
         if (cooldown > 0)
         {
-            hearthstone = fmt::format("Hearthstone - ready in {}", secsToTimeString(CooldownSeconds(cooldown), true));
+            hearthstone = fmt::format("Hearthstone - |cFFC80000ready in {}", secsToTimeString(CooldownSeconds(cooldown), true));
         }
         else
         {
@@ -436,7 +436,7 @@ namespace ModArchipelaWoW
         {
             uint32 friendCooldown = player->GetSpellCooldownDelay(FRIEND_TELEPORT_SPELL_ID);
             std::string friendTeleport = friendCooldown > 0
-                ? fmt::format("Teleport to Friend - {}", secsToTimeString(CooldownSeconds(friendCooldown), true))
+                ? fmt::format("Teleport to Friend - |cFFC80000{}", secsToTimeString(CooldownSeconds(friendCooldown), true))
                 : std::string("Teleport to Friend");
             AddGossipItem("Icons/Achievement_Reputation_01", friendTeleport, GOSSIP_ITEM_FRIEND_TELEPORT);
         }
@@ -982,7 +982,7 @@ namespace ModArchipelaWoW
             }
 
             const GlyphPropertiesEntry* current = sGlyphPropertiesStore.LookupEntry(player->GetGlyph(slot));
-            std::string text = current ? fmt::format("Replace {}", GetInscribedGlyphName(current)) : std::string("Empty slot");
+            std::string text = current ? fmt::format("|cFFC80000Replace |r{}", GetInscribedGlyphName(current)) : std::string("Empty slot");
             AddGossipItem(icon, text, slot);
         }
         AddGossipItemBack();
@@ -1194,12 +1194,12 @@ namespace ModArchipelaWoW
 
     void AP_Stone::AddGossipItemBack()
     {
-        AddGossipItem("PaperDollInfoFrame/UI-GearManager-Undo", "Back", GOSSIP_ITEM_BACK);
+        AddGossipItem("PaperDollInfoFrame/UI-GearManager-Undo", "|cFF323232Back", GOSSIP_ITEM_BACK);
     }
 
     void AP_Stone::AddGossipItemBackToMainMenu()
     {
-        AddGossipItem("PaperDollInfoFrame/UI-GearManager-LeaveItem-Opaque", "Back to main menu", GOSSIP_ITEM_BACK_TO_MAIN);
+        AddGossipItem("PaperDollInfoFrame/UI-GearManager-LeaveItem-Opaque", "|cFF323232Back to main menu", GOSSIP_ITEM_BACK_TO_MAIN);
     }
 
     std::string AP_Stone::GossipItemText(const std::string& icon, const std::string& text)
