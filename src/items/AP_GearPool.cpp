@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <map>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -228,7 +229,40 @@ namespace ModArchipelaWoW::Items
             return {};
         }
 
-        return Acore::Containers::SelectRandomContainerElement(matches)->ItemId;
+        // Which weapon slots matter depends too much on the class for a slot roll to be fair.
+        if (category == GearCategory::Weapon)
+        {
+            return Acore::Containers::SelectRandomContainerElement(matches)->ItemId;
+        }
+
+        // Armor and jewelry roll the slot first, or slots that hold more items would come up more
+        // often: cloaks fit every armor type, so they far outnumber any other armor slot. A slot with
+        // fewer than LEVEL_WINDOW_MIN_CANDIDATES items is weighted down in proportion, so the few
+        // relics and trinkets in range don't keep handing out the same piece.
+        std::map<uint32, std::vector<ItemTemplate const*>> slots;
+        for (ItemTemplate const* item : matches)
+        {
+            slots[SlotOf(item)].push_back(item);
+        }
+
+        auto slot = Acore::Containers::SelectRandomWeightedContainerElement(slots, [](const auto& entry)
+        {
+            return static_cast<double>(SlotWeight(entry.first) *
+                std::min(entry.second.size(), LEVEL_WINDOW_MIN_CANDIDATES));
+        });
+
+        return Acore::Containers::SelectRandomContainerElement(slot->second)->ItemId;
+    }
+
+    uint32 GearPool::SlotOf(ItemTemplate const* item)
+    {
+        return item->InventoryType == INVTYPE_ROBE ? INVTYPE_CHEST : item->InventoryType;
+    }
+
+    uint32 GearPool::SlotWeight(uint32 slot)
+    {
+        // Characters have two of each.
+        return slot == INVTYPE_FINGER || slot == INVTYPE_TRINKET ? 2 : 1;
     }
 
     Optional<std::size_t> GearPool::QualityIndex(uint32 quality)

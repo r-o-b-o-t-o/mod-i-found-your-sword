@@ -74,6 +74,8 @@ namespace ModArchipelaWoW::Items
 
         static bool MatchesArmorMask(ItemTemplate const* item, uint32 allowedMask);
 
+        static uint32 SlotOf(ItemTemplate const* item);
+        static uint32 SlotWeight(uint32 slot);
         static Optional<std::size_t> QualityIndex(uint32 quality);
         static Optional<GearCategory> CategoryOf(ItemTemplate const* item);
         static std::unordered_set<uint32> LoadObtainableItems();
