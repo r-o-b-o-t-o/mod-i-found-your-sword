@@ -3,12 +3,14 @@
 
 #include "AP_PlayerPosition.h"
 #include "AP_Stone.h"
+#include "AP_Traps.h"
 #include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
 #include "Item.h"
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Progressive.h"
+#include "items/AP_Traps.h"
 #include "items/AP_Zones.h"
 #include "locations/AP_LocationsContainer.h"
 #include "Mail.h"
@@ -160,6 +162,12 @@ namespace ModArchipelaWoW
         bool casterWeapons;
         /// Random World Buffs received while dead, applied once the character is back to life.
         uint8 pendingWorldBuffs;
+        /// Traps received while they could not spring, in the order they arrived.
+        std::vector<Items::TrapType> pendingTraps;
+        /// Game time until which the pending traps wait, after a teleport.
+        std::chrono::milliseconds trapsHeldUntil;
+        /// The Bombs Trap going off, if one is.
+        Optional<Traps::BombRun> bombRun;
         std::array<uint32, Items::MAX_HEIRLOOM_WEAPON_SLOTS> heirloomWeapons;
         /// Persisted, unlike the senders below: the slots are sent in order, so this is also the
         /// number of slots that can no longer be changed.
@@ -192,6 +200,9 @@ namespace ModArchipelaWoW
         void ApplySoulstone(Player* target);
         void ApplyWorldBuff();
         void ApplyPendingWorldBuffs();
+        void ReceiveTrap(Items::TrapType type);
+        void SpringTrap(Items::TrapType type);
+        void SpringPendingTraps();
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);

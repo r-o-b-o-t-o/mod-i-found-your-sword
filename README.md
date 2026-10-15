@@ -130,6 +130,29 @@ client and the player's `Spell.dbc` never needs to know about them.
 | `100500` | Archipelago Movement Speed | Carries the on-foot, ground-mount and flying-mount speed auras behind the *Progressive Movement Speed* item | `archipelawow_world_004_speed_spell.sql` |
 | `100501` | Archipelago Teleport to Friend | Never cast: carries the cooldown of the Archipelago Stone's *Teleport to Friend* menu, so that it is saved with the character | `archipelawow_world_013_friend_teleport.sql` |
 
+The traps reuse client spells that no creature, item or script of the core casts. As the core loads
+them, `src/AP_Traps.cpp` takes away their dispel type and mechanic and lets them pierce immunities,
+so that no dispel, Hand of Freedom, Every Man for Himself, Divine Shield or the like removes them.
+Another module casting one of these would get that behaviour too.
+
+| ID | Name | Trap |
+|----|------|------|
+| `51372` | Dazed | Dazed Trap |
+| `38505` | Shackle | Shackle Trap |
+| `27760` | Polymorph | Sheep Trap |
+| `17183` | Poison | Poison Trap |
+
+The Bombs Trap marks where each bomb lands with `74543` *Flamestrike Ground Aura* and shows its
+blast with `40162` *Bombing Run: Explosion Visual*, both unchanged: they only play a visual.
+
+### Creatures
+
+One new `creature_template` entry is created, summoned only by the module:
+
+| ID | Name | Purpose | Added by |
+|----|------|---------|----------|
+| `100500` | Bomb | The bombs a *Bombs Trap* drops, wearing the Scourge Bomb's model at half its size | `archipelawow_world_018_bomb.sql` |
+
 ### Items
 
 One new `item_template` entry is created. It is never handed out to a player:
@@ -183,7 +206,7 @@ The module's own tables live in the database named by `ArchipelaWoW.DatabaseInfo
 | `characters` | module | `base/db_archipelawow/characters.sql` |
 | `location_check` | module | `base/db_archipelawow/location_check.sql` |
 | `player_creature_template` | module | `base/db_archipelawow/player_creature_template.sql` |
-| `preferences` | module | `updates/db_archipelawow/2026_10_14_00.sql`, `2026_10_15_00.sql` |
+| `preferences` | module | `updates/db_archipelawow/2026_10_14_00.sql`, `2026_10_15_00.sql`, `2026_10_15_01.sql`, `2026_10_15_02.sql` |
 | One `creature_template` row per Archipelago player that mails an item, entries `5150000` and up | world | at runtime, as mail senders |
 | `.ap`, `.archipelago` and `.archipelawow` command prefixes | world (`command`) | `archipelawow_world_000_insert_commands.sql` |
 

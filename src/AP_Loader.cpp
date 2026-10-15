@@ -1,5 +1,6 @@
 #include "ArchipelaWoW.h"
 #include "scripts/AP_CommandScripts.h"
+#include "scripts/AP_CreatureScripts.h"
 #include "scripts/AP_DatabaseScripts.h"
 #include "scripts/AP_GlobalScripts.h"
 #include "scripts/AP_ItemScripts.h"
@@ -11,6 +12,7 @@ void Addmod_i_found_your_swordScripts()
 {
     ModArchipelaWoW::ArchipelaWoW::Instance(); // Initialize instance
     ModArchipelaWoW::Scripts::AddCommandScripts();
+    ModArchipelaWoW::Scripts::AddCreatureScripts();
     ModArchipelaWoW::Scripts::AddDatabaseScripts();
     ModArchipelaWoW::Scripts::AddGlobalScripts();
     ModArchipelaWoW::Scripts::AddItemScripts();

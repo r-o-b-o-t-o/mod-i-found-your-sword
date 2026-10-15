@@ -1,3 +1,4 @@
+#include "AP_Traps.h"
 #include "ArchipelaWoW.h"
 #include "DBCEnums.h"
 #include "Define.h"
@@ -5,6 +6,7 @@
 #include "Map.h"
 #include "ObjectMgr.h"
 #include "scripts/AP_GlobalScripts.h"
+#include "SpellInfo.h"
 #include "Unit.h"
 
 namespace ModArchipelaWoW::Scripts
@@ -15,6 +17,7 @@ namespace ModArchipelaWoW::Scripts
         AP_GlobalScript() :
             GlobalScript("ArchipelaWoW_GlobalScript", {
                 GLOBALHOOK_ON_AFTER_UPDATE_ENCOUNTER_STATE,
+                GLOBALHOOK_ON_LOAD_SPELL_CUSTOM_ATTR,
             })
         {
         }
@@ -23,6 +26,12 @@ namespace ModArchipelaWoW::Scripts
             const DungeonEncounterList* encounters, uint32 /*dungeonCompleted*/, bool /*updated*/) override
         {
             sArchipelaWoW->OnAfterUpdateEncounterState(map, type, creditEntry, encounters);
+        }
+
+        void OnLoadSpellCustomAttr(SpellInfo* spellInfo) override
+        {
+            // Whether or not the module is enabled, as nothing else casts these spells
+            Traps::FixSpellInfo(spellInfo);
         }
     };
 

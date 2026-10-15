@@ -2,6 +2,7 @@
 #include "AP_Character.h"
 #include "AP_Log.h"
 #include "AP_PlayerPosition.h"
+#include "AP_Traps.h"
 #include "ArchipelaWoW.h"
 #include "ByteBuffer.h"
 #include "Chat.h"
@@ -26,6 +27,7 @@
 #include "items/AP_ItemsContainer.h"
 #include "items/AP_Progressive.h"
 #include "items/AP_Spells.h"
+#include "items/AP_Traps.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
 #include "Mail.h"
@@ -37,6 +39,7 @@
 #include "Pet.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Random.h"
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
@@ -60,6 +63,7 @@
 #include <limits>
 #include <list>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -115,6 +119,8 @@ constexpr SoulstoneRank SOULSTONE_RANKS[] = {
     { 70, 27239 },
     { 76, 47883 },
 };
+// How long the traps wait once the character is done teleporting
+constexpr std::chrono::milliseconds TRAP_DELAY_AFTER_TELEPORT(3 * IN_MILLISECONDS);
 // LocationScouts' create_as_hint: hint the locations, and announce only the hints that are new
 constexpr int CREATE_AS_HINT_ANNOUNCE_NEW = 2;
 
@@ -148,6 +154,9 @@ namespace ModArchipelaWoW
         casterWorldBuffs(false),
         casterWeapons(false),
         pendingWorldBuffs(0),
+        pendingTraps(),
+        trapsHeldUntil(0),
+        bombRun(),
         heirloomWeapons(),
         heirloomWeaponsSent(0),
         heirloomWeaponSenders(),
@@ -214,6 +223,11 @@ namespace ModArchipelaWoW
 
             CheckIsInLockedZone();
             SavePosition();
+            SpringPendingTraps();
+            if (bombRun && !Traps::UpdateBombRun(player, *bombRun))
+            {
+                bombRun.reset();
+            }
             ap->Poll();
         }
 
@@ -1181,14 +1195,31 @@ namespace ModArchipelaWoW
         casterWorldBuffs = (*result)[6].Get<bool>();
         pendingWorldBuffs = (*result)[7].Get<uint8>();
         casterWeapons = (*result)[8].Get<bool>();
+
+        std::istringstream traps((*result)[9].Get<std::string>());
+        std::string trap;
+        while (std::getline(traps, trap, ','))
+        {
+            Optional<Items::TrapType> type = Items::TrapTypeFromValue(static_cast<uint32>(std::stoul(trap)));
+            if (type)
+            {
+                pendingTraps.push_back(type.value());
+            }
+        }
     }
 
     void AP_Character::SavePreferences()
     {
+        std::string traps;
+        for (Items::TrapType type : pendingTraps)
+        {
+            traps += fmt::format("{}{}", traps.empty() ? "" : ",", static_cast<uint32>(type));
+        }
+
         Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_PREFERENCES);
         stmt->SetArguments(player->GetGUID().GetCounter(), casterHeirlooms, allArmorTypes,
             heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent, casterWorldBuffs, pendingWorldBuffs,
-            casterWeapons);
+            casterWeapons, traps);
         Database::ArchipelaWoWDatabase.Execute(stmt);
     }
 
@@ -1381,6 +1412,15 @@ namespace ModArchipelaWoW
             if (!alreadyRewarded)
             {
                 ApplyWorldBuff();
+            }
+            return;
+        }
+
+        if (Optional<Items::TrapType> trap = items.traps.GetTrap(itemId))
+        {
+            if (!alreadyRewarded)
+            {
+                ReceiveTrap(trap.value());
             }
             return;
         }
@@ -1649,6 +1689,140 @@ namespace ModArchipelaWoW
             ApplyWorldBuff();
         }
         SavePreferences();
+    }
+
+    void AP_Character::ReceiveTrap(Items::TrapType type)
+    {
+        // Queued even when it can spring, so that a Teleport Trap arriving in the same batch goes
+        // first: SpringPendingTraps sees to it on the next update.
+        bool canSpring = Traps::CanSpring(player, type);
+        pendingTraps.push_back(type);
+        if (canSpring)
+        {
+            return;
+        }
+
+        SavePreferences();
+        ChatHandler(player->GetSession()).SendSysMessage(
+            fmt::format("|cFFFF4040You received a {}! It will spring as soon as it can.", Traps::GetName(type)));
+    }
+
+    void AP_Character::SpringTrap(Items::TrapType type)
+    {
+        std::string name = Traps::GetName(type);
+        ChatHandler chat(player->GetSession());
+
+        switch (type)
+        {
+            case Items::TrapType::Teleport:
+            {
+                std::vector<const Items::ZoneItem*> zones;
+                std::vector<Traps::ZoneMap> zoneMaps;
+                for (auto it = items.zones.Begin(); it != items.zones.End(); ++it)
+                {
+                    const Items::ZoneItem& zone = it->second;
+                    const MapEntry* map = sMapStore.LookupEntry(zone.map);
+                    if (IsZoneUnlocked(zone.id) && map && !map->Instanceable())
+                    {
+                        zones.push_back(&zone);
+                        zoneMaps.push_back({ zone.id, zone.map });
+                    }
+                }
+
+                if (Optional<Traps::TeleportSpot> spot = Traps::FindTeleportSpot(player, zoneMaps))
+                {
+                    player->TeleportTo(spot->mapId, spot->x, spot->y, spot->z, frand(0.0f, 2.0f * float(M_PI)));
+                }
+                // The stone's own destination in one of the zones, when none of them has a spot to offer
+                else if (!zones.empty())
+                {
+                    const Items::ZoneItem* zone = Acore::Containers::SelectRandomContainerElement(zones);
+                    player->TeleportTo(zone->map, zone->x, zone->y, zone->z, zone->o);
+                }
+                else
+                {
+                    return;
+                }
+                player->CastSpell(player, TELEPORT_SPELL_ID, true);
+                break;
+            }
+            case Items::TrapType::Ambush:
+                Traps::SpawnAmbush(player);
+                break;
+            case Items::TrapType::Bombs:
+                bombRun = Traps::StartBombRun();
+                break;
+            case Items::TrapType::Disarm:
+                if (Traps::DropWeapons(player) == 0)
+                {
+                    chat.SendSysMessage(fmt::format("|cFFFF4040You fell into a {}, but nothing slipped out of your hands.", name));
+                    return;
+                }
+                break;
+            default:
+                if (!Traps::ApplyAura(player, type))
+                {
+                    AP_LOG_ERROR("Could not apply the {} to {}!", name, player->GetName());
+                    return;
+                }
+                break;
+        }
+
+        chat.SendSysMessage(fmt::format("|cFFFF4040You fell into {} {}!", type == Items::TrapType::Ambush ? "an" : "a", name));
+    }
+
+    void AP_Character::SpringPendingTraps()
+    {
+        // The Teleport Trap draws from the slot's zones
+        if (pendingTraps.empty() || maxLevel == 0)
+        {
+            return;
+        }
+
+        // Any teleport, a Teleport Trap's or not, holds the traps until the character has stood at
+        // its destination for a moment: an aura could fail on the way, and an ambush would spawn
+        // where it left.
+        std::chrono::milliseconds now = GameTime::GetGameTimeMS();
+        if (player->IsBeingTeleported())
+        {
+            trapsHeldUntil = now + TRAP_DELAY_AFTER_TELEPORT;
+            return;
+        }
+        if (now < trapsHeldUntil)
+        {
+            return;
+        }
+
+        // A Teleport Trap first, so the others spring where it lands
+        auto teleport = std::ranges::find(pendingTraps, Items::TrapType::Teleport);
+        if (teleport != pendingTraps.end() && Traps::CanSpring(player, Items::TrapType::Teleport))
+        {
+            pendingTraps.erase(teleport);
+            SavePreferences();
+            SpringTrap(Items::TrapType::Teleport);
+            trapsHeldUntil = now + TRAP_DELAY_AFTER_TELEPORT;
+            return;
+        }
+
+        std::vector<Items::TrapType> waiting;
+        for (Items::TrapType type : pendingTraps)
+        {
+            // One Bombs Trap at a time
+            if (Traps::CanSpring(player, type) && !(type == Items::TrapType::Bombs && bombRun))
+            {
+                SpringTrap(type);
+            }
+            else
+            {
+                waiting.push_back(type);
+            }
+        }
+
+        if (waiting.size() != pendingTraps.size())
+        {
+            pendingTraps = std::move(waiting);
+            SavePreferences();
+        }
     }
 
     uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
@@ -2104,6 +2278,17 @@ namespace ModArchipelaWoW
                 items.worldBuffs.apItemId = worldBuffData.at(0);
                 items.worldBuffs.melee = worldBuffData.at(1).get<std::vector<uint32>>();
                 items.worldBuffs.caster = worldBuffData.at(2).get<std::vector<uint32>>();
+            }
+            // Missing from seeds generated before the apworld had traps
+            if (itemData.contains("traps"))
+            {
+                for (const auto& [key, itemId] : itemData.at("traps").items())
+                {
+                    if (Optional<Items::TrapType> type = Items::TrapTypeFromKey(key))
+                    {
+                        items.traps.items[itemId.get<int64_t>()] = type.value();
+                    }
+                }
             }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");

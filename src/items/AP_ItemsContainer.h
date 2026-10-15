@@ -6,6 +6,7 @@
 #include "items/AP_Items.h"
 #include "items/AP_Progressive.h"
 #include "items/AP_Spells.h"
+#include "items/AP_Traps.h"
 #include "items/AP_WorldBuffs.h"
 #include "items/AP_Zones.h"
 
@@ -24,6 +25,7 @@ namespace ModArchipelaWoW::Items
             progressive(),
             spells(),
             worldBuffs(),
+            traps(),
             levels(0),
             goldPouch(0),
             friendTeleport(0)
@@ -37,6 +39,7 @@ namespace ModArchipelaWoW::Items
         Progressive progressive;
         Spells spells;
         WorldBuffs worldBuffs;
+        Traps traps;
         int64_t levels;
         int64_t goldPouch;
         /// Unlocks the stone's Teleport to Friend menu
