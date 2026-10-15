@@ -99,6 +99,7 @@ constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_ROLE = 1;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_WEAPONS = 2;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES = 3;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_WORLD_BUFF_ROLE = 4;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES_WEAPON_ROLE = 5;
 
 constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPON_SLOTS = 16;
 constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPONS = 17;
@@ -132,23 +133,49 @@ constexpr uint32 GLYPH_TYPE_MINOR = 1;
 constexpr uint32 GOSSIP_ITEM_BACK = std::numeric_limits<uint32>::max() - 1;
 constexpr uint32 GOSSIP_ITEM_BACK_TO_MAIN = std::numeric_limits<uint32>::max() - 2;
 
-// Icon of the heaviest armor type the class can wear at max level
-static const char* GetHeaviestArmorIcon(uint8 playerClass)
+// The heaviest armor type a hybrid wears now. Mail and plate are trained at level 40, and random armor
+// never moves up to them when the run ends right there.
+static uint32 GetHybridHeaviestArmorType(Player const* player, uint8 goalMaxLevel)
 {
-    switch (playerClass)
+    bool trained = player->GetLevel() >= 40 && (goalMaxLevel == 0 || goalMaxLevel > 40);
+    switch (player->getClass())
     {
-        case CLASS_WARRIOR:
         case CLASS_PALADIN:
-        case CLASS_DEATH_KNIGHT:
-            return "Icons/INV_Chest_Plate03";
-        case CLASS_HUNTER:
+            return trained ? ITEM_SUBCLASS_ARMOR_PLATE : ITEM_SUBCLASS_ARMOR_MAIL;
         case CLASS_SHAMAN:
+            return trained ? ITEM_SUBCLASS_ARMOR_MAIL : ITEM_SUBCLASS_ARMOR_LEATHER;
+        default:
+            return ITEM_SUBCLASS_ARMOR_LEATHER;
+    }
+}
+
+static const char* GetArmorTypeIcon(uint32 armorType)
+{
+    switch (armorType)
+    {
+        case ITEM_SUBCLASS_ARMOR_PLATE:
+            return "Icons/INV_Chest_Plate03";
+        case ITEM_SUBCLASS_ARMOR_MAIL:
             return "Icons/INV_Chest_Chain_06";
-        case CLASS_DRUID:
-        case CLASS_ROGUE:
+        case ITEM_SUBCLASS_ARMOR_LEATHER:
             return "Icons/INV_Chest_Leather_07";
         default:
             return "Icons/INV_Chest_Cloth_30";
+    }
+}
+
+static const char* GetArmorTypeName(uint32 armorType)
+{
+    switch (armorType)
+    {
+        case ITEM_SUBCLASS_ARMOR_PLATE:
+            return "Plate";
+        case ITEM_SUBCLASS_ARMOR_MAIL:
+            return "Mail";
+        case ITEM_SUBCLASS_ARMOR_LEATHER:
+            return "Leather";
+        default:
+            return "Cloth";
     }
 }
 
@@ -1249,8 +1276,14 @@ namespace ModArchipelaWoW
         if (apCharacter->IsHybrid())
         {
             bool allTypes = apCharacter->PrefersAllArmorTypes();
-            AddGossipItem(allTypes ? GetHeaviestArmorIcon(CLASS_MAGE) : GetHeaviestArmorIcon(player->getClass()),
-                fmt::format("Random armor: {}", allTypes ? "All types" : "Heaviest type only"), GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES);
+            uint32 heaviest = GetHybridHeaviestArmorType(player, apCharacter->GetMaxLevel());
+            AddGossipItem(GetArmorTypeIcon(allTypes ? ITEM_SUBCLASS_ARMOR_CLOTH : heaviest),
+                fmt::format("Random armor: {}", allTypes ? "All types" : fmt::format("{} only", GetArmorTypeName(heaviest))),
+                GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES);
+
+            bool casterWeapons = apCharacter->PrefersCasterWeapons();
+            AddGossipItem(casterWeapons ? "Icons/INV_Staff_26" : "Icons/INV_Mace_15",
+                fmt::format("Random weapon: {}", casterWeapons ? "Caster" : "Melee"), GOSSIP_ITEM_PREFERENCES_WEAPON_ROLE);
         }
 
         // Not for seeds generated before the apworld had world buffs
@@ -1285,6 +1318,11 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_PREFERENCES_WORLD_BUFF_ROLE)
         {
             apCharacter->ToggleCasterWorldBuffs();
+            SendPreferencesMenu(item);
+        }
+        else if (action == GOSSIP_ITEM_PREFERENCES_WEAPON_ROLE)
+        {
+            apCharacter->ToggleCasterWeapons();
             SendPreferencesMenu(item);
         }
         else if (action == GOSSIP_ITEM_BACK)

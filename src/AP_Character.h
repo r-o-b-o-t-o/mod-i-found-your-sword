@@ -60,6 +60,13 @@ namespace ModArchipelaWoW
         void ToggleCasterHeirlooms();
         bool PrefersAllArmorTypes() const;
         void ToggleAllArmorTypes();
+        bool PrefersCasterWeapons() const;
+        void ToggleCasterWeapons();
+        /// Whether random weapon rewards may be held-in-off-hand items, which only casters and
+        /// hunters get any use of.
+        bool WantsHeldOffHands() const;
+        /// The level the run ends at, 0 until the slot data has arrived.
+        uint8 GetMaxLevel() const;
         bool PrefersCasterWorldBuffs() const;
         void ToggleCasterWorldBuffs();
         /// The weapon in an heirloom weapon slot, 0 for none yet.
@@ -150,6 +157,7 @@ namespace ModArchipelaWoW
         bool casterHeirlooms;
         bool allArmorTypes;
         bool casterWorldBuffs;
+        bool casterWeapons;
         /// Random World Buffs received while dead, applied once the character is back to life.
         uint8 pendingWorldBuffs;
         std::array<uint32, Items::MAX_HEIRLOOM_WEAPON_SLOTS> heirloomWeapons;

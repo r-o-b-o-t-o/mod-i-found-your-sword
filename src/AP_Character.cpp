@@ -146,6 +146,7 @@ namespace ModArchipelaWoW
         casterHeirlooms(false),
         allArmorTypes(false),
         casterWorldBuffs(false),
+        casterWeapons(false),
         pendingWorldBuffs(0),
         heirloomWeapons(),
         heirloomWeaponsSent(0),
@@ -284,6 +285,39 @@ namespace ModArchipelaWoW
     {
         allArmorTypes = !allArmorTypes;
         SavePreferences();
+    }
+
+    bool AP_Character::WantsHeldOffHands() const
+    {
+        switch (player->getClass())
+        {
+            case CLASS_WARRIOR:
+            case CLASS_ROGUE:
+            case CLASS_DEATH_KNIGHT:
+                return false;
+            case CLASS_PALADIN:
+            case CLASS_SHAMAN:
+            case CLASS_DRUID:
+                return PrefersCasterWeapons();
+            default:
+                return true;
+        }
+    }
+
+    bool AP_Character::PrefersCasterWeapons() const
+    {
+        return IsHybrid() && casterWeapons;
+    }
+
+    void AP_Character::ToggleCasterWeapons()
+    {
+        casterWeapons = !casterWeapons;
+        SavePreferences();
+    }
+
+    uint8 AP_Character::GetMaxLevel() const
+    {
+        return maxLevel;
     }
 
     bool AP_Character::PrefersCasterWorldBuffs() const
@@ -1146,13 +1180,15 @@ namespace ModArchipelaWoW
         heirloomWeaponsSent = (*result)[5].Get<uint8>();
         casterWorldBuffs = (*result)[6].Get<bool>();
         pendingWorldBuffs = (*result)[7].Get<uint8>();
+        casterWeapons = (*result)[8].Get<bool>();
     }
 
     void AP_Character::SavePreferences()
     {
         Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_PREFERENCES);
         stmt->SetArguments(player->GetGUID().GetCounter(), casterHeirlooms, allArmorTypes,
-            heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent, casterWorldBuffs, pendingWorldBuffs);
+            heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent, casterWorldBuffs, pendingWorldBuffs,
+            casterWeapons);
         Database::ArchipelaWoWDatabase.Execute(stmt);
     }
 
@@ -1359,7 +1395,7 @@ namespace ModArchipelaWoW
                 // wear, and the multiworld knows neither when it generates.
                 Optional<uint32> rolled = sArchipelaWoW->GetGearPool().Roll(
                     gear.value().category, gear.value().quality, player,
-                    gearRewardLevelWindow, PrefersAllArmorTypes(), maxLevel
+                    gearRewardLevelWindow, PrefersAllArmorTypes(), WantsHeldOffHands(), maxLevel
                 );
                 if (!rolled)
                 {

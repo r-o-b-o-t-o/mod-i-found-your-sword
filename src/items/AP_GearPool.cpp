@@ -160,7 +160,7 @@ namespace ModArchipelaWoW::Items
     }
 
     Optional<uint32> GearPool::Roll(GearCategory category, uint32 quality, Player const* player,
-        uint8 levelWindow, bool allArmorTypes, uint8 goalMaxLevel) const
+        uint8 levelWindow, bool allArmorTypes, bool heldOffHands, uint8 goalMaxLevel) const
     {
         Optional<std::size_t> qualityIndex = QualityIndex(quality);
         if (!player || !qualityIndex || category >= GearCategory::Count)
@@ -188,6 +188,12 @@ namespace ModArchipelaWoW::Items
         // the character is a decision about the reward, not a fallback for an empty draw.
         uint32 armorMask = allArmorTypes ? ALL_ARMOR_TIERS : AllowedArmorMask(player, levelWindow, ceiling);
 
+        auto fits = [&](ItemTemplate const* item, int32 level)
+        {
+            return IsUsableBy(item, level, player) && MatchesArmorMask(item, armorMask) &&
+                (heldOffHands || item->InventoryType != INVTYPE_HOLDABLE);
+        };
+
         int32 playerLevel = std::min<int32>(player->GetLevel(), ceiling);
         int32 low = playerLevel - levelWindow;
         int32 high = playerLevel + levelWindow;
@@ -209,7 +215,7 @@ namespace ModArchipelaWoW::Items
             {
                 for (ItemTemplate const* item : levels[level])
                 {
-                    if (IsUsableBy(item, level, player) && MatchesArmorMask(item, armorMask))
+                    if (fits(item, level))
                     {
                         matches.push_back(item);
                     }
@@ -232,7 +238,7 @@ namespace ModArchipelaWoW::Items
         {
             for (ItemTemplate const* item : levels[level])
             {
-                if (IsUsableBy(item, level, player) && MatchesArmorMask(item, armorMask))
+                if (fits(item, level))
                 {
                     matches.push_back(item);
                 }
