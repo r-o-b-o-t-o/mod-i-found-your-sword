@@ -3,6 +3,7 @@
 #include "DatabaseEnv.h"
 #include "DBCStore.h"
 #include "DBCStores.h"
+#include "DisableMgr.h"
 #include "Define.h"
 #include "items/AP_Gear.h"
 #include "items/AP_GearPool.h"
@@ -10,15 +11,18 @@
 #include "ObjectMgr.h"
 #include "Optional.h"
 #include "Player.h"
+#include "QuestDef.h"
 #include "SharedDefines.h"
 #include "UnitDefines.h"
 #include "World.h"
 #include "WorldConfig.h"
 
 #include <algorithm>
+#include <cctype>
 #include <iterator>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -87,6 +91,7 @@ namespace ModArchipelaWoW::Items
         LoadSkillTrainings();
 
         std::unordered_set<uint32> obtainable = LoadObtainableItems();
+        std::unordered_map<uint32, uint8> questRewardLevels = LoadQuestRewardLevels();
         uint32 count = 0;
 
         for (ItemTemplate const* item : *sObjectMgr->GetItemTemplateStoreFast())
@@ -103,11 +108,21 @@ namespace ModArchipelaWoW::Items
             }
 
             // Level 0 and level 1 both mean "no meaningful requirement" in the item files, so what
-            // they collect is the gear whose real gate is a quest or an event rather than a level --
-            // the Sunwell Orb asks for level 1 and comes off a level 15 quest. Neither says anything
-            // about when the piece is meant to be had, and one asking for more than the level cap
-            // can never be worn at all.
-            if (item->RequiredLevel <= 1 || item->RequiredLevel > maxLevel)
+            // they collect is the gear whose real gate is a quest or an event rather than a level.
+            // Nearly every quest reward is one of them, and those get their quest's level instead;
+            // the rest say nothing about when the piece is meant to be had. One asking for more than
+            // the level cap can never be worn at all.
+            uint32 level = item->RequiredLevel;
+            if (level <= 1)
+            {
+                auto questLevel = questRewardLevels.find(item->ItemId);
+                if (questLevel != questRewardLevels.end())
+                {
+                    level = questLevel->second;
+                }
+            }
+
+            if (level <= 1 || level > maxLevel)
             {
                 continue;
             }
@@ -137,7 +152,7 @@ namespace ModArchipelaWoW::Items
                 continue;
             }
 
-            buckets[static_cast<std::size_t>(*category)][*quality][item->RequiredLevel].push_back(item);
+            buckets[static_cast<std::size_t>(*category)][*quality][level].push_back(item);
             ++count;
         }
 
@@ -194,7 +209,7 @@ namespace ModArchipelaWoW::Items
             {
                 for (ItemTemplate const* item : levels[level])
                 {
-                    if (IsUsableBy(item, player) && MatchesArmorMask(item, armorMask))
+                    if (IsUsableBy(item, level, player) && MatchesArmorMask(item, armorMask))
                     {
                         matches.push_back(item);
                     }
@@ -217,7 +232,7 @@ namespace ModArchipelaWoW::Items
         {
             for (ItemTemplate const* item : levels[level])
             {
-                if (IsUsableBy(item, player) && MatchesArmorMask(item, armorMask))
+                if (IsUsableBy(item, level, player) && MatchesArmorMask(item, armorMask))
                 {
                     matches.push_back(item);
                 }
@@ -344,7 +359,7 @@ namespace ModArchipelaWoW::Items
         }
     }
 
-    bool GearPool::IsUsableBy(ItemTemplate const* item, Player const* player) const
+    bool GearPool::IsUsableBy(ItemTemplate const* item, uint32 level, Player const* player) const
     {
         if ((item->AllowableClass & player->getClassMask()) == 0 ||
             (item->AllowableRace & player->getRaceMask()) == 0)
@@ -398,7 +413,7 @@ namespace ModArchipelaWoW::Items
         // trained at level 40 and polearms at 20, so a hunter is only offered mail that asks for
         // level 40 or more -- gear it can equip the moment its own requirement is met, rather than
         // carry around for the twenty levels until the trainer will teach it.
-        return item->RequiredLevel >= TrainingLevel(skill, player);
+        return level >= TrainingLevel(skill, player);
     }
 
     uint8 GearPool::TrainingLevel(uint32 skill, Player const* player) const
@@ -573,5 +588,62 @@ namespace ModArchipelaWoW::Items
         } while (result->NextRow());
 
         return obtainable;
+    }
+
+    std::unordered_map<uint32, uint8> GearPool::LoadQuestRewardLevels()
+    {
+        std::unordered_map<uint32, uint8> levels;
+
+        for (const auto& [questId, quest] : sObjectMgr->GetQuestTemplates())
+        {
+            // A quest level of -1 or less scales with the character, so it says nothing either.
+            if (quest->GetQuestLevel() <= 0 || DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, questId, nullptr))
+            {
+                continue;
+            }
+
+            // The same title heuristics the data extractor uses to drop dead quests.
+            std::string title = quest->GetTitle();
+            std::transform(title.begin(), title.end(), title.begin(), [](unsigned char c) { return std::tolower(c); });
+            if (title.find('<') != std::string::npos || title.find('[') != std::string::npos ||
+                title.find("deprecated") != std::string::npos || title.find("unused") != std::string::npos ||
+                title.starts_with("temp "))
+            {
+                continue;
+            }
+
+            // The level the quest turns orange at rather than the one it can be picked up at, which is
+            // when it is realistically done: Into The Temple of Atal'Hakkar is level 50 and can be
+            // started at 38, so its Guardian Talisman counts as level 46.
+            uint8 level = static_cast<uint8>(std::max<int32>(quest->GetQuestLevel() - QUEST_ORANGE_LEVEL_DIFF,
+                static_cast<int32>(quest->GetMinLevel())));
+
+            auto addReward = [&](uint32 itemId)
+            {
+                if (itemId == 0)
+                {
+                    return;
+                }
+
+                // An item several quests hand out counts from the earliest of them.
+                auto [it, inserted] = levels.try_emplace(itemId, level);
+                if (!inserted)
+                {
+                    it->second = std::min(it->second, level);
+                }
+            };
+
+            for (uint32 itemId : quest->RewardItemId)
+            {
+                addReward(itemId);
+            }
+
+            for (uint32 itemId : quest->RewardChoiceItemId)
+            {
+                addReward(itemId);
+            }
+        }
+
+        return levels;
     }
 }

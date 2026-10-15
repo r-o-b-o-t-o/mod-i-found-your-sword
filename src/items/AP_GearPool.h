@@ -9,14 +9,16 @@
 
 #include <array>
 #include <cstddef>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace ModArchipelaWoW::Items
 {
     /// Every uncommon and rare gear piece the server can hand out, bucketed by category, quality and
-    /// required level. Rolling a reward then only has to walk the handful of level bands around the
-    /// character instead of the whole 46k-entry item template store.
+    /// required level -- or, for a quest reward that asks for none, its quest's level. Rolling a reward
+    /// then only has to walk the handful of level bands around the character instead of the whole
+    /// 46k-entry item template store.
     ///
     /// Built once at startup. Worldserver loads item templates a single time and never reloads them,
     /// so the ItemTemplate pointers stay good for the lifetime of the process.
@@ -49,6 +51,8 @@ namespace ModArchipelaWoW::Items
         // time -- at level 1 there is exactly one uncommon ring in range -- so the window keeps
         // opening until there is something to choose between.
         static constexpr std::size_t LEVEL_WINDOW_MIN_CANDIDATES = 5;
+        // A quest turns orange in the quest log once the character is this many levels below it.
+        static constexpr int32 QUEST_ORANGE_LEVEL_DIFF = 4;
 
         /// One SkillRaceClassInfo.dbc row, reduced to the level at which the races and classes it
         /// covers may first train the skill.
@@ -67,7 +71,7 @@ namespace ModArchipelaWoW::Items
         std::vector<SkillTraining> skillTrainings;
         uint8 maxLevel;
 
-        bool IsUsableBy(ItemTemplate const* item, Player const* player) const;
+        bool IsUsableBy(ItemTemplate const* item, uint32 level, Player const* player) const;
         uint8 TrainingLevel(uint32 skill, Player const* player) const;
         uint32 AllowedArmorMask(Player const* player, uint8 levelWindow, int32 levelCeiling) const;
         void LoadSkillTrainings();
@@ -79,6 +83,7 @@ namespace ModArchipelaWoW::Items
         static Optional<std::size_t> QualityIndex(uint32 quality);
         static Optional<GearCategory> CategoryOf(ItemTemplate const* item);
         static std::unordered_set<uint32> LoadObtainableItems();
+        static std::unordered_map<uint32, uint8> LoadQuestRewardLevels();
     };
 }
 
