@@ -60,6 +60,8 @@ namespace ModArchipelaWoW
         void ToggleCasterHeirlooms();
         bool PrefersAllArmorTypes() const;
         void ToggleAllArmorTypes();
+        bool PrefersCasterWorldBuffs() const;
+        void ToggleCasterWorldBuffs();
         /// The weapon in an heirloom weapon slot, 0 for none yet.
         uint32 GetHeirloomWeapon(uint8 slot) const;
         /// Fills an heirloom weapon slot, and sends its weapon right away if it has already arrived.
@@ -98,6 +100,7 @@ namespace ModArchipelaWoW
         void OnPlayerBeforeLogout();
         bool OnPlayerChat(uint32 type, const std::string& msg, const std::string& channelName);
         void OnPlayerSpellCast(const Spell* spell);
+        void OnPlayerResurrect();
 
         // GlobalScripts events
         void OnDungeonEncounterCredited(uint32 encounterId);
@@ -146,6 +149,9 @@ namespace ModArchipelaWoW
         uint8 gearRewardLevelWindow;
         bool casterHeirlooms;
         bool allArmorTypes;
+        bool casterWorldBuffs;
+        /// Random World Buffs received while dead, applied once the character is back to life.
+        uint8 pendingWorldBuffs;
         std::array<uint32, Items::MAX_HEIRLOOM_WEAPON_SLOTS> heirloomWeapons;
         /// Persisted, unlike the senders below: the slots are sent in order, so this is also the
         /// number of slots that can no longer be changed.
@@ -176,6 +182,8 @@ namespace ModArchipelaWoW
         void GiveArchipelagoExperience(uint32 xp, Unit* victim);
         Player* GetSoulstoneTarget() const;
         void ApplySoulstone(Player* target);
+        void ApplyWorldBuff();
+        void ApplyPendingWorldBuffs();
         uint32 GetProgressiveStep(Items::ProgressiveType type) const;
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);

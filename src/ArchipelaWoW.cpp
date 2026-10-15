@@ -710,6 +710,20 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnPlayerResurrect(Player* player)
+    {
+        if (!player)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnPlayerResurrect();
+        }
+    }
+
     bool ArchipelaWoW::CanUseArchipelagoConsumable(Player* player, Item* item)
     {
         auto guid = player->GetGUID().GetCounter();

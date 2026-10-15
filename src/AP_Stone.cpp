@@ -98,6 +98,7 @@ constexpr uint32 GOSSIP_MENU_PREFERENCES = 15;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_ROLE = 1;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_HEIRLOOM_WEAPONS = 2;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES = 3;
+constexpr uint32 GOSSIP_ITEM_PREFERENCES_WORLD_BUFF_ROLE = 4;
 
 constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPON_SLOTS = 16;
 constexpr uint32 GOSSIP_MENU_HEIRLOOM_WEAPONS = 17;
@@ -1252,6 +1253,15 @@ namespace ModArchipelaWoW
                 fmt::format("Random armor: {}", allTypes ? "All types" : "Heaviest type only"), GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES);
         }
 
+        // Not for seeds generated before the apworld had world buffs
+        if (apCharacter->IsHybrid() && apCharacter->GetItemsContainer().worldBuffs.apItemId != 0)
+        {
+            // Slip'kik's Savvy and Fengus' Ferocity
+            bool caster = apCharacter->PrefersCasterWorldBuffs();
+            AddGossipItem(caster ? "Icons/Spell_Holy_LesserHeal02" : "Icons/Spell_Nature_UndyingStrength",
+                fmt::format("World buffs: {}", caster ? "Caster" : "Melee"), GOSSIP_ITEM_PREFERENCES_WORLD_BUFF_ROLE);
+        }
+
         AddGossipItemBack();
         SendGossipMenu(item);
     }
@@ -1270,6 +1280,11 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_PREFERENCES_ARMOR_TYPES)
         {
             apCharacter->ToggleAllArmorTypes();
+            SendPreferencesMenu(item);
+        }
+        else if (action == GOSSIP_ITEM_PREFERENCES_WORLD_BUFF_ROLE)
+        {
+            apCharacter->ToggleCasterWorldBuffs();
             SendPreferencesMenu(item);
         }
         else if (action == GOSSIP_ITEM_BACK)

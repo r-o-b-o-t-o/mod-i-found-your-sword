@@ -24,8 +24,8 @@ namespace ModArchipelaWoW::Database
         PrepareStatement(AP_SEL_LOCATION_CHECKS, "SELECT `locationId` FROM `location_check` WHERE `guid` = ?", CONNECTION_SYNCH);
         PrepareStatement(AP_REP_LOCATION_CHECK, "REPLACE INTO `location_check` (`guid`, `locationId`) VALUES (?, ?)", CONNECTION_SYNCH);
         PrepareStatement(AP_DEL_LOCATION_CHECKS, "DELETE FROM `location_check` WHERE `guid` = ?", CONNECTION_SYNCH);
-        PrepareStatement(AP_SEL_PREFERENCES, "SELECT `casterHeirlooms`, `allArmorTypes`, `heirloomWeapon1`, `heirloomWeapon2`, `heirloomWeapon3`, `heirloomWeaponsSent` FROM `preferences` WHERE `guid` = ?", CONNECTION_SYNCH);
-        PrepareStatement(AP_REP_PREFERENCES, "REPLACE INTO `preferences` (`guid`, `casterHeirlooms`, `allArmorTypes`, `heirloomWeapon1`, `heirloomWeapon2`, `heirloomWeapon3`, `heirloomWeaponsSent`) VALUES (?, ?, ?, ?, ?, ?, ?)", CONNECTION_SYNCH);
+        PrepareStatement(AP_SEL_PREFERENCES, "SELECT `casterHeirlooms`, `allArmorTypes`, `heirloomWeapon1`, `heirloomWeapon2`, `heirloomWeapon3`, `heirloomWeaponsSent`, `casterWorldBuffs`, `pendingWorldBuffs` FROM `preferences` WHERE `guid` = ?", CONNECTION_SYNCH);
+        PrepareStatement(AP_REP_PREFERENCES, "REPLACE INTO `preferences` (`guid`, `casterHeirlooms`, `allArmorTypes`, `heirloomWeapon1`, `heirloomWeapon2`, `heirloomWeapon3`, `heirloomWeaponsSent`, `casterWorldBuffs`, `pendingWorldBuffs`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_SYNCH);
         PrepareStatement(AP_DEL_PREFERENCES, "DELETE FROM `preferences` WHERE `guid` = ?", CONNECTION_SYNCH);
         PrepareStatement(AP_SEL_PLAYER_CREATURE_TEMPLATES, "SELECT `player`, `creatureEntry` FROM `player_creature_template`", CONNECTION_SYNCH);
         PrepareStatement(AP_INS_PLAYER_CREATURE_TEMPLATE, "INSERT INTO `player_creature_template` (`player`, `creatureEntry`) VALUES (?, ?)", CONNECTION_SYNCH);

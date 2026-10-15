@@ -40,6 +40,7 @@
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
+#include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "Unit.h"
@@ -55,6 +56,7 @@
 #include <cmath>
 #include <cstdint>
 #include <exception>
+#include <iterator>
 #include <limits>
 #include <list>
 #include <memory>
@@ -143,6 +145,8 @@ namespace ModArchipelaWoW
         gearRewardLevelWindow(DEFAULT_GEAR_REWARD_LEVEL_WINDOW),
         casterHeirlooms(false),
         allArmorTypes(false),
+        casterWorldBuffs(false),
+        pendingWorldBuffs(0),
         heirloomWeapons(),
         heirloomWeaponsSent(0),
         heirloomWeaponSenders(),
@@ -279,6 +283,17 @@ namespace ModArchipelaWoW
     void AP_Character::ToggleAllArmorTypes()
     {
         allArmorTypes = !allArmorTypes;
+        SavePreferences();
+    }
+
+    bool AP_Character::PrefersCasterWorldBuffs() const
+    {
+        return IsHybrid() && casterWorldBuffs;
+    }
+
+    void AP_Character::ToggleCasterWorldBuffs()
+    {
+        casterWorldBuffs = !casterWorldBuffs;
         SavePreferences();
     }
 
@@ -1129,13 +1144,15 @@ namespace ModArchipelaWoW
             heirloomWeapons[slot] = (*result)[2 + slot].Get<uint32>();
         }
         heirloomWeaponsSent = (*result)[5].Get<uint8>();
+        casterWorldBuffs = (*result)[6].Get<bool>();
+        pendingWorldBuffs = (*result)[7].Get<uint8>();
     }
 
     void AP_Character::SavePreferences()
     {
         Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_REP_PREFERENCES);
         stmt->SetArguments(player->GetGUID().GetCounter(), casterHeirlooms, allArmorTypes,
-            heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent);
+            heirloomWeapons[0], heirloomWeapons[1], heirloomWeapons[2], heirloomWeaponsSent, casterWorldBuffs, pendingWorldBuffs);
         Database::ArchipelaWoWDatabase.Execute(stmt);
     }
 
@@ -1319,6 +1336,15 @@ namespace ModArchipelaWoW
             {
                 ChatHandler(player->GetSession()).SendSysMessage(
                     "|cFFFFF380You received an Heirloom Weapon! Choose it in the Archipelago Stone's Preferences.");
+            }
+            return;
+        }
+
+        if (itemId == items.worldBuffs.apItemId)
+        {
+            if (!alreadyRewarded)
+            {
+                ApplyWorldBuff();
             }
             return;
         }
@@ -1524,6 +1550,69 @@ namespace ModArchipelaWoW
             aura->SetMaxDuration(SOULSTONE_DURATION);
             aura->SetDuration(SOULSTONE_DURATION);
         }
+    }
+
+    void AP_Character::OnPlayerResurrect()
+    {
+        ApplyPendingWorldBuffs();
+    }
+
+    void AP_Character::ApplyWorldBuff()
+    {
+        // Kept for when the character is back to life, and drawn then rather than now so the ones waiting
+        // together don't land on the same buff.
+        if (!player->IsAlive())
+        {
+            ++pendingWorldBuffs;
+            SavePreferences();
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFFF380You received a world buff! It will be applied when you come back to life.");
+            return;
+        }
+
+        const std::vector<uint32>& buffs = PrefersCasterWorldBuffs() ? items.worldBuffs.caster : items.worldBuffs.melee;
+
+        // One the character doesn't have yet, or a refresh once it has them all
+        std::vector<uint32> missing;
+        std::ranges::copy_if(buffs, std::back_inserter(missing), [this](uint32 spellId) { return !player->HasAura(spellId); });
+        const std::vector<uint32>& candidates = missing.empty() ? buffs : missing;
+        if (candidates.empty())
+        {
+            return;
+        }
+
+        uint32 spellId = Acore::Containers::SelectRandomContainerElement(candidates);
+        const SpellInfo* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (!spellInfo)
+        {
+            AP_LOG_ERROR("Unknown world buff spell {}!", spellId);
+            return;
+        }
+
+        // Added rather than cast, so the aura lands on this character alone whatever the spell targets.
+        if (!player->AddAura(spellId, player))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000A world buff arrived but could not be applied.");
+            return;
+        }
+
+        ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFFF380You received {}!", spellInfo->SpellName[player->GetSession()->GetSessionDbcLocale()]));
+    }
+
+    void AP_Character::ApplyPendingWorldBuffs()
+    {
+        // Until the slot data arrives, there are no buffs to draw from.
+        if (pendingWorldBuffs == 0 || !player->IsAlive() || items.worldBuffs.apItemId == 0)
+        {
+            return;
+        }
+
+        uint8 pending = pendingWorldBuffs;
+        pendingWorldBuffs = 0;
+        for (uint8 i = 0; i < pending; ++i)
+        {
+            ApplyWorldBuff();
+        }
+        SavePreferences();
     }
 
     uint32 AP_Character::GetProgressiveStep(Items::ProgressiveType type) const
@@ -1972,6 +2061,14 @@ namespace ModArchipelaWoW
                 items.heirlooms.weaponSlots = static_cast<uint8>(std::min<uint32>(weaponData.at(1).get<uint32>(), Items::MAX_HEIRLOOM_WEAPON_SLOTS));
                 items.heirlooms.weaponChoices = weaponData.at(2).get<std::vector<uint32>>();
             }
+            // Missing from seeds generated before the apworld had world buffs
+            if (itemData.contains("world_buffs"))
+            {
+                const auto& worldBuffData = itemData.at("world_buffs");
+                items.worldBuffs.apItemId = worldBuffData.at(0);
+                items.worldBuffs.melee = worldBuffData.at(1).get<std::vector<uint32>>();
+                items.worldBuffs.caster = worldBuffData.at(2).get<std::vector<uint32>>();
+            }
             items.levels = itemData.at("levels");
             items.goldPouch = itemData.at("money");
             items.friendTeleport = itemData.at("stone").at("teleport_to_friend");
@@ -2143,6 +2240,9 @@ namespace ModArchipelaWoW
         // Runs after the loop above, so every spell the multiworld has already handed over has been
         // recorded and only the ones the character was never meant to have are taken back.
         RemoveUngrantedSpells();
+
+        // The buffs that waited for the slot data, as on a resurrection before the slot connected
+        ApplyPendingWorldBuffs();
 
         if (newItemIndex != itemIndex)
         {

@@ -76,6 +76,7 @@ namespace ModArchipelaWoW
         /// message was an Archipelago command and must not also reach the game world.
         bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
         void OnPlayerSpellCast(Player* player, const Spell* spell);
+        void OnPlayerResurrect(Player* player);
 
         // GlobalScripts methods
         void OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters);

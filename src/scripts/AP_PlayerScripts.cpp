@@ -47,6 +47,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_CAN_PLAYER_USE_CHAT,
                 PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
                 PLAYERHOOK_ON_SPELL_CAST,
+                PLAYERHOOK_ON_PLAYER_RESURRECT,
             })
         {
         }
@@ -195,6 +196,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerSpellCast(Player* player, Spell* spell, bool /*skipCheck*/) override
         {
             sArchipelaWoW->OnPlayerSpellCast(player, spell);
+        }
+
+        void OnPlayerResurrect(Player* player, float /*restorePercent*/, bool& /*applySickness*/) override
+        {
+            sArchipelaWoW->OnPlayerResurrect(player);
         }
     };
 

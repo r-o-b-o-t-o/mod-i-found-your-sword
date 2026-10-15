@@ -183,7 +183,7 @@ The module's own tables live in the database named by `ArchipelaWoW.DatabaseInfo
 | `characters` | module | `base/db_archipelawow/characters.sql` |
 | `location_check` | module | `base/db_archipelawow/location_check.sql` |
 | `player_creature_template` | module | `base/db_archipelawow/player_creature_template.sql` |
-| `preferences` | module | `updates/db_archipelawow/2026_10_14_00.sql` |
+| `preferences` | module | `updates/db_archipelawow/2026_10_14_00.sql`, `2026_10_15_00.sql` |
 | One `creature_template` row per Archipelago player that mails an item, entries `5150000` and up | world | at runtime, as mail senders |
 | `.ap`, `.archipelago` and `.archipelawow` command prefixes | world (`command`) | `archipelawow_world_000_insert_commands.sql` |
 
