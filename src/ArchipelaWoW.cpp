@@ -789,12 +789,31 @@ namespace ModArchipelaWoW
 
         return apCharacters[guid]->CanPacketSend(packet);
     }
+#endif
 
     bool ArchipelaWoW::CanPacketReceive(WorldSession* session, const WorldPacket& packet)
     {
         // Nearly every packet received from a client comes through here: bail out before the lookup.
-        uint16 opcode = packet.GetOpcode();
-        if ((opcode != CMSG_BUY_ITEM && opcode != CMSG_BUY_ITEM_IN_SLOT) || !session || !session->GetPlayer())
+        switch (packet.GetOpcode())
+        {
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+            case CMSG_BUY_ITEM:
+            case CMSG_BUY_ITEM_IN_SLOT:
+#endif
+            case CMSG_GET_MAIL_LIST:
+            case CMSG_SEND_MAIL:
+            case CMSG_MAIL_TAKE_MONEY:
+            case CMSG_MAIL_TAKE_ITEM:
+            case CMSG_MAIL_MARK_AS_READ:
+            case CMSG_MAIL_RETURN_TO_SENDER:
+            case CMSG_MAIL_DELETE:
+            case CMSG_MAIL_CREATE_TEXT_ITEM:
+                break;
+            default:
+                return true;
+        }
+
+        if (!session || !session->GetPlayer())
         {
             return true;
         }
@@ -807,5 +826,4 @@ namespace ModArchipelaWoW
 
         return apCharacters[guid]->CanPacketReceive(packet);
     }
-#endif
 }

@@ -23,6 +23,7 @@
 #include "Opcodes.h"
 #include "Optional.h"
 #include "Player.h"
+#include "RBAC.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "Spell.h"
@@ -32,6 +33,7 @@
 #include "TemporarySummon.h"
 #include "Util.h"
 #include "WorldPacket.h"
+#include "WorldSession.h"
 
 #include <algorithm>
 #include <cctype>
@@ -53,11 +55,13 @@ constexpr uint32 GOSSIP_ITEM_TELE_ZONE = 2;
 constexpr uint32 GOSSIP_ITEM_TELE_DUNGEON = 3;
 constexpr uint32 GOSSIP_ITEM_HEARTHSTONE = 4;
 
+constexpr uint32 MAILBOX_CREATURE_ID = 100501; // archipelawow_world_019_stone_mailbox.sql
+constexpr uint32 MAX_SUMMONS_PER_SECOND = 10;
+
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
 constexpr uint32 GOSSIP_ITEM_TRANSMOG = 5;
 constexpr uint32 TRANSMOGRIFIER_CREATURE_ID = 190010; // mod-transmog's Warpweaver
 constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_transmog_back_item.sql
-constexpr uint32 MAX_TRANSMOG_SUMMONS_PER_SECOND = 10;
 #endif
 
 constexpr uint32 GOSSIP_ITEM_GLYPHS = 6;
@@ -239,7 +243,7 @@ namespace ModArchipelaWoW
         // tells its menu apart.
         if (transmogStoneGuid)
         {
-            if (!RefuseTransmogInCombat() && TakeTransmogSummon())
+            if (!RefuseTransmogInCombat() && TakeSummon())
             {
                 ForwardToTransmogrifier([&](Creature* transmogrifier)
                     {
@@ -316,7 +320,7 @@ namespace ModArchipelaWoW
             return;
         }
 
-        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeSummon())
         {
             return;
         }
@@ -370,7 +374,7 @@ namespace ModArchipelaWoW
         return false;
     }
 
-    bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
+    bool AP_Stone::CanTransmogPacketReceive(const WorldPacket& packet)
     {
         // Only purchases from mod-transmog's merchant window, while it is the last one sent and its menu is
         // still the stone's.
@@ -405,7 +409,7 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeSummon())
         {
             return false;
         }
@@ -426,6 +430,18 @@ namespace ModArchipelaWoW
             });
     }
 #endif
+
+    bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
+    {
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        if (packet.GetOpcode() == CMSG_BUY_ITEM || packet.GetOpcode() == CMSG_BUY_ITEM_IN_SLOT)
+        {
+            return CanTransmogPacketReceive(packet);
+        }
+#endif
+
+        return CanMailPacketReceive(packet);
+    }
 
     void AP_Stone::OnPlayerCreateItem(Item* item)
     {
@@ -554,7 +570,98 @@ namespace ModArchipelaWoW
             return;
         }
 
+        // The core lets no one reach a mailbox creature from a taxi, so CanMailPacketReceive's actions
+        // would all fail silently.
+        if (player->IsInFlight())
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while on a flight path.");
+            return;
+        }
+
+        mailboxShown = true;
         player->GetSession()->SendShowMailBox(player->GetGUID());
+    }
+
+    bool AP_Stone::CanMailPacketReceive(const WorldPacket& packet)
+    {
+        // The mailbox opens on the player, so the client keeps it open wherever the player goes and sends
+        // the player as the mailbox of every action in it. The core only accepts that from accounts
+        // allowed .mailbox: for the others, each action is made again on a mailbox summoned at the
+        // player's feet for it alone, which no client sees. Without mailboxShown, a client could reach
+        // the mailbox this way without ever opening the stone.
+        WorldSession* session = player->GetSession();
+        if (!mailboxShown || packet.read<uint64>(0) != player->GetGUID().GetRawValue() || session->HasPermission(rbac::RBAC_PERM_COMMAND_MAILBOX))
+        {
+            return true;
+        }
+
+        if (!TakeSummon())
+        {
+            return false;
+        }
+
+        TempSummon* mailbox = player->GetMap()->SummonCreature(MAILBOX_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
+        if (!mailbox)
+        {
+            // Creature templates only load at startup, so once is enough. Dropped rather than left to the
+            // core, which would log the action as a cheat.
+            static std::once_flag logged;
+            std::call_once(logged, []()
+                {
+                    AP_LOG_ERROR("Creature {} is missing, so the Archipelago Stone's mailbox does not work. "
+                        "Apply archipelawow_world_019_stone_mailbox.sql.", MAILBOX_CREATURE_ID);
+                });
+            return false;
+        }
+
+        // A summon with no summoner is in the normal phase, and the core only lets the player reach a
+        // mailbox in its own.
+        mailbox->SetPhaseMask(player->GetPhaseMask(), false);
+
+        WorldPacket redirected(packet);
+        redirected.put<uint64>(0, mailbox->GetGUID().GetRawValue());
+        switch (packet.GetOpcode())
+        {
+            case CMSG_GET_MAIL_LIST: session->HandleGetMailList(redirected); break;
+            case CMSG_SEND_MAIL: session->HandleSendMail(redirected); break;
+            case CMSG_MAIL_TAKE_MONEY: session->HandleMailTakeMoney(redirected); break;
+            case CMSG_MAIL_TAKE_ITEM: session->HandleMailTakeItem(redirected); break;
+            case CMSG_MAIL_MARK_AS_READ: session->HandleMailMarkAsRead(redirected); break;
+            case CMSG_MAIL_RETURN_TO_SENDER: session->HandleMailReturnToSender(redirected); break;
+            case CMSG_MAIL_DELETE: session->HandleMailDelete(redirected); break;
+            case CMSG_MAIL_CREATE_TEXT_ITEM: session->HandleMailCreateTextItem(redirected); break;
+        }
+
+        mailbox->DespawnOrUnsummon();
+        return false;
+    }
+
+    bool AP_Stone::TakeSummon()
+    {
+        // Each transmog click and purchase summons a transmogrifier, and each mail action a mailbox, which
+        // uses up one of the map's creature guids for as long as the map lives (a continent's, the whole
+        // uptime), and the server shuts down once they run out. A client looping them could get there;
+        // the cap slows one down to weeks. Playing by hand rarely reaches it, short of lag delivering a
+        // burst of them within the same second of world time, so a refusal leaves the windows as they
+        // are, to try again.
+        std::chrono::seconds now = GameTime::GetGameTime();
+        if (now != summonSecond)
+        {
+            summonSecond = now;
+            summons = 0;
+        }
+
+        if (++summons <= MAX_SUMMONS_PER_SECOND)
+        {
+            return true;
+        }
+
+        if (summons == MAX_SUMMONS_PER_SECOND + 1)
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000You are doing that too fast.");
+        }
+
+        return false;
     }
 
     void AP_Stone::DismountForItemCast()
@@ -603,7 +710,7 @@ namespace ModArchipelaWoW
     {
         // Before transmogStoneGuid is set: after a refusal the stone's own menu is still showing, and
         // its clicks must keep going to the stone rather than to mod-transmog.
-        if (RefuseTransmogInCombat() || !TakeTransmogSummon())
+        if (RefuseTransmogInCombat() || !TakeSummon())
         {
             return;
         }
@@ -671,37 +778,9 @@ namespace ModArchipelaWoW
         return true;
     }
 
-    bool AP_Stone::TakeTransmogSummon()
-    {
-        // Each click and purchase summons a transmogrifier, which uses up one of the map's creature
-        // guids for as long as the map lives (a continent's, the whole uptime), and the server shuts
-        // down once they run out. A client looping clicks or purchases could get there; the cap slows
-        // one down to weeks. Clicking by hand rarely reaches it, short of lag delivering a burst of
-        // clicks within the same second of world time, so a refusal leaves the windows as they are, to
-        // click again.
-        std::chrono::seconds now = GameTime::GetGameTime();
-        if (now != transmogSummonSecond)
-        {
-            transmogSummonSecond = now;
-            transmogSummons = 0;
-        }
-
-        if (++transmogSummons <= MAX_TRANSMOG_SUMMONS_PER_SECOND)
-        {
-            return true;
-        }
-
-        if (transmogSummons == MAX_TRANSMOG_SUMMONS_PER_SECOND + 1)
-        {
-            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000You are doing that too fast.");
-        }
-
-        return false;
-    }
-
     void AP_Stone::ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward)
     {
-        // As for RunOnTransmogrifier, callers take a summon with TakeTransmogSummon first.
+        // As for RunOnTransmogrifier, callers take a summon with TakeSummon first.
         if (!IsTransmogEnabled() || !RunOnTransmogrifier(forward))
         {
             player->PlayerTalkClass->SendCloseGossip();
@@ -714,7 +793,7 @@ namespace ModArchipelaWoW
         // summoned for it alone. With no summoner, the summoner-only flag keeps it from every client;
         // CanPacketSend moves the windows it opens off it.
         //
-        // Callers take a summon with TakeTransmogSummon first, before any state they would have to undo
+        // Callers take a summon with TakeSummon first, before any state they would have to undo
         // on a refusal.
         TempSummon* transmogrifier = player->GetMap()->SummonCreature(TRANSMOGRIFIER_CREATURE_ID, player->GetPosition(), nullptr, 0, nullptr, 0, 0, true);
         if (!transmogrifier)

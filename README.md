@@ -147,11 +147,12 @@ blast with `40162` *Bombing Run: Explosion Visual*, both unchanged: they only pl
 
 ### Creatures
 
-One new `creature_template` entry is created, summoned only by the module:
+Two new `creature_template` entries are created, summoned only by the module:
 
 | ID | Name | Purpose | Added by |
 |----|------|---------|----------|
 | `100500` | Bomb | The bombs a *Bombs Trap* drops, wearing the Scourge Bomb's model at half its size | `archipelawow_world_018_bomb.sql` |
+| `100501` | Archipelago Stone Mailbox | The mailbox each action in the Archipelago Stone's mailbox runs on, seen by no client | `archipelawow_world_019_stone_mailbox.sql` |
 
 ### Items
 

@@ -993,12 +993,12 @@ namespace ModArchipelaWoW
     {
         return apStone.CanPacketSend(packet);
     }
+#endif
 
     bool AP_Character::CanPacketReceive(const WorldPacket& packet)
     {
         return apStone.CanPacketReceive(packet);
     }
-#endif
 
     void AP_Character::GrantSpell(uint32 spellId)
     {

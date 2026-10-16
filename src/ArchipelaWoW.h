@@ -98,8 +98,8 @@ namespace ModArchipelaWoW
         void OnNetworkStart(Acore::Asio::IoContext& ioContext);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         bool CanPacketSend(WorldSession* session, const WorldPacket& packet);
-        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet);
 #endif
+        bool CanPacketReceive(WorldSession* session, const WorldPacket& packet);
 
     private:
         Config config;

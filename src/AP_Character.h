@@ -125,8 +125,8 @@ namespace ModArchipelaWoW
 
         // ServerScripts events
         bool CanPacketSend(const WorldPacket& packet);
-        bool CanPacketReceive(const WorldPacket& packet);
 #endif
+        bool CanPacketReceive(const WorldPacket& packet);
 
     private:
         std::unique_ptr<Network::Client> ap;

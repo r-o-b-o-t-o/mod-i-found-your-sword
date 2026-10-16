@@ -32,8 +32,8 @@ namespace ModArchipelaWoW
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         void OnGossipSelectCode(uint32 sender, uint32 action, const char* code);
         bool CanPacketSend(const WorldPacket& packet);
-        bool CanPacketReceive(const WorldPacket& packet);
 #endif
+        bool CanPacketReceive(const WorldPacket& packet);
         void OnPlayerCreateItem(Item* item);
 
     private:
@@ -57,12 +57,13 @@ namespace ModArchipelaWoW
         uint32 gossipTitleTextId;
         uint32 selectedGlyphItemId; // The glyph item picked in the glyphs menu, for the slots menu
         uint8 selectedHeirloomWeaponSlot; // The slot picked in the heirloom weapon slots menu, for the weapon list
+        bool mailboxShown = false; // Set once the stone has opened the mailbox
+        std::chrono::seconds summonSecond{};
+        uint32 summons = 0;
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         ObjectGuid transmogrifierGuid; // Set while a click or purchase runs on it
         ObjectGuid transmogStoneGuid; // Set from opening mod-transmog's menu until the stone shows its own
         bool transmogVendorShown = false; // Set while mod-transmog's merchant window is the last one sent
-        std::chrono::seconds transmogSummonSecond{};
-        uint32 transmogSummons = 0;
 #endif
 
         const char* GetZoneTeleportIcon();
@@ -70,14 +71,16 @@ namespace ModArchipelaWoW
         void SendMainMenu(Item* item);
         void HandleMainMenuAction(Item* item, uint32 action);
         void HandleMailboxAction();
+        bool CanMailPacketReceive(const WorldPacket& packet);
+        bool TakeSummon();
         void HandleHearthstoneAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
+        bool CanTransmogPacketReceive(const WorldPacket& packet);
         void HandleTransmogAction(Item* item);
         void OpenTransmogMenu();
         static void AddTransmogBackItem(WorldPacket& list);
         static bool IsTransmogEnabled();
         bool RefuseTransmogInCombat();
-        bool TakeTransmogSummon();
         void ForwardToTransmogrifier(const std::function<bool(Creature*)>& forward);
         bool RunOnTransmogrifier(const std::function<bool(Creature*)>& run);
 #endif
