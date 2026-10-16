@@ -884,9 +884,8 @@ namespace ModArchipelaWoW
     {
         player->PlayerTalkClass->SendCloseGossip();
 
-        if (player->IsInCombat())
+        if (RefuseTeleport())
         {
-            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000Cannot do this while in combat.");
             return;
         }
 
@@ -895,6 +894,25 @@ namespace ModArchipelaWoW
         {
             apCharacter->Teleport(zone.value());
         }
+    }
+
+    bool AP_Stone::RefuseTeleport()
+    {
+        ChatHandler chat(player->GetSession());
+        if (player->IsInCombat())
+        {
+            chat.SendSysMessage("|cFFFF0000Cannot do this while in combat.");
+            return true;
+        }
+
+        // The whole time in the air, a jump's rise included: Player::IsFalling only holds on the way down.
+        if (player->HasUnitMovementFlag(MOVEMENTFLAG_FALLING | MOVEMENTFLAG_FALLING_FAR))
+        {
+            chat.SendSysMessage("|cFFFF0000Cannot do this while falling.");
+            return true;
+        }
+
+        return false;
     }
 
     void AP_Stone::SendFriendTeleportMenu(Item* item)
@@ -957,9 +975,8 @@ namespace ModArchipelaWoW
         }
 
         Player* destination = *target;
-        if (player->IsInCombat())
+        if (RefuseTeleport())
         {
-            chat.SendSysMessage("|cFFFF0000Cannot do this while in combat.");
             return;
         }
 

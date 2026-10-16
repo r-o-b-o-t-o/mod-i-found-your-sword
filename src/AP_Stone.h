@@ -94,6 +94,7 @@ namespace ModArchipelaWoW
         void HandleDungeonTeleportSubmenuAction(Item* item, uint32 action);
         void HandleDungeonTeleportAction(Item* item, uint32 action);
         void HandleGenericTeleportAction(uint32 action);
+        bool RefuseTeleport();
         void SendFriendTeleportMenu(Item* item);
         void HandleFriendTeleportAction(Item* item, uint32 action);
         bool RefuseFriendTeleportOnCooldown();
