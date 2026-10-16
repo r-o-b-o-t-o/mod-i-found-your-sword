@@ -21,9 +21,9 @@
 --    5   | 35270 Clefthoof Ribs           (29451) | 27089 Purified Draenic Water  (27860) | 65
 --    6   | 45548 Sparkling Frostcap       (35947) | 43183 Honeymint Tea           (33445) | 75
 --
--- Tiers 5 and 6 are the Burning Crusade and Wrath rungs. The apworld leaves them out of the item
--- pool when the seed's goal stops short of that content, so a level 60 seed never hands them out --
--- but the rows are still defined here, because the same module serves every seed on the realm.
+-- The apworld leaves a tier out of the item pool unless the seed's level cap is above its `req`, so
+-- a level 40 seed only hands out tiers 1 and 2 -- but every row is still defined here, because the
+-- same module serves every seed on the realm.
 --
 -- What makes them eternal is `spellcharges_1` = 0. Both Spell::CheckItems and Spell::TakeCastItem
 -- guard their charge handling behind a non-zero SpellCharges, so a zero-charge consumable is never
