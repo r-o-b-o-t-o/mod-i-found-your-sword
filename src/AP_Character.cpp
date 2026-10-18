@@ -1038,6 +1038,20 @@ namespace ModArchipelaWoW
         }
     }
 
+    void AP_Character::GrantRidingMount(uint32 rankSpellId)
+    {
+        // Only when the character knows none of the rank's mounts, rather than once per copy: that
+        // keeps the replayed item list from teaching another one on every connection, and catches a
+        // character up on a rank it received before ranks came with a mount.
+        const std::vector<uint32>& mounts = Items::GetRidingRankMounts(rankSpellId, player->getRace(true), player->GetTeamId(true));
+        if (mounts.empty() || std::ranges::any_of(mounts, [this](uint32 mountSpellId) { return player->HasSpell(mountSpellId); }))
+        {
+            return;
+        }
+
+        player->learnSpell(Acore::Containers::SelectRandomContainerElement(mounts));
+    }
+
     void AP_Character::LearnGrantedSpell(uint32 spellId)
     {
         if (player->HasSpell(spellId))
@@ -1500,6 +1514,7 @@ namespace ModArchipelaWoW
                 for (uint32 rank = 0; rank < count && rank < track.steps.size(); ++rank)
                 {
                     GrantSpell(track.steps[rank]);
+                    GrantRidingMount(track.steps[rank]);
                 }
 
                 return;

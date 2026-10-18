@@ -207,6 +207,7 @@ namespace ModArchipelaWoW
         void ApplyMovementSpeedBonus();
         void RemoveOutgrownProgressiveItems(Items::ProgressiveType type);
         void GrantSpell(uint32 spellId);
+        void GrantRidingMount(uint32 rankSpellId);
         void LearnGrantedSpell(uint32 spellId);
         void RemoveUngrantedSpells();
         void RemoveSpellIfUngranted(uint32 spellId);

@@ -3,6 +3,7 @@
 
 #include "Define.h"
 #include "Optional.h"
+#include "SharedDefines.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -27,6 +28,11 @@ namespace ModArchipelaWoW::Items
     };
 
     Optional<ProgressiveType> ProgressiveTypeFromValue(uint32 value);
+
+    /// The mounts a riding rank comes with for a character of `race` and `team`, one of which is
+    /// taught with the rank: the mount items ask for a level a seed may hand the rank out before.
+    /// Empty for any other spell.
+    const std::vector<uint32>& GetRidingRankMounts(uint32 rankSpellId, uint8 race, TeamId team);
 
     struct ProgressiveItem
     {
