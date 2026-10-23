@@ -8,6 +8,7 @@
 #include "locations/AP_Leaders.h"
 #include "locations/AP_Levels.h"
 #include "locations/AP_Quests.h"
+#include "locations/AP_Shop.h"
 #include "locations/AP_Skills.h"
 #include "locations/AP_Spells.h"
 
@@ -24,6 +25,7 @@ namespace ModArchipelaWoW::Locations
             leaders(),
             levels(),
             quests(),
+            shop(),
             skills(),
             spells()
         {
@@ -36,6 +38,7 @@ namespace ModArchipelaWoW::Locations
         Leaders leaders;
         Levels levels;
         Quests quests;
+        Shop shop;
         Skills skills;
         Spells spells;
     };

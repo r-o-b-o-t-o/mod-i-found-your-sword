@@ -47,7 +47,10 @@ namespace ModArchipelaWoW
 
         bool Update();
         const Items::ItemsContainer& GetItemsContainer() const;
+        const Locations::LocationsContainer& GetLocationsContainer() const;
         Player* GetPlayer();
+        /// Null until the character first connects.
+        const Network::Client* GetClient() const;
         std::string GetItemName(int64 itemId) const;
         bool IsZoneUnlocked(uint32 zoneId) const;
         /// Whether the seed keeps the character out of the zone until its item arrives.
@@ -69,6 +72,8 @@ namespace ModArchipelaWoW
         bool WantsHeldOffHands() const;
         /// The level the run ends at, 0 until the slot data has arrived.
         uint8 GetMaxLevel() const;
+        /// The level a level goal is won at, 0 for the other goals and until the slot data has arrived.
+        uint8 GetGoalLevel() const;
         bool PrefersCasterWorldBuffs() const;
         void ToggleCasterWorldBuffs();
         /// The weapon in an heirloom weapon slot, 0 for none yet.
@@ -85,6 +90,12 @@ namespace ModArchipelaWoW
         void SendLevelReport() const;
         void SendExperienceBar() const;
         bool IsSlotConnected() const;
+        /// Checked by this character, or by anyone as far as the server has said.
+        bool IsLocationChecked(int32 locationId) const;
+        void CheckLocation(int32 locationId);
+        /// Hints those of the locations not hinted yet, announcing them to the room. Does nothing while
+        /// the slot is disconnected.
+        void HintLocations(std::vector<int64> locationIds);
         void SayToArchipelago(const std::string& text);
 
         // PlayerScripts events
@@ -229,7 +240,6 @@ namespace ModArchipelaWoW
         void SavePosition();
         void InitExperience();
         void LoadXPForLevel();
-        void CheckLocation(int32 locationId);
         void CheckLocations(const std::list<int64>& locationIds);
         MailSender GetMailSender(int sender);
         void RelayChatToArchipelago(const std::string& text);

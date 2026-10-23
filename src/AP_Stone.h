@@ -1,6 +1,7 @@
 #ifndef _MOD_ARCHIPELAWOW_AP_STONE_H_
 #define _MOD_ARCHIPELAWOW_AP_STONE_H_
 
+#include "AP_StoneShop.h"
 #include "Creature.h"
 #include "DBCStructure.h"
 #include "Define.h"
@@ -14,6 +15,7 @@
 
 #include <chrono>
 #include <functional>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -35,6 +37,9 @@ namespace ModArchipelaWoW
 #endif
         bool CanPacketReceive(const WorldPacket& packet);
         void OnPlayerCreateItem(Item* item);
+        void OnLocationInfo(const std::list<Network::Client::NetworkItem>& items);
+        /// Closes the shop's merchant window, if it is open, with the main menu in its place.
+        void OnShopSoldOut();
 
     private:
         struct GlyphSpell
@@ -52,6 +57,7 @@ namespace ModArchipelaWoW
 
         AP_Character* apCharacter;
         Player* player;
+        AP_StoneShop shop;
         uint32 gossipIdx;
         uint32 gossipSender;
         uint32 gossipTitleTextId;
@@ -74,6 +80,7 @@ namespace ModArchipelaWoW
         bool CanMailPacketReceive(const WorldPacket& packet);
         bool TakeSummon();
         void HandleHearthstoneAction();
+        void HandleShopAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         bool CanTransmogPacketReceive(const WorldPacket& packet);
         void HandleTransmogAction(Item* item);

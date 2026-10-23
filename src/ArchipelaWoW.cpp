@@ -796,10 +796,9 @@ namespace ModArchipelaWoW
         // Nearly every packet received from a client comes through here: bail out before the lookup.
         switch (packet.GetOpcode())
         {
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+            case CMSG_ITEM_QUERY_SINGLE:
             case CMSG_BUY_ITEM:
             case CMSG_BUY_ITEM_IN_SLOT:
-#endif
             case CMSG_GET_MAIL_LIST:
             case CMSG_SEND_MAIL:
             case CMSG_MAIL_TAKE_MONEY:
@@ -818,12 +817,12 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        auto guid = session->GetPlayer()->GetGUID().GetCounter();
-        if (!apCharacters.contains(guid))
+        auto character = apCharacters.find(session->GetPlayer()->GetGUID().GetCounter());
+        if (character == apCharacters.end())
         {
             return true;
         }
 
-        return apCharacters[guid]->CanPacketReceive(packet);
+        return character->second->CanPacketReceive(packet);
     }
 }

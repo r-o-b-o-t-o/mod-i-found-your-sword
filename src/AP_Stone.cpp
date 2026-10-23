@@ -67,6 +67,7 @@ constexpr uint32 TRANSMOG_BACK_ITEM_ID = 100500; // archipelawow_world_010_trans
 constexpr uint32 GOSSIP_ITEM_GLYPHS = 6;
 constexpr uint32 GOSSIP_ITEM_FRIEND_TELEPORT = 7;
 constexpr uint32 GOSSIP_ITEM_PREFERENCES = 8;
+constexpr uint32 GOSSIP_ITEM_SHOP = 9;
 
 constexpr uint32 GOSSIP_MENU_TELE_ZONE = 1;
 constexpr uint32 GOSSIP_ITEM_TELE_ZONE_EASTERN_KINGDOMS = 1;
@@ -188,6 +189,7 @@ namespace ModArchipelaWoW
     AP_Stone::AP_Stone(AP_Character* apCharacter) :
         apCharacter(apCharacter),
         player(apCharacter->GetPlayer()),
+        shop(apCharacter, this),
         gossipIdx(0),
         gossipSender(0),
         gossipTitleTextId(0),
@@ -433,14 +435,24 @@ namespace ModArchipelaWoW
 
     bool AP_Stone::CanPacketReceive(const WorldPacket& packet)
     {
-#ifdef MOD_ARCHIPELAWOW_TRANSMOG
-        if (packet.GetOpcode() == CMSG_BUY_ITEM || packet.GetOpcode() == CMSG_BUY_ITEM_IN_SLOT)
+        switch (packet.GetOpcode())
         {
-            return CanTransmogPacketReceive(packet);
-        }
+            case CMSG_ITEM_QUERY_SINGLE:
+                return shop.CanItemQueryReceive(packet);
+            case CMSG_BUY_ITEM:
+            case CMSG_BUY_ITEM_IN_SLOT:
+                if (!shop.CanBuyPacketReceive(packet))
+                {
+                    return false;
+                }
+#ifdef MOD_ARCHIPELAWOW_TRANSMOG
+                return CanTransmogPacketReceive(packet);
+#else
+                return true;
 #endif
-
-        return CanMailPacketReceive(packet);
+            default:
+                return CanMailPacketReceive(packet);
+        }
     }
 
     void AP_Stone::OnPlayerCreateItem(Item* item)
@@ -469,6 +481,21 @@ namespace ModArchipelaWoW
                 player->DestroyItemCount(HEARTHSTONE_ITEM_ID, 1, true);
                 ChatHandler(player->GetSession()).SendSysMessage("Your Archipelago Stone absorbed the new Hearthstone.");
             }, 0ms);
+    }
+
+    void AP_Stone::OnLocationInfo(const std::list<Network::Client::NetworkItem>& items)
+    {
+        shop.OnLocationInfo(items);
+    }
+
+    void AP_Stone::OnShopSoldOut()
+    {
+        // The server cannot close a merchant window, but the client shows a gossip window in its place,
+        // which closes it. The main menu no longer offers the shop.
+        if (Item* item = player->GetItemByEntry(AP_STONE_ITEM_ID))
+        {
+            SendMainMenu(item);
+        }
     }
 
     const char* AP_Stone::GetZoneTeleportIcon()
@@ -532,6 +559,7 @@ namespace ModArchipelaWoW
             AddGossipItem("Icons/Achievement_Reputation_01", friendTeleport, GOSSIP_ITEM_FRIEND_TELEPORT);
         }
 
+        if (shop.HasItemsLeft()) AddGossipItem("Icons/INV_Misc_Coin_02", "Shop", GOSSIP_ITEM_SHOP);
         if (HasAnyGlyphAvailable()) AddGossipItem(GetGlyphIcon(GLYPH_TYPE_MAJOR), "Glyphs", GOSSIP_ITEM_GLYPHS);
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         if (IsTransmogEnabled()) AddGossipItem("Icons/INV_Fabric_Mageweave_02", "Transmogrification", GOSSIP_ITEM_TRANSMOG);
@@ -555,6 +583,7 @@ namespace ModArchipelaWoW
         else if (action == GOSSIP_ITEM_GLYPHS) SendGlyphsMenu(item);
         else if (action == GOSSIP_ITEM_FRIEND_TELEPORT) SendFriendTeleportMenu(item);
         else if (action == GOSSIP_ITEM_PREFERENCES) SendPreferencesMenu(item);
+        else if (action == GOSSIP_ITEM_SHOP) HandleShopAction();
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG
         else if (action == GOSSIP_ITEM_TRANSMOG) HandleTransmogAction(item);
 #endif
@@ -703,6 +732,12 @@ namespace ModArchipelaWoW
         // without item 6948 in hand -- it carries spellcooldown_1 and spellcategorycooldown_1 of -1,
         // which Player::AddSpellAndCategoryCooldowns reads as "take the values from the spell".
         player->CastSpell(player, HEARTHSTONE_SPELL_ID, false);
+    }
+
+    void AP_Stone::HandleShopAction()
+    {
+        player->PlayerTalkClass->SendCloseGossip();
+        shop.Open();
     }
 
 #ifdef MOD_ARCHIPELAWOW_TRANSMOG

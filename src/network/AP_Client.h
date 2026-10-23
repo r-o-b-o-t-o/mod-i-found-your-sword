@@ -137,8 +137,8 @@ namespace ModArchipelaWoW::Network
         /// Send checked locations to the server.
         bool LocationChecks(const std::list<int64_t>& locations);
 
-        /// Ask the server what the locations hold. With createAsHint 2, it also hints the ones not
-        /// hinted yet and announces them to the room.
+        /// Ask the server what the locations hold, answered through the location info handler. With
+        /// createAsHint 2, it also hints the ones not hinted yet and announces them to the room.
         bool LocationScouts(const std::list<int64_t>& locations, int createAsHint);
 
         /// Send a status update (e.g. Goal reached).
@@ -197,6 +197,8 @@ namespace ModArchipelaWoW::Network
         void SetRoomInfoHandler(std::function<void()> handler);
         void SetDataPackageChangedHandler(std::function<void(const json&)> handler);
         void SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler);
+        /// Called with what the locations of a LocationScouts hold.
+        void SetLocationInfoHandler(std::function<void(const std::list<NetworkItem>&)> handler);
         void SetPrintJsonHandler(std::function<void(const PrintJson&)> handler);
         void SetBouncedHandler(std::function<void(const json&)> handler);
         void SetMessageErrorHandler(std::function<void(const std::string&)> handler);
@@ -258,6 +260,7 @@ namespace ModArchipelaWoW::Network
         std::function<void()> onRoomInfo;
         std::function<void(const json&)> onDataPackageChanged;
         std::function<void(const std::list<NetworkItem>&)> onItemsReceived;
+        std::function<void(const std::list<NetworkItem>&)> onLocationInfo;
         std::function<void(const PrintJson&)> onPrintJson;
         std::function<void(const json&)> onBounced;
         std::function<void(const std::string&)> onMessageError;

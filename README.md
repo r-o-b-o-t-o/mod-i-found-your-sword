@@ -162,6 +162,10 @@ One new `item_template` entry is created. It is never handed out to a player:
 |----|------|---------|----------|
 | `100500` | Back | The entry the Archipelago Stone adds to mod-transmog's vendor interface to return to the transmogrification menu | `archipelawow_world_010_transmog_back_item.sql` |
 
+The Archipelago Stone's shop lists its items under `100600` to `100749`, one entry per item of the
+seed's shop. They have no `item_template` row: the module tells the client what each one is called,
+which icon it shows and what it holds, so no other module should use these entries.
+
 The items below reuse existing rows that no player can obtain: either deprecated
 entries, or Blizzard's `NPC Equip <id>` placeholders, which exist only to carry a display id.
 None of them appear in `creature_equip_template`, `npc_vendor`, any loot table, or a reachable quest.

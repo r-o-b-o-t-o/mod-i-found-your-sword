@@ -794,6 +794,7 @@ namespace ModArchipelaWoW::Network
     void Client::SetRoomInfoHandler(std::function<void()> handler) { onRoomInfo = std::move(handler); }
     void Client::SetDataPackageChangedHandler(std::function<void(const json&)> handler) { onDataPackageChanged = std::move(handler); }
     void Client::SetItemsReceivedHandler(std::function<void(const std::list<NetworkItem>&)> handler) { onItemsReceived = std::move(handler); }
+    void Client::SetLocationInfoHandler(std::function<void(const std::list<NetworkItem>&)> handler) { onLocationInfo = std::move(handler); }
     void Client::SetPrintJsonHandler(std::function<void(const PrintJson&)> handler) { onPrintJson = std::move(handler); }
     void Client::SetBouncedHandler(std::function<void(const json&)> handler) { onBounced = std::move(handler); }
     void Client::SetMessageErrorHandler(std::function<void(const std::string&)> handler) { onMessageError = std::move(handler); }
@@ -994,6 +995,21 @@ namespace ModArchipelaWoW::Network
             }
 
             if (onItemsReceived) onItemsReceived(items);
+        }
+        else if (cmd == "LocationInfo")
+        {
+            std::list<NetworkItem> items;
+            for (const auto& j : command.at("locations"))
+            {
+                NetworkItem item;
+                item.item = j.at("item").get<int64_t>();
+                item.location = j.at("location").get<int64_t>();
+                item.player = j.at("player").get<int>();
+                item.flags = j.value("flags", 0U);
+                items.push_back(item);
+            }
+
+            if (onLocationInfo) onLocationInfo(items);
         }
         else if (cmd == "DataPackage")
         {

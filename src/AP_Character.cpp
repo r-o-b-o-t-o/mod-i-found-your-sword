@@ -2,6 +2,7 @@
 #include "AP_Character.h"
 #include "AP_Log.h"
 #include "AP_PlayerPosition.h"
+#include "AP_StoneShop.h"
 #include "AP_Traps.h"
 #include "ArchipelaWoW.h"
 #include "ByteBuffer.h"
@@ -56,7 +57,6 @@
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <iterator>
@@ -239,9 +239,19 @@ namespace ModArchipelaWoW
         return items;
     }
 
+    const Locations::LocationsContainer& AP_Character::GetLocationsContainer() const
+    {
+        return locations;
+    }
+
     Player* AP_Character::GetPlayer()
     {
         return player;
+    }
+
+    const Network::Client* AP_Character::GetClient() const
+    {
+        return ap.get();
     }
 
     std::string AP_Character::GetItemName(int64 itemId) const
@@ -334,6 +344,12 @@ namespace ModArchipelaWoW
         return maxLevel;
     }
 
+    uint8 AP_Character::GetGoalLevel() const
+    {
+        // The level goals are the Level 10 to Level 80 achievements, 6 to 13.
+        return goalAchievementId >= 6 && goalAchievementId <= 13 ? maxLevel : 0;
+    }
+
     bool AP_Character::PrefersCasterWorldBuffs() const
     {
         return IsHybrid() && casterWorldBuffs;
@@ -413,24 +429,8 @@ namespace ModArchipelaWoW
             return 0;
         }
 
-        uint8 level = player->GetLevel();
-        level = std::max(uint8(5), level);
-
-        const double lvl = static_cast<double>(level);
-        const double multiplier = 1.5;
-
-        double result;
-        if (level <= 60)
-        {
-            result = 6.0731 * std::pow(lvl, 2.0641);
-        }
-        else
-        {
-            result = 2.3e-6 * std::pow(lvl, 5.9408);
-        }
-        result *= multiplier;
-
-        return static_cast<uint32>(std::round(result));
+        // One Stone Shop item at the character's level.
+        return AP_StoneShop::GetTierPrice(player->GetLevel(), GetGoalLevel());
     }
 
     void AP_Character::SendLevelReport() const
@@ -498,6 +498,25 @@ namespace ModArchipelaWoW
     bool AP_Character::IsSlotConnected() const
     {
         return ap && ap->GetState() >= Network::Client::State::SlotConnected;
+    }
+
+    bool AP_Character::IsLocationChecked(int32 locationId) const
+    {
+        // The server's list also covers the checks made elsewhere, such as by a !collect.
+        return checkedLocations.contains(locationId) || (IsSlotConnected() && !ap->GetMissingLocations().contains(locationId));
+    }
+
+    void AP_Character::HintLocations(std::vector<int64> locationIds)
+    {
+        std::erase_if(locationIds, [&](int64 locationId) { return hintedLocations.contains(locationId); });
+        if (locationIds.empty() || !IsSlotConnected())
+        {
+            return;
+        }
+
+        // Ahead of the server's update, which a scroll read or the shop opened straight after could beat.
+        hintedLocations.insert(locationIds.begin(), locationIds.end());
+        ap->LocationScouts({ locationIds.begin(), locationIds.end() }, CREATE_AS_HINT_ANNOUNCE_NEW);
     }
 
     void AP_Character::SayToArchipelago(const std::string& text)
@@ -886,10 +905,7 @@ namespace ModArchipelaWoW
         {
             std::vector<int64> locations = GetUnhintedLocations();
             Acore::Containers::RandomResize(locations, SCROLL_OF_DIVINATION_HINTS);
-
-            // Ahead of the server's update, which a second scroll read straight after could beat.
-            hintedLocations.insert(locations.begin(), locations.end());
-            ap->LocationScouts({ locations.begin(), locations.end() }, CREATE_AS_HINT_ANNOUNCE_NEW);
+            HintLocations(std::move(locations));
         }
         else if (spell->m_CastItem->GetEntry() == TOME_OF_INSIGHT_ITEM_ID && apLevel < maxLevel)
         {
@@ -1124,6 +1140,7 @@ namespace ModArchipelaWoW
         ap->SetRoomInfoHandler([this]() { APRoomInfoHandler(); });
         ap->SetDataPackageChangedHandler([this](const auto& d) { APDataPackageHandler(d); });
         ap->SetItemsReceivedHandler([this](const auto& i) { APReceivedItemsHandler(i); });
+        ap->SetLocationInfoHandler([this](const auto& i) { apStone.OnLocationInfo(i); });
         ap->SetPrintJsonHandler([this](const auto& msg) { APPrintJsonHandler(msg); });
         ap->SetSlotRefusedHandler([this](const auto& e) { APSlotRefusedHandler(e); });
         ap->SetMessageErrorHandler([this](const auto& e) { APMessageErrorHandler(e); });
@@ -2212,6 +2229,14 @@ namespace ModArchipelaWoW
             {
                 locations.spells.AddLocation(spell.at(0), spell.at(1));
             }
+            // Missing from seeds generated before the apworld had the Stone Shop
+            if (locationData.contains("shop"))
+            {
+                for (const auto& shopItem : locationData.at("shop"))
+                {
+                    locations.shop.AddLocation(shopItem.at(0), shopItem.at(1));
+                }
+            }
             for (const auto& skill : locationData.at("skills"))
             {
                 locations.skills.AddLocation(skill.at(0), skill.at(1), skill.at(2));
@@ -2333,6 +2358,18 @@ namespace ModArchipelaWoW
 
         ap->Get({ GetHintsKey() });
         ap->SetNotify({ GetHintsKey() });
+
+        // What the shop's items hold, for it to show. Not hinted yet: that waits for the shop to be opened.
+        std::list<int64_t> shopLocations;
+        for (const auto& shopItem : locations.shop.GetItems())
+        {
+            shopLocations.push_back(shopItem.locationId);
+        }
+        if (!shopLocations.empty())
+        {
+            ap->LocationScouts(shopLocations, 0);
+        }
+
         // For the launcher's tracker portrait: 0 male, 1 female
         ap->Set(ap->GetPlayerNumber(), "gender", player->getGender());
 
