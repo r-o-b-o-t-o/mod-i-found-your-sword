@@ -680,7 +680,7 @@ namespace ModArchipelaWoW
     void AP_Character::OnDungeonEncounterCredited(uint32 encounterId)
     {
         auto checkId = locations.bosses.GetLocationId(encounterId);
-        if (checkId.has_value())
+        if (checkId.has_value() && !checkedLocations.contains(checkId.value()))
         {
             CheckLocation(checkId.value());
         }
