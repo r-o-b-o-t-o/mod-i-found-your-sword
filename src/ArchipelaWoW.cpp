@@ -70,7 +70,7 @@ namespace ModArchipelaWoW
             }
         }
 
-        // A core table, so no prepared statement to reach for; synchronous because the reload
+        // A core table, so no prepared statement to reach for; synchronous because the load
         // right below has to see the row.
         std::string escapedName(name);
         WorldDatabase.EscapeString(escapedName);
@@ -83,7 +83,16 @@ namespace ModArchipelaWoW
         stmt->SetArguments(name, nextEntry);
         Database::ArchipelaWoWDatabase.Execute(stmt);
 
-        sObjectMgr->LoadCreatureTemplates();
+        // Only the new entry, the way `.reload creature_template` does it: reloading every template would
+        // wipe the flags the core sets on them at startup, such as the dungeon boss flag that encounter
+        // credit depends on.
+        WorldDatabasePreparedStatement* templateStmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_CREATURE_TEMPLATE);
+        templateStmt->SetData(0, nextEntry);
+        if (PreparedQueryResult result = WorldDatabase.Query(templateStmt))
+        {
+            sObjectMgr->LoadCreatureTemplate(result->Fetch(), true);
+            sObjectMgr->CheckCreatureTemplate(sObjectMgr->GetCreatureTemplate(nextEntry));
+        }
 
         playerCreatureTemplates[name] = nextEntry;
 
