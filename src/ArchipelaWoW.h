@@ -77,6 +77,7 @@ namespace ModArchipelaWoW
         bool OnPlayerCanUseChat(Player* player, uint32 type, const std::string& msg, const std::string& channelName = "");
         void OnPlayerSpellCast(Player* player, const Spell* spell);
         void OnPlayerResurrect(Player* player);
+        void OnPlayerCreatureKillCredit(Player* player, Creature* killed);
 
         // GlobalScripts methods
         void OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters);
@@ -112,6 +113,7 @@ namespace ModArchipelaWoW
         void InitializeConfig(bool reload);
         void BuildGearPool();
         void LoadPlayerCreatureTemplates();
+        void CreditDungeonEncounter(Map* map, uint32 encounterId);
     };
 }
 

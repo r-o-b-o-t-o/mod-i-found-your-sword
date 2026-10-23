@@ -14,6 +14,7 @@
 #include "IoContext.h"
 #include "Item.h"
 #include "items/AP_GearPool.h"
+#include "locations/AP_Bosses.h"
 #include "Map.h"
 #include "MapReference.h"
 #include "network/AP_WebSocketService.h"
@@ -598,25 +599,44 @@ namespace ModArchipelaWoW
 
         for (const DungeonEncounter* encounter : *encounters)
         {
-            if (encounter->creditType != type || encounter->creditEntry != creditEntry)
+            if (encounter->creditType == type && encounter->creditEntry == creditEntry)
+            {
+                CreditDungeonEncounter(map, encounter->dbcEntry->id);
+            }
+        }
+    }
+
+    void ArchipelaWoW::OnPlayerCreatureKillCredit(Player* player, Creature* killed)
+    {
+        ReturnIfModDisabled;
+
+        if (!player || !killed)
+        {
+            return;
+        }
+
+        // Called once per kill, for the player credited with it, so a pet's or a group member's kill counts too
+        if (killed->GetEntry() == Locations::SERGEANT_BLY_ENTRY && killed->GetMapId() == Locations::ZULFARRAK_MAP_ID)
+        {
+            CreditDungeonEncounter(killed->GetMap(), Locations::SERGEANT_BLY_ENCOUNTER_ID);
+        }
+    }
+
+    void ArchipelaWoW::CreditDungeonEncounter(Map* map, uint32 encounterId)
+    {
+        // Everyone in the instance, the way the core marks the encounter done for the whole instance.
+        for (const MapReference& ref : map->GetPlayers())
+        {
+            Player* player = ref.GetSource();
+            if (!player)
             {
                 continue;
             }
 
-            // Everyone in the instance, the way the core marks the encounter done for the whole instance.
-            for (const MapReference& ref : map->GetPlayers())
+            auto guid = player->GetGUID().GetCounter();
+            if (apCharacters.contains(guid))
             {
-                Player* player = ref.GetSource();
-                if (!player)
-                {
-                    continue;
-                }
-
-                auto guid = player->GetGUID().GetCounter();
-                if (apCharacters.contains(guid))
-                {
-                    apCharacters[guid]->OnDungeonEncounterCredited(encounter->dbcEntry->id);
-                }
+                apCharacters[guid]->OnDungeonEncounterCredited(encounterId);
             }
         }
     }

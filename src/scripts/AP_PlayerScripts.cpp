@@ -48,6 +48,7 @@ namespace ModArchipelaWoW::Scripts
                 PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
                 PLAYERHOOK_ON_SPELL_CAST,
                 PLAYERHOOK_ON_PLAYER_RESURRECT,
+                PLAYERHOOK_ON_CREATURE_KILL_CREDIT,
             })
         {
         }
@@ -201,6 +202,11 @@ namespace ModArchipelaWoW::Scripts
         void OnPlayerResurrect(Player* player, float /*restorePercent*/, bool& /*applySickness*/) override
         {
             sArchipelaWoW->OnPlayerResurrect(player);
+        }
+
+        void OnPlayerCreatureKillCredit(Player* player, Creature* killed) override
+        {
+            sArchipelaWoW->OnPlayerCreatureKillCredit(player, killed);
         }
     };
 
