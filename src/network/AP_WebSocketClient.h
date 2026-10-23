@@ -30,6 +30,7 @@ namespace ModArchipelaWoW::Network
     /// Handler setters (SetOpenHandler, SetCloseHandler, SetMessageHandler, SetErrorHandler) are NOT thread-safe
     /// and must be called before Connect().
     /// Instances must be managed via std::shared_ptr (use Create()).
+    /// Pending operations keep the instance alive: call Stop() before releasing the last reference.
     class WebSocketClient : public std::enable_shared_from_this<WebSocketClient>
     {
     public:
@@ -47,7 +48,6 @@ namespace ModArchipelaWoW::Network
         using ErrorHandler = std::function<void(boost::beast::error_code)>;
 
         static std::shared_ptr<WebSocketClient> Create(boost::asio::any_io_executor executor, bool tls = false);
-        ~WebSocketClient();
 
         WebSocketClient(const WebSocketClient&) = delete;
         WebSocketClient& operator=(const WebSocketClient&) = delete;

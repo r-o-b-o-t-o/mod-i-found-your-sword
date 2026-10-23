@@ -6,7 +6,6 @@
 #include <boost/asio/ip/basic_resolver.hpp>
 #include <boost/asio/ip/basic_resolver_results.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/registered_buffer.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/host_name_verification.hpp>
@@ -126,12 +125,6 @@ namespace ModArchipelaWoW::Network
             sslCtx->set_verify_mode(ssl::verify_peer);
             LoadRootCertificates(*sslCtx);
         }
-    }
-
-    WebSocketClient::~WebSocketClient()
-    {
-        beast::error_code ec;
-        VisitStream([&](auto& s) { beast::get_lowest_layer(s).socket().close(ec); });
     }
 
     void WebSocketClient::Connect(std::string host, std::string port, std::string path)
@@ -434,11 +427,7 @@ namespace ModArchipelaWoW::Network
             return Fail(ec);
         }
 
-        // Fail() may have cleared the queue while this write was in flight.
-        if (!writeQueue.empty())
-        {
-            writeQueue.pop();
-        }
+        writeQueue.pop();
 
         if (closeRequested)
         {
@@ -480,14 +469,10 @@ namespace ModArchipelaWoW::Network
     {
         VisitStream([&](auto& s)
         {
+            // The handler must own the client: once Stop() or Fail() closes the socket,
+            // the aborted SSL read still goes through the ssl::stream before reaching OnRead.
             s.async_read(readBuffer,
-                [weak = weak_from_this()](beast::error_code ec, std::size_t n)
-                {
-                    if (auto self = weak.lock())
-                    {
-                        self->OnRead(ec, n);
-                    }
-                });
+                beast::bind_front_handler(&WebSocketClient::OnRead, shared_from_this()));
         });
     }
 
@@ -497,13 +482,7 @@ namespace ModArchipelaWoW::Network
         VisitStream([&](auto& s)
         {
             s.async_write(net::buffer(writeQueue.front()),
-                [weak = weak_from_this()](beast::error_code ec, std::size_t n)
-                {
-                    if (auto self = weak.lock())
-                    {
-                        self->OnWrite(ec, n);
-                    }
-                });
+                beast::bind_front_handler(&WebSocketClient::OnWrite, shared_from_this()));
         });
     }
 
@@ -521,8 +500,12 @@ namespace ModArchipelaWoW::Network
         state = State::Disconnected;
         closeRequested = false;
 
-        std::queue<std::string> empty;
-        writeQueue.swap(empty);
+        // An in-flight write still reads from writeQueue.front(); keep the queue until it completes.
+        if (!writing)
+        {
+            std::queue<std::string> empty;
+            writeQueue.swap(empty);
+        }
 
         beast::error_code closeEc;
         VisitStream([&](auto& s) { beast::get_lowest_layer(s).socket().close(closeEc); });
