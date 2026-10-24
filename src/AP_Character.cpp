@@ -2062,6 +2062,12 @@ namespace ModArchipelaWoW
             return;
         }
 
+        // Positions along a flight path are in mid-air, often too high to survive the fall
+        if (player->IsInFlight())
+        {
+            return;
+        }
+
         uint32 zone = player->GetZoneId();
         if (!IsZoneLocked(zone))
         {
