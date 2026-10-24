@@ -836,6 +836,8 @@ namespace ModArchipelaWoW
             case CMSG_MAIL_RETURN_TO_SENDER:
             case CMSG_MAIL_DELETE:
             case CMSG_MAIL_CREATE_TEXT_ITEM:
+            case CMSG_ACTIVATETAXI:
+            case CMSG_ACTIVATETAXIEXPRESS:
                 break;
             default:
                 return true;

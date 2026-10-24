@@ -32,6 +32,7 @@
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
 #include "Mail.h"
+#include "Map.h"
 #include "network/AP_Client.h"
 #include "nlohmann/json.hpp"
 #include "NPCPackets.h"
@@ -1013,7 +1014,14 @@ namespace ModArchipelaWoW
 
     bool AP_Character::CanPacketReceive(const WorldPacket& packet)
     {
-        return apStone.CanPacketReceive(packet);
+        switch (packet.GetOpcode())
+        {
+            case CMSG_ACTIVATETAXI:
+            case CMSG_ACTIVATETAXIEXPRESS:
+                return CanActivateTaxi(packet);
+            default:
+                return apStone.CanPacketReceive(packet);
+        }
     }
 
     void AP_Character::GrantSpell(uint32 spellId)
@@ -1969,14 +1977,16 @@ namespace ModArchipelaWoW
             return;
         }
 
-        // A DBC localized string can be absent for the session's locale, and handing fmt a null
-        // char const* is undefined. The unnamed case already has a message of its own.
-        const AreaTableEntry* area = sAreaTableStore.LookupEntry(zone);
-        const char* areaName = area ? area->area_name[player->GetSession()->GetSessionDbcLocale()] : nullptr;
-
-        if (areaName && *areaName)
+        // Flights may cross locked zones: CanActivateTaxi refuses the ones landing in one. A player on a
+        // flight it doesn't see, such as a quest's, is sent back once they land.
+        if (player->IsInFlight())
         {
-            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000{} is locked! Teleporting back...", areaName));
+            return;
+        }
+
+        if (const char* zoneName = GetZoneName(zone))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000{} is locked! Teleporting back...", zoneName));
         }
         else
         {
@@ -1987,6 +1997,62 @@ namespace ModArchipelaWoW
         nextLockedZoneCheck = now + std::chrono::seconds(6);
         player->CastSpell(player, TRESPASSER_SPELL_ID, true); // Teleport visual effect + stun
         player->TeleportTo(lastUnlockedPosition.mapId, lastUnlockedPosition.x, lastUnlockedPosition.y, lastUnlockedPosition.z, lastUnlockedPosition.orientation);
+    }
+
+    bool AP_Character::CanActivateTaxi(const WorldPacket& packet)
+    {
+        if (!itemsSynced)
+        {
+            return true;
+        }
+
+        // Both open with the flight master's GUID. CMSG_ACTIVATETAXI follows it with the source and the
+        // destination nodes, CMSG_ACTIVATETAXIEXPRESS with a node count and the route's nodes.
+        size_t destinationPos = 12;
+        if (packet.GetOpcode() == CMSG_ACTIVATETAXIEXPRESS)
+        {
+            uint32 nodeCount = packet.read<uint32>(8);
+            if (!nodeCount)
+            {
+                return true;
+            }
+
+            destinationPos = 12 + 4 * size_t(nodeCount - 1);
+        }
+
+        // Only the destination counts, as flights may cross locked zones. Characters know some flight
+        // paths from the start, such as their home capital's, so it can be in a locked zone.
+        const TaxiNodesEntry* destination = sTaxiNodesStore.LookupEntry(packet.read<uint32>(destinationPos));
+        if (!destination)
+        {
+            return true;
+        }
+
+        uint32 zone = player->GetMap()->GetZoneId(player->GetPhaseMask(), destination->x, destination->y, destination->z);
+        if (!IsZoneLocked(zone))
+        {
+            return true;
+        }
+
+        if (const char* zoneName = GetZoneName(zone))
+        {
+            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000{} is locked!", zoneName));
+        }
+        else
+        {
+            ChatHandler(player->GetSession()).SendSysMessage("|cFFFF0000That destination is locked!");
+        }
+
+        return false;
+    }
+
+    const char* AP_Character::GetZoneName(uint32 zoneId) const
+    {
+        // A DBC localized string can be absent for the session's locale, and fmt throws on a null
+        // char const*.
+        const AreaTableEntry* area = sAreaTableStore.LookupEntry(zoneId);
+        const char* name = area ? area->area_name[player->GetSession()->GetSessionDbcLocale()] : nullptr;
+        return name && *name ? name : nullptr;
     }
 
     void AP_Character::SavePosition()

@@ -237,6 +237,10 @@ namespace ModArchipelaWoW
         void RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender);
         void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);
         void CheckIsInLockedZone();
+        /// Whether a flight picked at a flight master can take off: not when it lands in a locked zone.
+        bool CanActivateTaxi(const WorldPacket& packet);
+        /// The zone's name in the session's locale, or nullptr when it has none.
+        const char* GetZoneName(uint32 zoneId) const;
         void SavePosition();
         void InitExperience();
         void LoadXPForLevel();
