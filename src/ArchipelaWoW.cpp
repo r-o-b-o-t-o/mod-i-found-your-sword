@@ -615,6 +615,22 @@ namespace ModArchipelaWoW
         }
     }
 
+    void ArchipelaWoW::OnInitializeLockedDungeons(Player* player, uint32& lockData, const lfg::LFGDungeonData* dungeon)
+    {
+        ReturnIfModDisabled;
+
+        if (!player || !dungeon)
+        {
+            return;
+        }
+
+        auto guid = player->GetGUID().GetCounter();
+        if (apCharacters.contains(guid))
+        {
+            apCharacters[guid]->OnInitializeLockedDungeons(lockData, dungeon);
+        }
+    }
+
     void ArchipelaWoW::OnPlayerCreatureKillCredit(Player* player, Creature* killed)
     {
         ReturnIfModDisabled;

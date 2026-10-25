@@ -31,6 +31,7 @@
 #include "items/AP_Traps.h"
 #include "items/AP_Zones.h"
 #include "ItemTemplate.h"
+#include "LFGMgr.h"
 #include "Mail.h"
 #include "Map.h"
 #include "network/AP_Client.h"
@@ -272,6 +273,28 @@ namespace ModArchipelaWoW
     bool AP_Character::IsZoneLocked(uint32 zoneId) const
     {
         return items.zones.IsRestricted(zoneId) && !IsZoneUnlocked(zoneId);
+    }
+
+    bool AP_Character::IsDungeonLocked(uint32 mapId) const
+    {
+        // Random dungeon entries have map 0, which the Eastern Kingdoms zones' items also teleport to
+        const MapEntry* map = sMapStore.LookupEntry(mapId);
+        if (!map || !map->Instanceable())
+        {
+            return false;
+        }
+
+        // A dungeon's zone item teleports inside it, so its destination is the dungeon's map
+        for (auto it = items.zones.Begin(); it != items.zones.End(); ++it)
+        {
+            const Items::ZoneItem& zone = it->second;
+            if (zone.map == mapId)
+            {
+                return IsZoneLocked(zone.id);
+            }
+        }
+
+        return false;
     }
 
     bool AP_Character::IsFriendTeleportUnlocked() const
@@ -685,6 +708,18 @@ namespace ModArchipelaWoW
         {
             CheckLocation(checkId.value());
         }
+    }
+
+    void AP_Character::OnInitializeLockedDungeons(uint32& lockData, const lfg::LFGDungeonData* dungeon) const
+    {
+        // A reason the core already found, such as the character's level, is the one shown
+        if (lockData || !IsDungeonLocked(dungeon->map))
+        {
+            return;
+        }
+
+        // The client's closest lock reason, as the zone item is what the character is missing
+        lockData = lfg::LFG_LOCKSTATUS_MISSING_ITEM;
     }
 
     bool AP_Character::OnPlayerCanLearnSpell(uint32 spellId)
@@ -2046,6 +2081,16 @@ namespace ModArchipelaWoW
         return false;
     }
 
+    void AP_Character::RefreshDungeonFinderLocks()
+    {
+        if (!sLFGMgr->isOptionEnabled(lfg::LFG_OPTION_ENABLE_DUNGEON_FINDER | lfg::LFG_OPTION_ENABLE_RAID_BROWSER | lfg::LFG_OPTION_ENABLE_SEASONAL_BOSSES))
+        {
+            return;
+        }
+
+        sLFGMgr->InitializeLockedDungeons(player, player->GetGroup());
+    }
+
     const char* AP_Character::GetZoneName(uint32 zoneId) const
     {
         // A DBC localized string can be absent for the session's locale, and fmt throws on a null
@@ -2545,6 +2590,7 @@ namespace ModArchipelaWoW
         int newItemIndex = itemIndex;
         int newCountedItemIndex = countedItemIndex;
         uint32 movementSpeedBefore = GetProgressiveStep(Items::ProgressiveType::MovementSpeed);
+        size_t unlockedZonesBefore = unlockedZones.size();
 
         for (const auto& item : items)
         {
@@ -2588,6 +2634,12 @@ namespace ModArchipelaWoW
 
         // The buffs that waited for the slot data, as on a resurrection before the slot connected
         ApplyPendingWorldBuffs();
+
+        // The core recomputes the locks on login, level and group changes, but not as zone items arrive
+        if (!itemsSynced || unlockedZones.size() != unlockedZonesBefore)
+        {
+            RefreshDungeonFinderLocks();
+        }
 
         if (newItemIndex != itemIndex)
         {

@@ -17,6 +17,7 @@ namespace ModArchipelaWoW::Scripts
         AP_GlobalScript() :
             GlobalScript("ArchipelaWoW_GlobalScript", {
                 GLOBALHOOK_ON_AFTER_UPDATE_ENCOUNTER_STATE,
+                GLOBALHOOK_ON_INITIALIZE_LOCKED_DUNGEONS,
                 GLOBALHOOK_ON_LOAD_SPELL_CUSTOM_ATTR,
             })
         {
@@ -26,6 +27,11 @@ namespace ModArchipelaWoW::Scripts
             const DungeonEncounterList* encounters, uint32 /*dungeonCompleted*/, bool /*updated*/) override
         {
             sArchipelaWoW->OnAfterUpdateEncounterState(map, type, creditEntry, encounters);
+        }
+
+        void OnInitializeLockedDungeons(Player* player, uint8& /*level*/, uint32& lockData, const lfg::LFGDungeonData* dungeon) override
+        {
+            sArchipelaWoW->OnInitializeLockedDungeons(player, lockData, dungeon);
         }
 
         void OnLoadSpellCustomAttr(SpellInfo* spellInfo) override

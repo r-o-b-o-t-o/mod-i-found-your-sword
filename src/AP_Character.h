@@ -34,6 +34,11 @@
 #include <unordered_set>
 #include <vector>
 
+namespace lfg
+{
+    struct LFGDungeonData;
+}
+
 namespace ModArchipelaWoW
 {
     class AP_Character
@@ -124,6 +129,7 @@ namespace ModArchipelaWoW
 
         // GlobalScripts events
         void OnDungeonEncounterCredited(uint32 encounterId);
+        void OnInitializeLockedDungeons(uint32& lockData, const lfg::LFGDungeonData* dungeon) const;
 
         // ItemScripts events
         void OnUseArchipelagoStone(Item* item);
@@ -239,6 +245,10 @@ namespace ModArchipelaWoW
         void CheckIsInLockedZone();
         /// Whether a flight picked at a flight master can take off: not when it lands in a locked zone.
         bool CanActivateTaxi(const WorldPacket& packet);
+        /// Whether the seed keeps the character out of the dungeon on this map until its zone item arrives.
+        bool IsDungeonLocked(uint32 mapId) const;
+        /// Recomputes the dungeons the Dungeon Finder keeps the character out of.
+        void RefreshDungeonFinderLocks();
         /// The zone's name in the session's locale, or nullptr when it has none.
         const char* GetZoneName(uint32 zoneId) const;
         void SavePosition();

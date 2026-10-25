@@ -24,6 +24,11 @@
 #include <string>
 #include <unordered_map>
 
+namespace lfg
+{
+    struct LFGDungeonData;
+}
+
 namespace ModArchipelaWoW
 {
     class AP_Character;
@@ -81,6 +86,7 @@ namespace ModArchipelaWoW
 
         // GlobalScripts methods
         void OnAfterUpdateEncounterState(Map* map, EncounterCreditType type, uint32 creditEntry, const DungeonEncounterList* encounters);
+        void OnInitializeLockedDungeons(Player* player, uint32& lockData, const lfg::LFGDungeonData* dungeon);
 
         // CommandScripts methods
         bool HandleAPConnectCommand(Player* player, std::string slot);
