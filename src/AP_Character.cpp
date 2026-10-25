@@ -1228,11 +1228,17 @@ namespace ModArchipelaWoW
         return new AP_Character(player, uuid, slot, itemIndex, level, xp, goal);
     }
 
-    bool AP_Character::IsSlotBound(const std::string& slot)
+    Optional<AP_Character::SlotBinding> AP_Character::GetSlotBinding(const std::string& slot)
     {
         Database::AP_DatabasePreparedStatement* stmt = Database::ArchipelaWoWDatabase.GetPreparedStatement(Database::AP_SEL_CHARACTER_BY_SLOT);
         stmt->SetData(0, slot);
-        return !!Database::ArchipelaWoWDatabase.Query(stmt);
+        PreparedQueryResult result = Database::ArchipelaWoWDatabase.Query(stmt);
+        if (!result)
+        {
+            return std::nullopt;
+        }
+
+        return SlotBinding{ (*result)[0].Get<ObjectGuid::LowType>(), (*result)[1].Get<bool>() };
     }
 
     void AP_Character::SaveToDatabase()

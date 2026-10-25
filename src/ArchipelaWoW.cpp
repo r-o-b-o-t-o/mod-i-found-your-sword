@@ -1,5 +1,6 @@
 #include "AP_Character.h"
 #include "AP_Config.h"
+#include "AP_Log.h"
 #include "ArchipelaWoW.h"
 #include "Chat.h"
 #include "Creature.h"
@@ -23,6 +24,7 @@
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "Opcodes.h"
+#include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Spell.h"
@@ -343,9 +345,13 @@ namespace ModArchipelaWoW
         // deletion and the old-character purge bypass it -- and fires even when CharDelete.Method
         // merely unlinks a restorable character. This hook runs at the real removal on every path,
         // and must run with the module disabled too: the guid is gone for good afterwards.
-        //
-        // Freed without a save: `.character erase` on an online character removes the rows first
-        // and logs the player out a tick later, and that logout would write the row straight back.
+        ReleaseBinding(guid);
+    }
+
+    void ArchipelaWoW::ReleaseBinding(ObjectGuid::LowType guid)
+    {
+        // Freed without a save, which would write the rows straight back: the character can still be
+        // online, as on `.character erase`, which removes the rows a tick before logging it out.
         if (apCharacters.contains(guid))
         {
             delete apCharacters[guid];
@@ -696,10 +702,24 @@ namespace ModArchipelaWoW
             return true;
         }
 
-        if (AP_Character::IsSlotBound(slot))
+        if (Optional<AP_Character::SlotBinding> binding = AP_Character::GetSlotBinding(slot))
         {
-            ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Archipelago slot \"{}\" is already bound to an existing character.", slot));
-            return true;
+            if (!binding->goalCompleted)
+            {
+                ChatHandler(player->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Archipelago slot \"{}\" is already bound to an existing character.", slot));
+                return true;
+            }
+
+            // A finished seed frees its slot name for the next one. The old character is unbound rather
+            // than left as is: on its next login, it would connect to the new seed's slot and could send
+            // it its checks and goal.
+            if (apCharacters.contains(binding->guid))
+            {
+                ChatHandler(apCharacters[binding->guid]->GetPlayer()->GetSession()).SendSysMessage(fmt::format("|cFFFF0000Archipelago slot |cFFFF00FF{}|cFFFF0000 was taken over by another character, this character is no longer bound to it.", slot));
+            }
+
+            AP_LOG_INFO("Releasing finished Archipelago slot {} from character {} for character {}.", slot, binding->guid, guid);
+            ReleaseBinding(binding->guid);
         }
 
         apCharacters[guid] = new AP_Character(player, slot);

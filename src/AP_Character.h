@@ -18,6 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "NPCPackets.h"
 #include "ObjectGuid.h"
+#include "Optional.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Trainer.h"
@@ -44,11 +45,17 @@ namespace ModArchipelaWoW
     class AP_Character
     {
     public:
+        struct SlotBinding
+        {
+            ObjectGuid::LowType guid;
+            bool goalCompleted;
+        };
+
         AP_Character(Player* player, std::string slot);
         ~AP_Character();
 
         static AP_Character* LoadFromDatabase(Player* player);
-        static bool IsSlotBound(const std::string& slot);
+        static Optional<SlotBinding> GetSlotBinding(const std::string& slot);
 
         bool Update();
         const Items::ItemsContainer& GetItemsContainer() const;

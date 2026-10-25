@@ -120,6 +120,8 @@ namespace ModArchipelaWoW
         void BuildGearPool();
         void LoadPlayerCreatureTemplates();
         void CreditDungeonEncounter(Map* map, uint32 encounterId);
+        /// Unbinds the character from its slot and forgets its checks and preferences.
+        void ReleaseBinding(ObjectGuid::LowType guid);
     };
 }
 
