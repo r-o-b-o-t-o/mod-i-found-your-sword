@@ -641,9 +641,12 @@ namespace ModArchipelaWoW
         }
 
         // Called once per kill, for the player credited with it, so a pet's or a group member's kill counts too
-        if (killed->GetEntry() == Locations::SERGEANT_BLY_ENTRY && killed->GetMapId() == Locations::ZULFARRAK_MAP_ID)
+        for (const Locations::SyntheticEncounter& encounter : Locations::SYNTHETIC_ENCOUNTERS)
         {
-            CreditDungeonEncounter(killed->GetMap(), Locations::SERGEANT_BLY_ENCOUNTER_ID);
+            if (killed->GetEntry() == encounter.creatureEntry && killed->GetMapId() == encounter.mapId)
+            {
+                CreditDungeonEncounter(killed->GetMap(), encounter.encounterId);
+            }
         }
     }
 
