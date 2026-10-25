@@ -11,6 +11,7 @@
 #include "Define.h"
 #include "Errors.h"
 #include "fmt/format.h"
+#include "InstanceScript.h"
 #include "IoContext.h"
 #include "Item.h"
 #include "items/AP_GearPool.h"
@@ -30,6 +31,7 @@
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -646,6 +648,17 @@ namespace ModArchipelaWoW
             if (killed->GetEntry() == encounter.creatureEntry && killed->GetMapId() == encounter.mapId)
             {
                 CreditDungeonEncounter(killed->GetMap(), encounter.encounterId);
+            }
+        }
+
+        const auto& defenders = Locations::ATALAI_DEFENDERS;
+        if (killed->GetMapId() == Locations::SUNKEN_TEMPLE_MAP_ID && std::find(defenders.begin(), defenders.end(), killed->GetEntry()) != defenders.end())
+        {
+            // The defender's SmartAI has already counted this death, its death event runs before this hook
+            InstanceScript* instance = killed->GetInstanceScript();
+            if (instance && instance->GetData(Locations::SUNKEN_TEMPLE_DATA_DEFENDER_KILLED) == defenders.size())
+            {
+                CreditDungeonEncounter(killed->GetMap(), Locations::ATALAI_DEFENDERS_ENCOUNTER_ID);
             }
         }
     }

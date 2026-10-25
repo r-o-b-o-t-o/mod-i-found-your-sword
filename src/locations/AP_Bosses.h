@@ -24,6 +24,16 @@ namespace ModArchipelaWoW::Locations
         { 7023, 70, 100001 },  // Obsidian Sentinel, Uldaman
     });
 
+    // The Sunken Temple's six troll defenders, whose deaths open the forcefield before Jammal'an the Prophet,
+    // make one more made-up encounter, credited when the last of them dies. The core's instance script counts
+    // their deaths and saves the count with the instance (DATA_DEFENDER_KILLED in sunken_temple.h), so the list
+    // must hold exactly its DEFENDERS_COUNT.
+    constexpr uint32 SUNKEN_TEMPLE_MAP_ID = 109;
+    constexpr uint32 SUNKEN_TEMPLE_DATA_DEFENDER_KILLED = 11;
+    constexpr uint32 ATALAI_DEFENDERS_ENCOUNTER_ID = 100002;
+    // Zolo, Gasher, Loro, Hukku, Zul'Lor, Mijan
+    constexpr auto ATALAI_DEFENDERS = std::to_array<uint32>({ 5712, 5713, 5714, 5715, 5716, 5717 });
+
     // Keyed by DungeonEncounter.dbc ID, the encounters the core credits through instance_encounters, or by
     // one of the made-up ids above.
     class Bosses
