@@ -246,6 +246,8 @@ namespace ModArchipelaWoW
         void SendPendingHeirloomWeapons();
         void SyncLocationChecks();
         void CatchUpMissedProgress();
+        /// Writes the quests the character has turned in to the slot's data storage, for the launcher's tracker.
+        void SendRewardedQuests();
         void CompleteGoal();
         void RewardItem(int64_t itemId, bool alreadyRewarded, bool alreadyCounted, int sender);
         void MailItemReward(uint32 wowItemId, int64_t apItemId, int sender);

@@ -630,6 +630,16 @@ namespace ModArchipelaWoW
         {
             CheckLocation(checkId.value());
         }
+
+        SendRewardedQuests();
+    }
+
+    void AP_Character::SendRewardedQuests()
+    {
+        // The launcher's tracker hides the prerequisites done, which aren't locations it'd see checked.
+        // Sent whole each time: it's a few thousand ids at most, and a dropped one is fixed by the next.
+        const RewardedQuestSet& rewarded = player->getRewardedQuests();
+        ap->Set(ap->GetPlayerNumber(), "quests", std::vector<uint32>(rewarded.begin(), rewarded.end()));
     }
 
     void AP_Character::OnPlayerGiveXP(uint32& xp, Unit* victim, uint8 xpSource)
@@ -2495,6 +2505,8 @@ namespace ModArchipelaWoW
 
         // For the launcher's tracker portrait: 0 male, 1 female
         ap->Set(ap->GetPlayerNumber(), "gender", player->getGender());
+        // On every connection, as the quests done while disconnected weren't sent
+        SendRewardedQuests();
 
         // Once per login: from here on they're checked as they're done, and a reconnection resends those
         if (!missedProgressCaughtUp)
