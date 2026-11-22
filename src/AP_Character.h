@@ -98,6 +98,8 @@ namespace ModArchipelaWoW
         uint32 GetPendingHeirloomWeapons() const;
         void Teleport(const Items::ZoneItem& zone);
         bool TeleportToPlayer(Player* target);
+        /// AP_StoneShop::GetTierPrice, scaled by the slot's shop price multiplier
+        uint32 GetShopTierPrice(uint8 level) const;
         uint32 GetGoldPouchAmount() const;
         void SendLevelReport() const;
         void SendExperienceBar() const;
@@ -180,6 +182,14 @@ namespace ModArchipelaWoW
         std::chrono::seconds nextSave;
         uint32 goalAchievementId;
         uint8 gearRewardLevelWindow;
+        uint32 scrollOfDivinationHints;
+        /// Percent of the experience to the next Archipelago level a Tome of Insight gives
+        uint32 tomeOfInsightExperience;
+        uint32 soulstoneDurationMinutes;
+        /// Percent of a Gold Pouch's usual amount
+        uint32 goldPouchMultiplier;
+        /// Percent of the Stone Shop's own prices
+        uint32 shopPriceMultiplier;
         bool casterHeirlooms;
         bool allArmorTypes;
         bool casterWorldBuffs;

@@ -366,7 +366,7 @@ namespace ModArchipelaWoW
         // gold it takes: the tier's price is shared out between its items.
         const std::vector<Locations::ShopItem>& items = apCharacter->GetLocationsContainer().shop.GetItems();
         uint32 tierSize = static_cast<uint32>(std::ranges::count_if(items, [&](const Locations::ShopItem& other) { return other.level == item.level; }));
-        return GetTierPrice(item.level, apCharacter->GetGoalLevel()) * SHOP_PRICED_ITEMS_PER_TIER / tierSize;
+        return apCharacter->GetShopTierPrice(item.level) * SHOP_PRICED_ITEMS_PER_TIER / tierSize;
     }
 
     uint32 AP_StoneShop::GetDisplayId(const char* icon)

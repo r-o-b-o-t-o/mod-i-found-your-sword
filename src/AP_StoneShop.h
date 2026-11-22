@@ -30,8 +30,8 @@ namespace ModArchipelaWoW
         bool CanItemQueryReceive(const WorldPacket& packet);
         /// Takes over the purchases of the shop's items. False when it did.
         bool CanBuyPacketReceive(const WorldPacket& packet);
-        /// What one of the tier on sale at a level costs in a shop of three items per tier. The Gold
-        /// Pouch is measured against it.
+        /// What one of the tier on sale at a level costs in a shop of three items per tier, before the
+        /// slot's price multiplier (AP_Character::GetShopTierPrice). The Gold Pouch is measured against it.
         static uint32 GetTierPrice(uint8 level, uint8 goalLevel);
 
     private:

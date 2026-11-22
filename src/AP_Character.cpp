@@ -92,14 +92,19 @@ constexpr char AP_COMMAND_MARKER = '!';
 constexpr size_t MAX_PENDING_CHAT_ECHOES = 16;
 // archipelawow_world_014_divination_scroll.sql
 constexpr uint32 SCROLL_OF_DIVINATION_ITEM_ID = 4427;
-constexpr size_t SCROLL_OF_DIVINATION_HINTS = 3;
 // archipelawow_world_015_insight_tome.sql
 constexpr uint32 TOME_OF_INSIGHT_ITEM_ID = 1335;
-// The share of the experience to the next Archipelago level a Tome of Insight gives
-constexpr uint32 TOME_OF_INSIGHT_LEVEL_DIVISOR = 4;
 // archipelawow_world_016_soulstone.sql
 constexpr uint32 SOULSTONE_ITEM_ID = 2767;
-constexpr int32 SOULSTONE_DURATION = HOUR * IN_MILLISECONDS;
+// The filler and shop price options' defaults, standing in for seeds generated before the apworld had them
+constexpr uint32 DEFAULT_SCROLL_OF_DIVINATION_HINTS = 3;
+// Percent of the experience to the next Archipelago level
+constexpr uint32 DEFAULT_TOME_OF_INSIGHT_EXPERIENCE = 25;
+constexpr uint32 DEFAULT_SOULSTONE_DURATION_MINUTES = 60;
+// Percent of a Gold Pouch's usual amount
+constexpr uint32 DEFAULT_GOLD_POUCH_MULTIPLIER = 100;
+// Percent of the Stone Shop's own prices
+constexpr uint32 DEFAULT_SHOP_PRICE_MULTIPLIER = 100;
 // Soulstone Resurrection's own range
 constexpr float SOULSTONE_RANGE = 30.0f;
 
@@ -151,6 +156,11 @@ namespace ModArchipelaWoW
         nextSave(GameTime::GetGameTime() + std::chrono::seconds(15)),
         goalAchievementId(0),
         gearRewardLevelWindow(DEFAULT_GEAR_REWARD_LEVEL_WINDOW),
+        scrollOfDivinationHints(DEFAULT_SCROLL_OF_DIVINATION_HINTS),
+        tomeOfInsightExperience(DEFAULT_TOME_OF_INSIGHT_EXPERIENCE),
+        soulstoneDurationMinutes(DEFAULT_SOULSTONE_DURATION_MINUTES),
+        goldPouchMultiplier(DEFAULT_GOLD_POUCH_MULTIPLIER),
+        shopPriceMultiplier(DEFAULT_SHOP_PRICE_MULTIPLIER),
         casterHeirlooms(false),
         allArmorTypes(false),
         casterWorldBuffs(false),
@@ -446,6 +456,11 @@ namespace ModArchipelaWoW
         return true;
     }
 
+    uint32 AP_Character::GetShopTierPrice(uint8 level) const
+    {
+        return static_cast<uint32>(uint64(AP_StoneShop::GetTierPrice(level, GetGoalLevel())) * shopPriceMultiplier / 100);
+    }
+
     uint32 AP_Character::GetGoldPouchAmount() const
     {
         if (!player)
@@ -453,8 +468,9 @@ namespace ModArchipelaWoW
             return 0;
         }
 
-        // One Stone Shop item at the character's level.
-        return AP_StoneShop::GetTierPrice(player->GetLevel(), GetGoalLevel());
+        // One Stone Shop item at the character's level, in a shop of three per tier, so the shop's
+        // multiplier scales it as well as its own.
+        return static_cast<uint32>(uint64(GetShopTierPrice(player->GetLevel())) * goldPouchMultiplier / 100);
     }
 
     void AP_Character::SendLevelReport() const
@@ -950,12 +966,13 @@ namespace ModArchipelaWoW
         if (spell->m_CastItem->GetEntry() == SCROLL_OF_DIVINATION_ITEM_ID && IsSlotConnected())
         {
             std::vector<int64> locations = GetUnhintedLocations();
-            Acore::Containers::RandomResize(locations, SCROLL_OF_DIVINATION_HINTS);
+            Acore::Containers::RandomResize(locations, scrollOfDivinationHints);
             HintLocations(std::move(locations));
         }
         else if (spell->m_CastItem->GetEntry() == TOME_OF_INSIGHT_ITEM_ID && apLevel < maxLevel)
         {
-            GiveArchipelagoExperience(std::max<uint32>(xpForLevel / TOME_OF_INSIGHT_LEVEL_DIVISOR, 1), nullptr);
+            uint64 experience = uint64(xpForLevel) * tomeOfInsightExperience / 100;
+            GiveArchipelagoExperience(std::max<uint32>(static_cast<uint32>(experience), 1), nullptr);
         }
         else if (spell->m_CastItem->GetEntry() == SOULSTONE_ITEM_ID)
         {
@@ -1710,12 +1727,13 @@ namespace ModArchipelaWoW
 
         player->CastSpell(target, auraSpellId, true);
 
-        // An hour rather than the spell's 15 minutes. The client shows the duration the server sends
-        // with the aura, and the target's saved auras keep it across a relog.
+        // The slot's duration rather than the spell's 15 minutes. The client shows the duration the
+        // server sends with the aura, and the target's saved auras keep it across a relog.
         if (Aura* aura = target->GetAura(auraSpellId, player->GetGUID()))
         {
-            aura->SetMaxDuration(SOULSTONE_DURATION);
-            aura->SetDuration(SOULSTONE_DURATION);
+            int32 duration = static_cast<int32>(soulstoneDurationMinutes * MINUTE * IN_MILLISECONDS);
+            aura->SetMaxDuration(duration);
+            aura->SetDuration(duration);
         }
     }
 
@@ -2324,6 +2342,14 @@ namespace ModArchipelaWoW
             // window widths, so the value travels with the slot instead of sitting in the config.
             uint32 levelWindow = options.at("gear_reward_level_window").get<uint32>();
             gearRewardLevelWindow = static_cast<uint8>(std::min<uint32>(levelWindow, STRONG_MAX_LEVEL));
+
+            // Missing from seeds generated before the apworld had these options. A value of 0 keeps the
+            // item out of the pool, so only one given outside it (start inventory, a server command) meets it.
+            scrollOfDivinationHints = options.value("scroll_of_divination_hints", DEFAULT_SCROLL_OF_DIVINATION_HINTS);
+            tomeOfInsightExperience = options.value("tome_of_insight_experience", DEFAULT_TOME_OF_INSIGHT_EXPERIENCE);
+            soulstoneDurationMinutes = options.value("enduring_soulstone_duration", DEFAULT_SOULSTONE_DURATION_MINUTES);
+            goldPouchMultiplier = options.value("gold_pouch_multiplier", DEFAULT_GOLD_POUCH_MULTIPLIER);
+            shopPriceMultiplier = options.value("stone_shop_price_multiplier", DEFAULT_SHOP_PRICE_MULTIPLIER);
 
             const auto& locationData = data.at("locations");
             for (const auto& level : locationData.at("levels"))
